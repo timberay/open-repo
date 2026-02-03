@@ -1,0 +1,147 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e4]:
+      - link "RepoVista" [ref=e6] [cursor=pointer]:
+        - /url: /
+      - generic [ref=e7]:
+        - button "[ENV] Default Registry" [ref=e9]:
+          - img [ref=e10]
+          - generic [ref=e12]: "[ENV] Default Registry"
+          - img [ref=e13]
+        - button "Toggle dark mode" [ref=e15]:
+          - img [ref=e16]
+  - main [ref=e18]:
+    - generic [ref=e19]:
+      - generic [ref=e20]:
+        - heading "Docker Registry" [level=1] [ref=e21]
+        - paragraph [ref=e22]: Browse and search Docker images from your registry
+      - generic [ref=e24]:
+        - textbox "Search repositories..." [active] [ref=e26]: nonexistentrepo12345
+        - combobox [ref=e28]:
+          - option "Name (A-Z)" [selected]
+          - option "Name (Z-A)"
+      - generic [ref=e30]:
+        - link "app/backend Tags available Docker Image" [ref=e31] [cursor=pointer]:
+          - /url: /repositories/app/backend
+          - generic [ref=e32]:
+            - generic [ref=e33]:
+              - heading "app/backend" [level=3] [ref=e34]
+              - generic [ref=e36]:
+                - img [ref=e37]
+                - generic [ref=e39]: Tags available
+            - img [ref=e41]
+          - generic [ref=e44]: Docker Image
+        - link "app/frontend Tags available Docker Image" [ref=e45] [cursor=pointer]:
+          - /url: /repositories/app/frontend
+          - generic [ref=e46]:
+            - generic [ref=e47]:
+              - heading "app/frontend" [level=3] [ref=e48]
+              - generic [ref=e50]:
+                - img [ref=e51]
+                - generic [ref=e53]: Tags available
+            - img [ref=e55]
+          - generic [ref=e58]: Docker Image
+        - link "app/worker Tags available Docker Image" [ref=e59] [cursor=pointer]:
+          - /url: /repositories/app/worker
+          - generic [ref=e60]:
+            - generic [ref=e61]:
+              - heading "app/worker" [level=3] [ref=e62]
+              - generic [ref=e64]:
+                - img [ref=e65]
+                - generic [ref=e67]: Tags available
+            - img [ref=e69]
+          - generic [ref=e72]: Docker Image
+        - link "data/analytics Tags available Docker Image" [ref=e73] [cursor=pointer]:
+          - /url: /repositories/data/analytics
+          - generic [ref=e74]:
+            - generic [ref=e75]:
+              - heading "data/analytics" [level=3] [ref=e76]
+              - generic [ref=e78]:
+                - img [ref=e79]
+                - generic [ref=e81]: Tags available
+            - img [ref=e83]
+          - generic [ref=e86]: Docker Image
+        - link "data/etl-pipeline Tags available Docker Image" [ref=e87] [cursor=pointer]:
+          - /url: /repositories/data/etl-pipeline
+          - generic [ref=e88]:
+            - generic [ref=e89]:
+              - heading "data/etl-pipeline" [level=3] [ref=e90]
+              - generic [ref=e92]:
+                - img [ref=e93]
+                - generic [ref=e95]: Tags available
+            - img [ref=e97]
+          - generic [ref=e100]: Docker Image
+        - link "infra/nginx Tags available Docker Image" [ref=e101] [cursor=pointer]:
+          - /url: /repositories/infra/nginx
+          - generic [ref=e102]:
+            - generic [ref=e103]:
+              - heading "infra/nginx" [level=3] [ref=e104]
+              - generic [ref=e106]:
+                - img [ref=e107]
+                - generic [ref=e109]: Tags available
+            - img [ref=e111]
+          - generic [ref=e114]: Docker Image
+        - link "infra/redis Tags available Docker Image" [ref=e115] [cursor=pointer]:
+          - /url: /repositories/infra/redis
+          - generic [ref=e116]:
+            - generic [ref=e117]:
+              - heading "infra/redis" [level=3] [ref=e118]
+              - generic [ref=e120]:
+                - img [ref=e121]
+                - generic [ref=e123]: Tags available
+            - img [ref=e125]
+          - generic [ref=e128]: Docker Image
+        - link "ml/inference-service Tags available Docker Image" [ref=e129] [cursor=pointer]:
+          - /url: /repositories/ml/inference-service
+          - generic [ref=e130]:
+            - generic [ref=e131]:
+              - heading "ml/inference-service" [level=3] [ref=e132]
+              - generic [ref=e134]:
+                - img [ref=e135]
+                - generic [ref=e137]: Tags available
+            - img [ref=e139]
+          - generic [ref=e142]: Docker Image
+        - link "ml/model-trainer Tags available Docker Image" [ref=e143] [cursor=pointer]:
+          - /url: /repositories/ml/model-trainer
+          - generic [ref=e144]:
+            - generic [ref=e145]:
+              - heading "ml/model-trainer" [level=3] [ref=e146]
+              - generic [ref=e148]:
+                - img [ref=e149]
+                - generic [ref=e151]: Tags available
+            - img [ref=e153]
+          - generic [ref=e156]: Docker Image
+        - link "services/api Tags available Docker Image" [ref=e157] [cursor=pointer]:
+          - /url: /repositories/services/api
+          - generic [ref=e158]:
+            - generic [ref=e159]:
+              - heading "services/api" [level=3] [ref=e160]
+              - generic [ref=e162]:
+                - img [ref=e163]
+                - generic [ref=e165]: Tags available
+            - img [ref=e167]
+          - generic [ref=e170]: Docker Image
+        - link "services/auth Tags available Docker Image" [ref=e171] [cursor=pointer]:
+          - /url: /repositories/services/auth
+          - generic [ref=e172]:
+            - generic [ref=e173]:
+              - heading "services/auth" [level=3] [ref=e174]
+              - generic [ref=e176]:
+                - img [ref=e177]
+                - generic [ref=e179]: Tags available
+            - img [ref=e181]
+          - generic [ref=e184]: Docker Image
+        - link "services/db Tags available Docker Image" [ref=e185] [cursor=pointer]:
+          - /url: /repositories/services/db
+          - generic [ref=e186]:
+            - generic [ref=e187]:
+              - heading "services/db" [level=3] [ref=e188]
+              - generic [ref=e190]:
+                - img [ref=e191]
+                - generic [ref=e193]: Tags available
+            - img [ref=e195]
+          - generic [ref=e198]: Docker Image
+```

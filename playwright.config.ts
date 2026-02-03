@@ -18,7 +18,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'bin/rails server',
+    command: 'bin/prepare-e2e && USE_MOCK_REGISTRY=true bin/rails server',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
   },

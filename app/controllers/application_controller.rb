@@ -1,7 +1,17 @@
 class ApplicationController < ActionController::Base
-  # Only allow modern browsers supporting webp images, web push, badges, import maps, CSS nesting, and CSS :has.
   allow_browser versions: :modern
 
-  # Changes to the importmap will invalidate the etag for HTML responses
-  stale_when_importmap_changes
+  helper_method :current_registry
+
+  private
+
+  def current_registry
+    return nil if Rails.application.config.use_mock_registry
+
+    if session[:current_registry_id]
+      Registry.find_by(id: session[:current_registry_id], is_active: true)
+    else
+      Registry.default || Registry.active.first
+    end
+  end
 end

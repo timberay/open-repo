@@ -29,6 +29,10 @@ class DockerRegistryService
 
       { repositories: repositories, next_page: parse_link_header(response.headers["link"]) }
     end
+  rescue Faraday::ConnectionFailed => e
+    raise RegistryError, "Connection failed: #{e.message}"
+  rescue Faraday::TimeoutError
+    raise RegistryError, "Connection timed out"
   rescue Faraday::UnauthorizedError
     raise AuthenticationError, "Authentication failed"
   rescue Faraday::Error => e
@@ -43,6 +47,10 @@ class DockerRegistryService
 
       data["tags"] || []
     end
+  rescue Faraday::ConnectionFailed => e
+    raise RegistryError, "Connection failed: #{e.message}"
+  rescue Faraday::TimeoutError
+    raise RegistryError, "Connection timed out"
   rescue Faraday::ResourceNotFound
     raise NotFoundError, "Repository not found: #{repository_name}"
   rescue Faraday::UnauthorizedError
@@ -60,6 +68,10 @@ class DockerRegistryService
     digest = response.headers["docker-content-digest"]
 
     { manifest: manifest_data, digest: digest }
+  rescue Faraday::ConnectionFailed => e
+    raise RegistryError, "Connection failed: #{e.message}"
+  rescue Faraday::TimeoutError
+    raise RegistryError, "Connection timed out"
   rescue Faraday::ResourceNotFound
     raise NotFoundError, "Manifest not found: #{repository_name}:#{tag}"
   rescue Faraday::Error => e

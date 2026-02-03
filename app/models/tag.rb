@@ -35,7 +35,7 @@ class Tag
   def human_size
     return "N/A" if size.nil? || size.zero?
 
-    units = ["B", "KB", "MB", "GB"]
+    units = [ "B", "KB", "MB", "GB" ]
     size_float = size.to_f
     unit_index = 0
 
