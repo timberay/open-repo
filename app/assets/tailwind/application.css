@@ -1,1 +1,21 @@
+@custom-variant dark (&:is(.dark *));
+
 @import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-primary: 255 255 255;
+    --text-primary: 17 24 39;
+  }
+
+  .dark {
+    --bg-primary: 17 24 39;
+    --text-primary: 243 244 246;
+  }
+}
+
+@layer components {
+  .container-custom {
+    @apply container mx-auto px-4 sm:px-6 lg:px-8;
+  }
+}

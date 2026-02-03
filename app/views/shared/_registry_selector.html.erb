@@ -1,7 +1,7 @@
 <div class="relative" data-controller="registry-selector">
   <button 
     data-action="click->registry-selector#toggle"
-    class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+    class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-800 dark:text-gray-200 bg-blue-50 dark:bg-gray-800 border border-blue-300 dark:border-gray-600 rounded-lg hover:bg-blue-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
     data-registry-selector-target="current"
   >
     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -15,39 +15,39 @@
 
   <div 
     data-registry-selector-target="dropdown"
-    class="hidden absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
+    class="hidden absolute right-0 mt-2 w-80 bg-blue-50 dark:bg-gray-800 rounded-lg shadow-lg border border-blue-200 dark:border-gray-700 z-50"
   >
     <div class="py-2">
-      <div class="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+        <div class="px-4 py-2 text-xs font-semibold text-blue-600 dark:text-gray-400 uppercase">
         Available Registries
       </div>
 
       <% if defined?(@env_registry) && @env_registry %>
         <div
           data-action="click->registry-selector#selectEnvRegistry"
-          class="px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-l-4 border-transparent <%= 'border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-900/20' if current_registry.nil? && !Rails.application.config.use_mock_registry %>">
+          class="px-4 py-2 hover:bg-blue-100 dark:hover:bg-gray-700 cursor-pointer border-l-4 border-transparent <%= 'border-l-4 border-blue-500 bg-blue-100 dark:bg-blue-900/20' if current_registry.nil? && !Rails.application.config.use_mock_registry %>">
           <div class="flex items-start justify-between">
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2">
-                <span class="text-gray-400">○</span>
-                <span class="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
+                <span class="text-blue-400">○</span>
+                <span class="text-sm font-medium text-blue-800 dark:text-gray-200 truncate">
                   <%= @env_registry[:name] %>
                 </span>
               </div>
-              <div class="mt-1 text-xs text-gray-500 dark:text-gray-400 truncate">
+              <div class="mt-1 text-xs text-blue-600 dark:text-gray-400 truncate">
                 <%= @env_registry[:url] %>
               </div>
             </div>
           </div>
         </div>
-        <div class="border-t border-gray-200 dark:border-gray-700 my-2"></div>
+        <div class="border-t border-blue-200 dark:border-gray-700 my-2"></div>
       <% end %>
 
       <% Registry.active.order(is_default: :desc, name: :asc).each do |registry| %>
-        <div 
+        <div
           data-action="click->registry-selector#selectRegistry"
           data-registry-id="<%= registry.id %>"
-          class="px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer <%= 'border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-900/20' if current_registry&.id == registry.id %>"
+          class="px-4 py-2 hover:bg-blue-100 dark:hover:bg-gray-700 cursor-pointer <%= 'border-l-4 border-blue-500 bg-blue-100 dark:bg-blue-900/20' if current_registry&.id == registry.id %>"
         >
           <div class="flex items-start justify-between">
             <div class="flex-1 min-w-0">
@@ -55,7 +55,7 @@
                 <span class="<%= registry.connection_status == :connected ? 'text-green-600' : registry.connection_status == :stale ? 'text-yellow-600' : 'text-gray-400' %>">
                   <%= registry.connection_status_icon %>
                 </span>
-                <span class="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
+                <span class="text-sm font-medium text-blue-800 dark:text-gray-200 truncate">
                   <%= registry.name %>
                 </span>
                 <% if registry.is_default %>
@@ -64,7 +64,7 @@
                   </span>
                 <% end %>
               </div>
-              <div class="mt-1 text-xs text-gray-500 dark:text-gray-400 truncate">
+              <div class="mt-1 text-xs text-blue-600 dark:text-gray-400 truncate">
                 <%= registry.url %>
               </div>
             </div>
@@ -73,14 +73,14 @@
       <% end %>
 
       <% if Registry.count == 0 %>
-        <div class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 text-center">
+        <div class="px-4 py-3 text-sm text-blue-600 dark:text-gray-400 text-center">
           No registries configured
         </div>
       <% end %>
 
-      <div class="border-t border-gray-200 dark:border-gray-700 mt-2"></div>
-      
-      <%= link_to registries_path, class: "block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700" do %>
+      <div class="border-t border-blue-200 dark:border-gray-700 mt-2"></div>
+
+      <%= link_to registries_path, class: "block px-4 py-2 text-sm text-blue-800 dark:text-gray-200 hover:bg-blue-100 dark:hover:bg-gray-700" do %>
         <div class="flex items-center gap-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>

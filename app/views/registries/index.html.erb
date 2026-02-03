@@ -1,8 +1,8 @@
 <div class="max-w-6xl mx-auto">
   <div class="flex items-center justify-between mb-8">
     <div>
-      <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-2">Registry Management</h1>
-      <p class="text-gray-600 dark:text-gray-400">Manage your Docker Registry connections</p>
+      <h1 class="text-4xl font-bold text-blue-900 dark:text-white mb-2">Registry Management</h1>
+      <p class="text-blue-700 dark:text-gray-400">Manage your Docker Registry connections</p>
     </div>
     <%= link_to "Add Registry", new_registry_path, class: "inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors" %>
   </div>
@@ -22,29 +22,29 @@
     </div>
   <% end %>
 
-  <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
+  <div class="bg-blue-50 dark:bg-gray-800 rounded-lg shadow border border-blue-200 dark:border-gray-700 overflow-hidden">
     <% if @registries.any? %>
       <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-        <thead class="bg-gray-50 dark:bg-gray-900">
+        <thead class="bg-blue-100 dark:bg-gray-900">
           <tr>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-blue-600 dark:text-gray-400 uppercase tracking-wider">
               Status
             </th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-blue-600 dark:text-gray-400 uppercase tracking-wider">
               Name
             </th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-blue-600 dark:text-gray-400 uppercase tracking-wider">
               URL
             </th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-blue-600 dark:text-gray-400 uppercase tracking-wider">
               Last Connected
             </th>
-            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-blue-600 dark:text-gray-400 uppercase tracking-wider">
               Actions
             </th>
           </tr>
         </thead>
-        <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+        <tbody class="bg-blue-50 dark:bg-gray-800 divide-y divide-blue-200 dark:divide-gray-700">
           <% @registries.each do |registry| %>
             <tr>
               <td class="px-6 py-4 whitespace-nowrap">
@@ -60,16 +60,16 @@
                 </div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm font-medium text-gray-900 dark:text-white">
+                <div class="text-sm font-medium text-blue-900 dark:text-white">
                   <%= registry.name %>
                 </div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm text-gray-700 dark:text-gray-300">
+                <div class="text-sm text-blue-700 dark:text-gray-300">
                   <%= registry.url %>
                 </div>
               </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-600 dark:text-gray-400">
                 <%= registry.last_connected_at ? time_ago_in_words(registry.last_connected_at) + " ago" : "Never" %>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -86,11 +86,11 @@
       </table>
     <% else %>
       <div class="text-center py-12">
-        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="mx-auto h-12 w-12 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/>
         </svg>
-        <h3 class="mt-2 text-lg font-medium text-gray-900 dark:text-white">No registries configured</h3>
-        <p class="mt-1 text-gray-500 dark:text-gray-400">Get started by adding your first Docker Registry</p>
+        <h3 class="mt-2 text-lg font-medium text-blue-900 dark:text-white">No registries configured</h3>
+        <p class="mt-1 text-blue-600 dark:text-gray-400">Get started by adding your first Docker Registry</p>
         <div class="mt-6">
           <%= link_to "Add Registry", new_registry_path, class: "inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors" %>
         </div>
