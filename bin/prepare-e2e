@@ -1,0 +1,23 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Script to prepare the database for E2E tests
+# This clears any auto-discovered registries to ensure mock data is used
+
+# Use development environment (same as E2E tests)
+ENV['RAILS_ENV'] ||= 'development'
+require_relative '../config/environment'
+
+puts "Preparing database for E2E tests (environment: #{Rails.env})..."
+
+# Clear any existing registries that might have been auto-discovered
+if ActiveRecord::Base.connection.table_exists?(:registries)
+  count_before = Registry.count
+  Registry.delete_all
+  puts "Cleared #{count_before} registries from database"
+else
+  puts "Registries table doesn't exist yet, running migrations..."
+  system("bin/rails db:prepare")
+end
+
+puts "Database prepared for E2E tests. Registry count: #{Registry.count}"

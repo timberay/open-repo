@@ -10,14 +10,23 @@ module RegistryErrorHandler
   private
 
   def handle_auth_error(exception)
-    render plain: "Authentication failed: #{exception.message}", status: :unauthorized
+    respond_to do |format|
+      format.html { redirect_to registries_path, alert: "Authentication failed: #{exception.message}" }
+      format.json { render json: { error: "Authentication failed: #{exception.message}" }, status: :unauthorized }
+    end
   end
 
   def handle_not_found(exception)
-    render plain: "Not found: #{exception.message}", status: :not_found
+    respond_to do |format|
+      format.html { redirect_to root_path, alert: exception.message }
+      format.json { render json: { error: exception.message }, status: :not_found }
+    end
   end
 
   def handle_registry_error(exception)
-    render plain: "Registry error: #{exception.message}", status: :bad_gateway
+    respond_to do |format|
+      format.html { redirect_to registries_path, alert: "Registry Error: #{exception.message}" }
+      format.json { render json: { error: exception.message }, status: :bad_gateway }
+    end
   end
 end

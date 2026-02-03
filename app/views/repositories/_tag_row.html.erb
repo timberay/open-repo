@@ -1,4 +1,4 @@
-<tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+<tr class="hover:bg-blue-100 dark:hover:bg-gray-700">
   <td class="px-6 py-4 whitespace-nowrap">
     <div class="flex items-center">
       <span class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
@@ -6,28 +6,28 @@
       </span>
     </div>
   </td>
-  
+
   <td class="px-6 py-4 whitespace-nowrap">
-    <div class="text-sm font-mono text-gray-900 dark:text-gray-300">
+    <div class="text-sm font-mono text-blue-900 dark:text-gray-300">
       <%= tag.short_digest || "N/A" %>
     </div>
   </td>
-  
+
   <td class="px-6 py-4 whitespace-nowrap">
-    <div class="text-sm text-gray-700 dark:text-gray-300">
+    <div class="text-sm text-blue-700 dark:text-gray-300">
       <%= tag.human_size %>
     </div>
   </td>
-  
-  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+
+  <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-600 dark:text-gray-400">
     <%= time_ago_in_words(tag.created_at) %> ago
   </td>
-  
+
   <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
     <div data-controller="clipboard" data-clipboard-text-value="<%= tag.pull_command(registry_host, repository_name) %>">
-      <button 
+      <button
         data-action="click->clipboard#copy"
-        class="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        class="inline-flex items-center px-3 py-1.5 border border-blue-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded text-blue-800 dark:text-gray-300 bg-blue-50 dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
       >
         <svg data-clipboard-target="icon" class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
