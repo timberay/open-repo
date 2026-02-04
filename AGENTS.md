@@ -18,6 +18,7 @@ USE KOREAN to explan your answer.
 - **Frontend Strategy**: Hotwire (Turbo + Stimulus) 
   - **Turbo**: SPA-like navigation and partial page updates
   - **Stimulus**: Modest JavaScript for client-side interactivity
+  - **Typescript**: Use only JavaScript instead of TypeScript. 
 - **Styling**: TailwindCSS (or Vanilla CSS with modern variables)
 - **Database/Caching**: SQLite (Solid Cache / Solid Queue)
   - Rails 8 defaults heavily optimized for SQLite in production
@@ -151,11 +152,6 @@ REGISTRY_USERNAME=readonly_user
 REGISTRY_PASSWORD=secure_password
 RAILS_ENV=development
 ```
-
-## Task Master AI Instructions
-
-**Import Task Master's development workflow commands and guidelines, treat as if import is in the main GEMINI.md file.**
-@./.taskmaster/GEMINI.md
 
 ## Using git
 
