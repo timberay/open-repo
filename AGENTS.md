@@ -156,3 +156,7 @@ RAILS_ENV=development
 ## Using git
 
 - Use English to write a git commit message
+
+## IMPORTANT
+- **Orchestrator** owns global truth + integration. Add gates, verify end-to-end, and never assume infrastructure exists without proof
+
