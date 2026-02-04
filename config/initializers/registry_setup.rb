@@ -7,7 +7,9 @@ Rails.application.config.after_initialize do
   begin
     discovered_count = LocalRegistryScanner.new.scan_and_register!
     Rails.logger.info "Local registry scan complete: #{discovered_count} registries discovered" if discovered_count > 0
+
+    RegistryHealthCheckService.check_all!
   rescue StandardError => e
-    Rails.logger.warn "Local registry scan failed: #{e.message}"
+    Rails.logger.warn "Registry setup failed: #{e.message}"
   end
 end
