@@ -36,3 +36,45 @@
 
 /app/assets/builds/*
 !/app/assets/builds/.keep
+
+# ============================================================
+# SQLite databases
+# ============================================================
+/db/*.sqlite3
+/db/*.sqlite3-journal
+/storage/*.sqlite3
+/storage/*.sqlite3-journal
+
+# ============================================================
+# Node.js / Playwright
+# ============================================================
+/node_modules/
+package-lock.json
+yarn.lock
+yarn-error.log
+npm-debug.log*
+.npm
+
+# Playwright test artifacts
+/playwright-report/
+/test-results/
+/playwright/.cache/
+
+# ============================================================
+# IDE / Editor files
+# ============================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ============================================================
+# Ruby / Rails cache and compiled files
+# ============================================================
+*.rbc
+capybara-*.html
+.rspec_status
+/tmp/cache/
+*.pid
