@@ -1,11 +1,30 @@
 Rails.application.routes.draw do
   root "repositories#index"
 
-  resources :repositories, only: [:index]
+  resources :repositories, only: [:index, :show, :update, :destroy], param: :name,
+                           constraints: { name: /[^\/]+(?:\/[^\/]+)*/ } do
+    resources :tags, only: [:show, :destroy], param: :name do
+      member do
+        get :export
+        get :history
+        get :compare
+      end
+    end
+
+    member do
+      get :pull_stats
+      get :dependency_graph
+    end
+
+    collection do
+      post :import
+    end
+  end
+
+  resources :imports, only: [:show]
+  resources :exports, only: [:show]
 
   # Docker Registry V2 API
-  # reference: tag name (v1.0.0) or digest (sha256:abc...)
-  # digest: sha256:abc...
   ref_constraint = { reference: /[a-zA-Z0-9._:-]+/ }
   digest_constraint = { digest: /[a-zA-Z0-9._:-]+/ }
   name_constraint = { name: /[a-z0-9][a-z0-9._-]*/ }
@@ -15,7 +34,6 @@ Rails.application.routes.draw do
     get '/', to: 'v2/base#index'
     get '/_catalog', to: 'v2/catalog#index'
 
-    # Single-segment repository names (e.g., "myapp")
     scope ':name', constraints: name_constraint do
       get 'tags/list', to: 'v2/tags#index'
       match 'manifests/:reference', to: 'v2/manifests#show', via: [:get, :head], constraints: ref_constraint
@@ -31,7 +49,6 @@ Rails.application.routes.draw do
       delete 'blobs/uploads/:uuid', to: 'v2/blob_uploads#destroy'
     end
 
-    # Namespaced repository names (e.g., "library/nginx")
     scope ':ns/:name', constraints: ns_constraint do
       get 'tags/list', to: 'v2/tags#index'
       match 'manifests/:reference', to: 'v2/manifests#show', via: [:get, :head], constraints: ref_constraint
