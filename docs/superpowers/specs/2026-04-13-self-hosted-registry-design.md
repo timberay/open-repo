@@ -297,6 +297,25 @@ end
 config.storage_path = ENV.fetch('STORAGE_PATH', Rails.root.join('storage', 'registry'))
 ```
 
+### 대용량 파일 I/O 최적화
+
+**다운로드 (blob GET):**
+- 기본: `send_file`로 Puma 스레드에서 직접 서빙
+- 프로덕션 최적화: `Rack::Sendfile` 헤더를 통한 리버스 프록시 위임 지원
+  - Nginx: `X-Accel-Redirect` 헤더로 파일 서빙을 nginx에 위임
+  - 환경변수 `SENDFILE_HEADER`로 설정 가능 (기본: 없음 = Rails 직접 서빙)
+
+```ruby
+# config/environments/production.rb
+config.action_dispatch.x_sendfile_header = ENV.fetch('SENDFILE_HEADER', nil)
+# Nginx: 'X-Accel-Redirect', Apache: 'X-Sendfile'
+```
+
+**업로드 (blob PATCH/PUT):**
+- `request.body` (Rack::Input)를 직접 스트리밍 읽기 — 전체를 메모리에 버퍼링하지 않음
+- chunk 단위(64KB)로 읽어서 디스크에 append
+- `config.middleware`에서 `Rack::TempfileReaper` 활성화하여 임시 파일 자동 정리
+
 ---
 
 ## 5. 웹 UI 및 CRUD
@@ -339,24 +358,82 @@ end
 
 **이미지 Import (`POST /repositories/import`)**
 - `docker save` tar 파일 업로드
-- tar 파싱: manifest.json → config blob → layer blobs 추출
-- 진행률 표시 (Turbo Stream)
+- **비동기 처리 (Solid Queue)**: 대형 tar 파일은 웹 요청 타임아웃을 유발하므로, 업로드된 tar를 임시 경로에 저장 후 즉시 202 응답. 파싱/처리는 `ProcessTarImportJob`에서 백그라운드 실행
+- 진행률: Turbo Stream 브로드캐스트로 실시간 갱신 (파싱 시작 → layer 처리 중 → 완료/실패)
 - Repository 이름/tag 자동 추출, 사용자 override 가능
+- Import 상태 추적을 위한 `imports` 테이블 추가 (상태: pending/processing/completed/failed)
 
 **이미지 Export (`GET /repositories/:name/tags/:tag/export`)**
-- `docker load` 호환 tar 생성 및 스트리밍 다운로드
+- **비동기 처리 (Solid Queue)**: `PrepareExportJob`에서 `docker load` 호환 tar를 임시 경로에 생성
+- 완료 후 Turbo Stream으로 다운로드 링크 브로드캐스트
+- 생성된 tar 파일은 다운로드 후 또는 일정 시간(1시간) 후 자동 정리
 
-### Import/Export 서비스
+### Import/Export 비동기 아키텍처
+
+```
+브라우저                      Rails                     Solid Queue
+  │                            │                            │
+  ├─ POST /import (tar) ──────►│                            │
+  │                            ├─ tar 임시 저장              │
+  │                            ├─ Import 레코드 생성 (pending)│
+  │                            ├─ ProcessTarImportJob 등록 ─►│
+  │◄─ 202 + import_id ─────────┤                            │
+  │                            │                            ├─ tar 파싱
+  │◄─ Turbo Stream (진행률) ───────────────────────────────── ├─ blob 저장
+  │◄─ Turbo Stream (완료) ─────────────────────────────────── ├─ DB 레코드 생성
+  │                            │                            │
+```
+
+### Import/Export 서비스 및 Job
 
 ```ruby
+# 백그라운드 Job
+class ProcessTarImportJob < ApplicationJob
+  queue_as :default
+  def perform(import_id)
+    # ImageImportService 호출, Import 레코드 상태 갱신, Turbo Stream 브로드캐스트
+  end
+end
+
+class PrepareExportJob < ApplicationJob
+  queue_as :default
+  def perform(export_id)
+    # ImageExportService 호출, 완료 시 다운로드 URL 브로드캐스트
+  end
+end
+
+# 서비스 (Job에서 호출)
 class ImageImportService
-  def call(tar_io, repository_name: nil, tag_name: nil)
+  def call(tar_path, repository_name: nil, tag_name: nil)
   end
 end
 
 class ImageExportService
-  def call(repository_name, tag_name)
+  def call(repository_name, tag_name, output_path:)
   end
+end
+```
+
+### Import/Export 상태 추적 테이블
+
+```ruby
+create_table :imports do |t|
+  t.string :status, null: false, default: 'pending'  # pending/processing/completed/failed
+  t.string :repository_name
+  t.string :tag_name
+  t.string :tar_path                                   # 임시 tar 경로
+  t.text :error_message
+  t.integer :progress, default: 0                      # 0-100
+  t.timestamps
+end
+
+create_table :exports do |t|
+  t.references :repository, null: false, foreign_key: true
+  t.string :tag_name, null: false
+  t.string :status, null: false, default: 'pending'
+  t.string :output_path
+  t.text :error_message
+  t.timestamps
 end
 ```
 
@@ -451,7 +528,165 @@ end
 
 ---
 
-## 7. 테스트 전략
+## 7. Garbage Collection (GC) 정책
+
+### 문제
+
+Tag나 Repository를 삭제해도, 해당 blob이 다른 manifest에서 공유 중일 수 있어 즉각 삭제가 불가능하다.
+업로드 중단된 임시 파일도 디스크에 잔존할 수 있다.
+
+### 설계: 2단계 삭제
+
+**1단계 — 참조 해제 (동기, 웹 요청 내):**
+- Tag 삭제: `Tag` 레코드만 삭제. `Manifest`는 다른 tag가 참조 중일 수 있으므로 유지
+- Repository 삭제: 해당 repo의 `Tag`, `Manifest`, `Layer` 레코드 삭제. `Blob`의 `references_count` 감소
+- Manifest 삭제 (V2 API): `Tag` 참조 해제, `Layer` 레코드 삭제, `Blob`의 `references_count` 감소
+
+**2단계 — 고아 blob 정리 (비동기, Solid Queue):**
+
+```ruby
+class CleanupOrphanedBlobsJob < ApplicationJob
+  queue_as :default
+
+  def perform
+    # 1. references_count == 0인 Blob 레코드 조회
+    # 2. 해당 blob 파일을 디스크에서 삭제
+    # 3. Blob DB 레코드 삭제
+    # 4. uploads/ 디렉토리에서 1시간 이상 된 임시 파일 정리
+    # 5. exports/ 디렉토리에서 1시간 이상 된 tar 파일 정리
+    # 6. imports/에서 completed/failed 상태이고 24시간 이상 된 tar 파일 정리
+  end
+end
+```
+
+### 실행 주기
+
+- **Solid Queue recurring schedule**: 매 30분마다 `CleanupOrphanedBlobsJob` 실행
+- 설정: `config/recurring.yml`
+
+```yaml
+# config/recurring.yml
+cleanup_orphaned_blobs:
+  class: CleanupOrphanedBlobsJob
+  schedule: every 30 minutes
+```
+
+### 안전장치
+
+- Blob 삭제 전 `references_count`를 다시 확인 (race condition 방어)
+- 삭제 작업은 트랜잭션 내에서 DB 레코드 삭제 → 파일 삭제 순서로 진행 (DB 삭제 실패 시 파일 잔존은 안전, 파일만 삭제되고 DB에 남는 것은 위험)
+
+---
+
+## 8. 동시성 (Concurrency) 방어
+
+### 문제
+
+Docker CLI는 push 시 여러 layer를 병렬 업로드한다. 동일한 base image layer가 동시에 다른 요청으로 push될 수 있어 race condition이 발생한다.
+
+### 방어 전략
+
+**Blob 레코드 생성 — `create_or_find_by` 패턴:**
+
+```ruby
+# Blob이 이미 존재하면 찾고, 없으면 생성
+# find_or_create_by와 달리 INSERT 먼저 시도 → 충돌 시 SELECT
+blob = Blob.create_or_find_by!(digest: digest) do |b|
+  b.size = size
+  b.content_type = content_type
+end
+```
+
+`find_or_create_by`는 SELECT → INSERT 순서라 TOCTOU race가 있다. `create_or_find_by`는 INSERT 먼저 시도하므로 unique index가 보장하는 원자성을 활용한다.
+
+**references_count 갱신 — 원자적 연산:**
+
+```ruby
+# 증가 (manifest 생성 시)
+blob.increment!(:references_count)
+
+# 감소 (manifest 삭제 시)
+blob.decrement!(:references_count)
+```
+
+`increment!`/`decrement!`는 `UPDATE blobs SET references_count = references_count + 1`로 변환되어 DB 레벨 원자성이 보장된다.
+
+**파일시스템 중복 쓰기 방어:**
+
+```ruby
+# BlobStore#put — 이미 존재하면 덮어쓰지 않음
+def put(digest, io)
+  target = path_for(digest)
+  return if File.exist?(target)  # content-addressable이므로 동일 digest = 동일 내용
+  # atomic write (임시 파일 → rename)
+end
+```
+
+Content-addressable 스토리지의 특성상, 같은 digest 파일이 이미 존재하면 내용이 동일하므로 안전하게 skip 가능.
+
+**Upload 세션 격리:**
+
+각 `BlobUpload`는 고유 UUID를 가지므로 서로 다른 upload 세션 간 충돌 없음. 동일 blob을 두 클라이언트가 동시에 업로드해도 각자의 임시 디렉토리에서 독립 진행 후 `finalize_upload`에서 합류.
+
+---
+
+## 9. Multi-Architecture Manifest 거부 정책
+
+### 범위
+
+본 설계는 V2 Schema 2 단일 플랫폼 이미지만 지원한다. 다음 media type들은 명시적으로 거부한다:
+
+| Media Type | 설명 | 처리 |
+|---|---|---|
+| `application/vnd.docker.distribution.manifest.v2+json` | V2 Schema 2 Image | **지원** |
+| `application/vnd.docker.distribution.manifest.list.v2+json` | Manifest List (multi-arch) | **거부** |
+| `application/vnd.oci.image.manifest.v1+json` | OCI Image Manifest | **거부** |
+| `application/vnd.oci.image.index.v1+json` | OCI Image Index (multi-arch) | **거부** |
+
+### 구현
+
+```ruby
+# V2::ManifestsController#update
+SUPPORTED_MEDIA_TYPES = [
+  'application/vnd.docker.distribution.manifest.v2+json'
+].freeze
+
+def update
+  content_type = request.content_type
+  unless SUPPORTED_MEDIA_TYPES.include?(content_type)
+    raise Registry::Unsupported, "Unsupported manifest media type: #{content_type}"
+  end
+  # ... manifest 처리
+end
+```
+
+### 에러 응답
+
+```json
+{
+  "errors": [{
+    "code": "UNSUPPORTED",
+    "message": "Unsupported manifest media type: application/vnd.docker.distribution.manifest.list.v2+json",
+    "detail": {}
+  }]
+}
+```
+
+HTTP 상태 코드: `415 Unsupported Media Type`
+
+### 사용자 안내
+
+Multi-arch 이미지를 push하려는 사용자에게는 단일 플랫폼을 명시하도록 안내:
+
+```bash
+# multi-arch 대신 단일 플랫폼 지정
+docker build --platform linux/amd64 -t myregistry:5000/myimage:latest .
+docker push myregistry:5000/myimage:latest
+```
+
+---
+
+## 10. 테스트 전략
 
 ### RSpec 테스트 구조
 
@@ -460,6 +695,7 @@ spec/
 ├── models/                        # 모든 새 모델의 유효성, 관계 테스트
 ├── services/                      # BlobStore, ManifestProcessor, DigestCalculator,
 │                                  #   ImageImportService, ImageExportService
+├── jobs/                          # CleanupOrphanedBlobsJob, ProcessTarImportJob, PrepareExportJob
 ├── requests/
 │   ├── v2/                        # Registry V2 API 전체 엔드포인트
 │   └── repositories_spec.rb       # 웹 UI CRUD, import/export
@@ -476,12 +712,16 @@ spec/
 2. Manifest PUT/GET (push 후 pull 정상 동작)
 3. Digest 검증 (잘못된 digest 거부)
 4. BlobStore atomic write (불완전 파일 방지)
+5. 동시 blob 업로드 시 race condition 미발생 (create_or_find_by 동작 확인)
+6. Manifest List/OCI media type push 시 415 Unsupported 거부 응답
 
 ### 중요 테스트
 
-5. Image import/export tar round-trip 정합성
-6. Tag 삭제 시 manifest 참조 정리
-7. 웹 UI CRUD (repository/tag 조회, 삭제)
+7. Image import/export tar round-trip 정합성 (비동기 Job 완료 후 검증)
+8. Tag 삭제 → GC Job 실행 → 고아 blob 디스크 정리 확인
+9. 웹 UI CRUD (repository/tag 조회, 삭제)
+10. Import 진행률 Turbo Stream 브로드캐스��
+11. X-Accel-Redirect 헤더 설정 시 send_file 대신 헤더 응답 확인
 
 ### E2E 테스트 (Playwright)
 
