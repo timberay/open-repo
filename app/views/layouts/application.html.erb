@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html data-controller="theme">
   <head>
-    <title><%= content_for(:title) || "RepoVista - Docker Registry UI" %></title>
+    <title><%= content_for(:title) || "Open Repo - Docker Registry UI" %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="application-name" content="RepoVista">
+    <meta name="application-name" content="Open Repo">
     <meta name="mobile-web-app-capable" content="yes">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
@@ -39,7 +39,7 @@
           <!-- Logo -->
           <div class="flex items-center">
             <%= link_to root_path, class: "text-2xl font-bold text-blue-400 hover:text-blue-300 transition-colors duration-150" do %>
-              RepoVista
+              Open Repo
             <% end %>
           </div>
 
