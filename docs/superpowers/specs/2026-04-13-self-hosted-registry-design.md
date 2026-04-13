@@ -49,7 +49,7 @@ docker push myimage:latest
 
 docker pull myimage:latest
   → GET /v2/myimage/manifests/latest       (manifest 조회)
-  → GET /v2/blobs/sha256:...               (blob 다운로드)
+  → GET /v2/myimage/blobs/sha256:...        (blob 다운로드)
 ```
 
 **브라우저 → Web UI:**
