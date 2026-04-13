@@ -1,60 +1,67 @@
-<div class="max-w-7xl mx-auto">
-  <div class="mb-8">
-    <h1 class="text-4xl font-bold text-blue-900 dark:text-white mb-2">Docker Registry</h1>
-    <p class="text-blue-700 dark:text-gray-400">Browse and search Docker images from your registry</p>
-  </div>
+<%# Page header %>
+<div class="mb-6">
+  <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-1">Docker Registry</h1>
+  <p class="text-sm text-slate-600 dark:text-slate-400 break-keep">저장소에 등록된 Docker 이미지를 검색하고 관리합니다.</p>
+</div>
 
-  <div class="mb-6 bg-blue-50 dark:bg-gray-800 rounded-lg shadow border border-blue-200 dark:border-gray-700 p-4">
-    <%= form_with url: repositories_path, method: :get,
-        data: { controller: "search", search_target: "form", turbo_frame: "repositories" },
-        class: "flex flex-col sm:flex-row gap-4" do |f| %>
+<%# Search & Sort bar %>
+<div class="mb-6 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+  <%= form_with url: repositories_path, method: :get,
+      data: { controller: "search", search_target: "form", turbo_frame: "repositories" },
+      class: "flex flex-col sm:flex-row items-center gap-3" do |f| %>
 
-      <div class="flex-1">
-        <%= f.text_field :q,
-          value: params[:q],
-          placeholder: "Search repositories...",
-          data: { action: "input->search#search" },
-          class: "block w-full py-2.5 px-4 rounded-lg border-blue-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-white dark:bg-gray-700 text-blue-900 dark:text-white text-base" %>
-      </div>
+    <div class="flex-1 w-full">
+      <%= f.text_field :q,
+        value: params[:q],
+        placeholder: "저장소 이름, 설명, 담당자로 검색...",
+        data: { action: "input->search#search" },
+        class: "block w-full h-10 px-3 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-base text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 focus:border-blue-500 dark:focus:border-blue-400 transition-colors duration-150" %>
+    </div>
 
-      <div class="sm:w-48">
-        <%= f.select :sort,
-          options_for_select([
-            ["Recent", ""],
-            ["Name (A-Z)", "name"],
-            ["Size", "size"],
-            ["Pulls", "pulls"]
-          ], params[:sort]),
-          {},
-          {
-            data: { action: "change->search#search" },
-            class: "block w-full py-2.5 px-4 rounded-lg border-blue-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-white dark:bg-gray-700 text-blue-900 dark:text-white text-base"
-          } %>
-      </div>
-    <% end %>
-  </div>
-
-  <%= turbo_frame_tag "repositories" do %>
-    <% if @repositories.any? %>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-        <% @repositories.each do |repository| %>
-          <%= render "repository_card", repository: repository %>
-        <% end %>
-      </div>
-    <% else %>
-      <div class="text-center py-12">
-        <svg class="mx-auto h-12 w-12 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
-        </svg>
-        <h3 class="mt-2 text-lg font-medium text-blue-900 dark:text-white">No repositories found</h3>
-        <p class="mt-1 text-blue-600 dark:text-gray-400">
-          <% if params[:q].present? %>
-            Try adjusting your search query
-          <% else %>
-            Push an image to get started
-          <% end %>
-        </p>
-      </div>
-    <% end %>
+    <div class="w-full sm:w-48">
+      <%= f.select :sort,
+        options_for_select([
+          ["최근 업데이트순", ""],
+          ["이름순 (A-Z)", "name"],
+          ["사이즈순", "size"],
+          ["Pull 횟수순", "pulls"]
+        ], params[:sort]),
+        {},
+        {
+          data: { action: "change->search#search" },
+          class: "block w-full h-10 px-3 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-base text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 focus:border-blue-500 dark:focus:border-blue-400 transition-colors duration-150"
+        } %>
+    </div>
   <% end %>
 </div>
+
+<%# Repository list %>
+<%= turbo_frame_tag "repositories" do %>
+  <% if @repositories.any? %>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+      <% @repositories.each do |repository| %>
+        <%= render "repository_card", repository: repository %>
+      <% end %>
+    </div>
+  <% else %>
+    <div class="flex flex-col items-center justify-center py-16 px-4">
+      <svg class="w-12 h-12 text-slate-300 dark:text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+      </svg>
+      <h3 class="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-1">
+        <% if params[:q].present? %>
+          검색 결과가 없습니다
+        <% else %>
+          등록된 저장소가 없습니다
+        <% end %>
+      </h3>
+      <p class="text-sm text-slate-500 dark:text-slate-400 text-center max-w-sm break-keep">
+        <% if params[:q].present? %>
+          검색어를 변경해 보세요.
+        <% else %>
+          이미지를 push하면 저장소가 자동으로 생성됩니다.
+        <% end %>
+      </p>
+    </div>
+  <% end %>
+<% end %>
