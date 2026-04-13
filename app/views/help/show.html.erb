@@ -1,54 +1,54 @@
-<div class="max-w-4xl mx-auto">
-  <div class="mb-8">
-    <h1 class="text-4xl font-bold text-blue-900 dark:text-white mb-2">Setup Guide</h1>
-    <p class="text-blue-700 dark:text-gray-400">Configure Docker and Kubernetes clients to use this registry</p>
-  </div>
+<%# Page header %>
+<div class="mb-6">
+  <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-1">Setup Guide</h1>
+  <p class="text-sm text-slate-600 dark:text-slate-400">Configure Docker and Kubernetes clients to use this registry.</p>
+</div>
 
-  <!-- Docker Daemon Configuration -->
-  <div class="bg-blue-50 dark:bg-gray-800 rounded-lg shadow border border-blue-200 dark:border-gray-700 p-6 mb-6">
-    <h2 class="text-xl font-semibold text-blue-900 dark:text-white mb-4">Docker Daemon Configuration</h2>
-    <p class="text-blue-700 dark:text-gray-400 mb-3">Add this registry as an insecure registry in <code class="bg-blue-100 dark:bg-gray-900 px-1 rounded">/etc/docker/daemon.json</code>:</p>
-    <pre class="bg-blue-100 dark:bg-gray-900 rounded-lg p-4 text-sm text-blue-800 dark:text-blue-300 overflow-x-auto">{
+<%# Docker Daemon Configuration %>
+<div class="rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm p-6 mb-6">
+  <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4">Docker Daemon Configuration</h2>
+  <p class="text-base text-slate-700 dark:text-slate-300 mb-3">Add this registry as an insecure registry in <code class="bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-sm font-mono">/etc/docker/daemon.json</code>:</p>
+  <pre class="bg-slate-100 dark:bg-slate-900 rounded-md p-4 text-sm font-mono text-slate-800 dark:text-blue-300 overflow-x-auto">{
   "insecure-registries": ["<%= @registry_host %>"]
 }</pre>
-    <p class="text-sm text-blue-600 dark:text-gray-500 mt-2">Restart Docker after making changes: <code class="bg-blue-100 dark:bg-gray-900 px-1 rounded">sudo systemctl restart docker</code></p>
-  </div>
+  <p class="text-sm text-slate-500 dark:text-slate-400 mt-3">Restart Docker after making changes: <code class="bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-sm font-mono">sudo systemctl restart docker</code></p>
+</div>
 
-  <!-- Push / Pull -->
-  <div class="bg-blue-50 dark:bg-gray-800 rounded-lg shadow border border-blue-200 dark:border-gray-700 p-6 mb-6">
-    <h2 class="text-xl font-semibold text-blue-900 dark:text-white mb-4">Push & Pull Images</h2>
-    <div class="space-y-4">
-      <div>
-        <h3 class="text-sm font-medium text-blue-800 dark:text-gray-300 mb-1">Tag an image for this registry</h3>
-        <pre class="bg-blue-100 dark:bg-gray-900 rounded-lg p-4 text-sm text-blue-800 dark:text-blue-300 overflow-x-auto">docker tag myapp:latest <%= @registry_host %>/myapp:latest</pre>
-      </div>
-      <div>
-        <h3 class="text-sm font-medium text-blue-800 dark:text-gray-300 mb-1">Push</h3>
-        <pre class="bg-blue-100 dark:bg-gray-900 rounded-lg p-4 text-sm text-blue-800 dark:text-blue-300 overflow-x-auto">docker push <%= @registry_host %>/myapp:latest</pre>
-      </div>
-      <div>
-        <h3 class="text-sm font-medium text-blue-800 dark:text-gray-300 mb-1">Pull</h3>
-        <pre class="bg-blue-100 dark:bg-gray-900 rounded-lg p-4 text-sm text-blue-800 dark:text-blue-300 overflow-x-auto">docker pull <%= @registry_host %>/myapp:latest</pre>
-      </div>
+<%# Push & Pull %>
+<div class="rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm p-6 mb-6">
+  <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4">Push & Pull Images</h2>
+  <div class="space-y-4">
+    <div>
+      <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Tag an image for this registry</h3>
+      <pre class="bg-slate-100 dark:bg-slate-900 rounded-md p-4 text-sm font-mono text-slate-800 dark:text-blue-300 overflow-x-auto">docker tag myapp:latest <%= @registry_host %>/myapp:latest</pre>
+    </div>
+    <div>
+      <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Push</h3>
+      <pre class="bg-slate-100 dark:bg-slate-900 rounded-md p-4 text-sm font-mono text-slate-800 dark:text-blue-300 overflow-x-auto">docker push <%= @registry_host %>/myapp:latest</pre>
+    </div>
+    <div>
+      <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Pull</h3>
+      <pre class="bg-slate-100 dark:bg-slate-900 rounded-md p-4 text-sm font-mono text-slate-800 dark:text-blue-300 overflow-x-auto">docker pull <%= @registry_host %>/myapp:latest</pre>
     </div>
   </div>
+</div>
 
-  <!-- Kubernetes Configuration -->
-  <div class="bg-blue-50 dark:bg-gray-800 rounded-lg shadow border border-blue-200 dark:border-gray-700 p-6 mb-6">
-    <h2 class="text-xl font-semibold text-blue-900 dark:text-white mb-4">Kubernetes / containerd Configuration</h2>
-    <p class="text-blue-700 dark:text-gray-400 mb-3">Add a mirror in <code class="bg-blue-100 dark:bg-gray-900 px-1 rounded">/etc/containerd/config.toml</code>:</p>
-    <pre class="bg-blue-100 dark:bg-gray-900 rounded-lg p-4 text-sm text-blue-800 dark:text-blue-300 overflow-x-auto">[plugins."io.containerd.grpc.v1.cri".registry.mirrors."<%= @registry_host %>"]
+<%# Kubernetes Configuration %>
+<div class="rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm p-6 mb-6">
+  <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4">Kubernetes / containerd Configuration</h2>
+  <p class="text-base text-slate-700 dark:text-slate-300 mb-3">Add a mirror in <code class="bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-sm font-mono">/etc/containerd/config.toml</code>:</p>
+  <pre class="bg-slate-100 dark:bg-slate-900 rounded-md p-4 text-sm font-mono text-slate-800 dark:text-blue-300 overflow-x-auto">[plugins."io.containerd.grpc.v1.cri".registry.mirrors."<%= @registry_host %>"]
   endpoint = ["http://<%= @registry_host %>"]
 
 [plugins."io.containerd.grpc.v1.cri".registry.configs."<%= @registry_host %>".tls]
   insecure_skip_verify = true</pre>
-    <p class="text-sm text-blue-600 dark:text-gray-500 mt-2">Restart containerd: <code class="bg-blue-100 dark:bg-gray-900 px-1 rounded">sudo systemctl restart containerd</code></p>
-  </div>
+  <p class="text-sm text-slate-500 dark:text-slate-400 mt-3">Restart containerd: <code class="bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-sm font-mono">sudo systemctl restart containerd</code></p>
+</div>
 
-  <!-- Nginx Reverse Proxy -->
-  <div class="bg-blue-50 dark:bg-gray-800 rounded-lg shadow border border-blue-200 dark:border-gray-700 p-6 mb-6">
-    <h2 class="text-xl font-semibold text-blue-900 dark:text-white mb-4">Nginx Reverse Proxy (TLS)</h2>
-    <pre class="bg-blue-100 dark:bg-gray-900 rounded-lg p-4 text-sm text-blue-800 dark:text-blue-300 overflow-x-auto">server {
+<%# Nginx Reverse Proxy %>
+<div class="rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm p-6 mb-6">
+  <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4">Nginx Reverse Proxy (TLS)</h2>
+  <pre class="bg-slate-100 dark:bg-slate-900 rounded-md p-4 text-sm font-mono text-slate-800 dark:text-blue-300 overflow-x-auto">server {
     listen 443 ssl;
     server_name registry.example.com;
 
@@ -65,18 +65,17 @@
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 }</pre>
-  </div>
+</div>
 
-  <!-- Multi-arch Notice -->
-  <div class="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-700 p-6">
-    <h2 class="text-xl font-semibold text-yellow-800 dark:text-yellow-200 mb-2">Multi-Architecture Notice</h2>
-    <p class="text-yellow-700 dark:text-yellow-300 mb-3">
-      This registry supports single-platform V2 Schema 2 manifests only.
-      Multi-arch manifest lists are not supported.
-    </p>
-    <p class="text-sm text-yellow-600 dark:text-yellow-400">
-      When building images, specify the platform explicitly:
-    </p>
-    <pre class="bg-yellow-100 dark:bg-yellow-900/30 rounded-lg p-4 text-sm text-yellow-800 dark:text-yellow-300 mt-2 overflow-x-auto">docker build --platform linux/amd64 -t <%= @registry_host %>/myapp:latest .</pre>
-  </div>
+<%# Multi-arch Notice %>
+<div class="rounded-lg bg-amber-100 dark:bg-amber-900/20 border border-amber-400 dark:border-amber-700 p-6">
+  <h2 class="text-xl font-semibold text-amber-800 dark:text-amber-200 mb-2">Multi-Architecture Notice</h2>
+  <p class="text-base text-amber-700 dark:text-amber-300 mb-3">
+    This registry supports single-platform V2 Schema 2 manifests only.
+    Multi-arch manifest lists are not supported.
+  </p>
+  <p class="text-sm text-amber-600 dark:text-amber-400">
+    When building images, specify the platform explicitly:
+  </p>
+  <pre class="bg-amber-200 dark:bg-amber-900/30 rounded-md p-4 text-sm font-mono text-amber-800 dark:text-amber-300 mt-2 overflow-x-auto">docker build --platform linux/amd64 -t <%= @registry_host %>/myapp:latest .</pre>
 </div>
