@@ -1,20 +1,8 @@
-# frozen_string_literal: true
+class Repository < ApplicationRecord
+  has_many :tags, dependent: :destroy
+  has_many :manifests, dependent: :destroy
+  has_many :tag_events, dependent: :destroy
+  has_many :blob_uploads, dependent: :destroy
 
-class Repository
-  include ActiveModel::Model
-  include ActiveModel::Attributes
-
-  attribute :name, :string
-  attribute :tag_count, :integer, default: 0
-  attribute :last_updated, :datetime
-
-  def self.from_catalog(repositories_data)
-    repositories_data.map do |repo_name|
-      new(name: repo_name)
-    end
-  end
-
-  def to_param
-    name
-  end
+  validates :name, presence: true, uniqueness: true
 end
