@@ -5,28 +5,30 @@
   </div>
 
   <div class="mb-6 bg-blue-50 dark:bg-gray-800 rounded-lg shadow border border-blue-200 dark:border-gray-700 p-4">
-    <%= form_with url: repositories_path, method: :get, 
+    <%= form_with url: repositories_path, method: :get,
         data: { controller: "search", search_target: "form", turbo_frame: "repositories" },
         class: "flex flex-col sm:flex-row gap-4" do |f| %>
-      
+
       <div class="flex-1">
-        <%= f.text_field :query,
-          value: @query,
+        <%= f.text_field :q,
+          value: params[:q],
           placeholder: "Search repositories...",
           data: { action: "input->search#search" },
-                      class: "block w-full py-2.5 px-4 rounded-lg border-blue-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-white dark:bg-gray-700 text-blue-900 dark:text-white text-base" %>
+          class: "block w-full py-2.5 px-4 rounded-lg border-blue-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-white dark:bg-gray-700 text-blue-900 dark:text-white text-base" %>
       </div>
 
       <div class="sm:w-48">
-        <%= f.select :sort_by,
+        <%= f.select :sort,
           options_for_select([
+            ["Recent", ""],
             ["Name (A-Z)", "name"],
-            ["Name (Z-A)", "name_desc"]
-          ], @sort_by),
+            ["Size", "size"],
+            ["Pulls", "pulls"]
+          ], params[:sort]),
           {},
           {
             data: { action: "change->search#search" },
-          class: "block w-full py-2.5 px-4 rounded-lg border-blue-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-white dark:bg-gray-700 text-blue-900 dark:text-white text-base"
+            class: "block w-full py-2.5 px-4 rounded-lg border-blue-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-white dark:bg-gray-700 text-blue-900 dark:text-white text-base"
           } %>
       </div>
     <% end %>
@@ -39,14 +41,6 @@
           <%= render "repository_card", repository: repository %>
         <% end %>
       </div>
-
-      <% if @next_page %>
-        <div class="text-center">
-          <%= link_to "Load More", 
-            repositories_path(query: @query, sort_by: @sort_by, page: @next_page),
-            class: "inline-flex items-center px-4 py-2 border border-blue-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded-md text-blue-700 dark:text-gray-300 bg-blue-50 dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-gray-700" %>
-        </div>
-      <% end %>
     <% else %>
       <div class="text-center py-12">
         <svg class="mx-auto h-12 w-12 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -54,10 +48,10 @@
         </svg>
         <h3 class="mt-2 text-lg font-medium text-blue-900 dark:text-white">No repositories found</h3>
         <p class="mt-1 text-blue-600 dark:text-gray-400">
-          <% if @query.present? %>
+          <% if params[:q].present? %>
             Try adjusting your search query
           <% else %>
-            No repositories available in the registry
+            Push an image to get started
           <% end %>
         </p>
       </div>

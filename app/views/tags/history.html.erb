@@ -1,0 +1,44 @@
+<div class="max-w-7xl mx-auto">
+  <div class="mb-6">
+    <%= link_to repository_tag_path(@repository.name, @tag), class: "inline-flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300" do %>
+      <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+      Back to <%= @repository.name %>:<%= @tag.name %>
+    <% end %>
+  </div>
+
+  <h1 class="text-3xl font-bold text-blue-900 dark:text-white mb-6">History: <%= @tag.name %></h1>
+
+  <% if @events.any? %>
+    <div class="space-y-4">
+      <% @events.each do |event| %>
+        <div class="bg-blue-50 dark:bg-gray-800 rounded-lg border border-blue-200 dark:border-gray-700 p-4">
+          <div class="flex items-center justify-between">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+              <%= case event.action
+                  when 'create' then 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
+                  when 'update' then 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'
+                  when 'delete' then 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
+                  end %>">
+              <%= event.action %>
+            </span>
+            <span class="text-sm text-blue-600 dark:text-gray-400"><%= event.occurred_at.strftime('%Y-%m-%d %H:%M') %></span>
+          </div>
+          <% if event.previous_digest.present? %>
+            <div class="mt-2 text-sm text-blue-700 dark:text-gray-400">
+              Previous: <code class="font-mono"><%= short_digest(event.previous_digest) %></code>
+            </div>
+          <% end %>
+          <% if event.new_digest.present? %>
+            <div class="text-sm text-blue-700 dark:text-gray-400">
+              New: <code class="font-mono"><%= short_digest(event.new_digest) %></code>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+  <% else %>
+    <p class="text-blue-600 dark:text-gray-400">No history events for this tag.</p>
+  <% end %>
+</div>
