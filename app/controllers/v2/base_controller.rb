@@ -23,9 +23,13 @@ class V2::BaseController < ActionController::API
     render json: { errors: [{ code: code, message: message, detail: detail }] }, status: status
   end
 
+  def repo_name
+    params[:ns].present? ? "#{params[:ns]}/#{params[:name]}" : params[:name]
+  end
+
   def find_repository!
-    Repository.find_by!(name: params[:name])
+    Repository.find_by!(name: repo_name)
   rescue ActiveRecord::RecordNotFound
-    raise Registry::NameUnknown, "repository '#{params[:name]}' not found"
+    raise Registry::NameUnknown, "repository '#{repo_name}' not found"
   end
 end

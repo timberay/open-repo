@@ -40,7 +40,7 @@ class V2::BlobUploadsController < V2::BaseController
     upload.destroy!
 
     response.headers['Docker-Content-Digest'] = digest
-    response.headers['Location'] = "/v2/#{params[:name]}/blobs/#{digest}"
+    response.headers['Location'] = "/v2/#{repo_name}/blobs/#{digest}"
     head :created
   end
 
@@ -54,7 +54,7 @@ class V2::BlobUploadsController < V2::BaseController
   private
 
   def ensure_repository!
-    @repository = Repository.find_or_create_by!(name: params[:name])
+    @repository = Repository.find_or_create_by!(name: repo_name)
   end
 
   def find_upload!
@@ -87,7 +87,7 @@ class V2::BlobUploadsController < V2::BaseController
     end
 
     response.headers['Docker-Content-Digest'] = digest
-    response.headers['Location'] = "/v2/#{params[:name]}/blobs/#{digest}"
+    response.headers['Location'] = "/v2/#{repo_name}/blobs/#{digest}"
     head :created
   end
 
@@ -99,7 +99,7 @@ class V2::BlobUploadsController < V2::BaseController
       blob.increment!(:references_count)
 
       response.headers['Docker-Content-Digest'] = params[:mount]
-      response.headers['Location'] = "/v2/#{params[:name]}/blobs/#{params[:mount]}"
+      response.headers['Location'] = "/v2/#{repo_name}/blobs/#{params[:mount]}"
       head :created
     else
       handle_start_upload
@@ -107,7 +107,7 @@ class V2::BlobUploadsController < V2::BaseController
   end
 
   def upload_url(upload)
-    "/v2/#{params[:name]}/blobs/uploads/#{upload.uuid}"
+    "/v2/#{repo_name}/blobs/uploads/#{upload.uuid}"
   end
 
   def blob_store

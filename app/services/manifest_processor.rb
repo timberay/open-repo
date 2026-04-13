@@ -78,7 +78,7 @@ class ManifestProcessor
     manifest.layers.destroy_all
 
     layers_data.each_with_index do |layer_data, index|
-      blob = Blob.create_or_find_by!(digest: layer_data['digest']) do |b|
+      blob = Blob.find_or_create_by!(digest: layer_data['digest']) do |b|
         b.size = layer_data['size']
         b.content_type = layer_data['mediaType']
       end
