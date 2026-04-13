@@ -1,0 +1,10 @@
+{
+  "architecture": "amd64",
+  "os": "linux",
+  "config": {
+    "Env": ["PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
+    "Cmd": ["/bin/sh"],
+    "Entrypoint": null,
+    "Labels": {"maintainer": "test@example.com"}
+  }
+}
