@@ -1,44 +1,52 @@
-<div class="max-w-7xl mx-auto">
-  <div class="mb-6">
-    <%= link_to repository_tag_path(@repository.name, @tag), class: "inline-flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300" do %>
-      <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-      </svg>
-      Back to <%= @repository.name %>:<%= @tag.name %>
-    <% end %>
-  </div>
-
-  <h1 class="text-3xl font-bold text-blue-900 dark:text-white mb-6">History: <%= @tag.name %></h1>
-
-  <% if @events.any? %>
-    <div class="space-y-4">
-      <% @events.each do |event| %>
-        <div class="bg-blue-50 dark:bg-gray-800 rounded-lg border border-blue-200 dark:border-gray-700 p-4">
-          <div class="flex items-center justify-between">
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-              <%= case event.action
-                  when 'create' then 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
-                  when 'update' then 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'
-                  when 'delete' then 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
-                  end %>">
-              <%= event.action %>
-            </span>
-            <span class="text-sm text-blue-600 dark:text-gray-400"><%= event.occurred_at.strftime('%Y-%m-%d %H:%M') %></span>
-          </div>
-          <% if event.previous_digest.present? %>
-            <div class="mt-2 text-sm text-blue-700 dark:text-gray-400">
-              Previous: <code class="font-mono"><%= short_digest(event.previous_digest) %></code>
-            </div>
-          <% end %>
-          <% if event.new_digest.present? %>
-            <div class="text-sm text-blue-700 dark:text-gray-400">
-              New: <code class="font-mono"><%= short_digest(event.new_digest) %></code>
-            </div>
-          <% end %>
-        </div>
-      <% end %>
-    </div>
-  <% else %>
-    <p class="text-blue-600 dark:text-gray-400">No history events for this tag.</p>
+<%# Back navigation %>
+<div class="mb-6">
+  <%= link_to repository_tag_path(@repository.name, @tag), class: "inline-flex items-center gap-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors duration-150" do %>
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/>
+    </svg>
+    Back to <%= @repository.name %>:<%= @tag.name %>
   <% end %>
 </div>
+
+<%# Page title %>
+<div class="mb-6">
+  <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">History: <%= @tag.name %></h1>
+</div>
+
+<% if @events.any? %>
+  <div class="space-y-4">
+    <% @events.each do |event| %>
+      <div class="rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+        <div class="flex items-center justify-between mb-2">
+          <span class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium
+            <%= case event.action
+                when 'create' then 'bg-green-200 text-green-800 dark:bg-green-900/30 dark:text-green-400 ring-1 ring-inset ring-green-600/20 dark:ring-green-400/20'
+                when 'update' then 'bg-amber-200 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 ring-1 ring-inset ring-amber-600/20 dark:ring-amber-400/20'
+                when 'delete' then 'bg-red-200 text-red-800 dark:bg-red-900/30 dark:text-red-400 ring-1 ring-inset ring-red-600/20 dark:ring-red-400/20'
+                end %>">
+            <%= event.action %>
+          </span>
+          <span class="text-sm text-slate-400 dark:text-slate-500"><%= event.occurred_at.strftime('%Y-%m-%d %H:%M') %></span>
+        </div>
+        <% if event.previous_digest.present? %>
+          <div class="text-sm text-slate-600 dark:text-slate-400">
+            Previous: <code class="font-mono text-sm bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded"><%= short_digest(event.previous_digest) %></code>
+          </div>
+        <% end %>
+        <% if event.new_digest.present? %>
+          <div class="text-sm text-slate-600 dark:text-slate-400 mt-1">
+            New: <code class="font-mono text-sm bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded"><%= short_digest(event.new_digest) %></code>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+<% else %>
+  <div class="flex flex-col items-center justify-center py-16 px-4">
+    <svg class="w-12 h-12 text-slate-300 dark:text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+    <h3 class="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-1">No history events</h3>
+    <p class="text-sm text-slate-500 dark:text-slate-400 text-center max-w-sm">No changes have been recorded for this tag yet.</p>
+  </div>
+<% end %>
