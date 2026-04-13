@@ -4,11 +4,15 @@
 # belong in git's global ignore instead:
 # `$XDG_CONFIG_HOME/git/ignore` or `~/.config/git/ignore`
 
-# Ignore bundler config.
+# ============================================================
+# Ruby / Rails
+# ============================================================
 /.bundle
-
-# Ignore all environment files.
-/.env*
+/vendor/bundle
+*.rbc
+.rspec_status
+capybara-*.html
+*.pid
 
 # Ignore all logfiles and tempfiles.
 /log/*
@@ -21,7 +25,7 @@
 !/tmp/pids/
 !/tmp/pids/.keep
 
-# Ignore storage (uploaded files in development and any SQLite databases).
+# Ignore storage (uploaded files, registry blobs, SQLite databases).
 /storage/*
 !/storage/.keep
 /tmp/storage/*
@@ -33,7 +37,7 @@
 # Ignore key files for decrypting credentials and more.
 /config/*.key
 
-
+# Compiled assets
 /app/assets/builds/*
 !/app/assets/builds/.keep
 
@@ -41,12 +45,18 @@
 # SQLite databases
 # ============================================================
 /db/*.sqlite3
-/db/*.sqlite3-journal
+/db/*.sqlite3-*
 /storage/*.sqlite3
-/storage/*.sqlite3-journal
+/storage/*.sqlite3-*
 
 # ============================================================
-# Node.js / Playwright
+# Environment files
+# ============================================================
+/.env*
+!/.env.example
+
+# ============================================================
+# Node.js
 # ============================================================
 /node_modules/
 package-lock.json
@@ -55,10 +65,15 @@ yarn-error.log
 npm-debug.log*
 .npm
 
-# Playwright test artifacts
+# ============================================================
+# Playwright / E2E testing
+# ============================================================
 /playwright-report/
 /test-results/
 /playwright/.cache/
+.playwright-mcp/
+screenshot-*.png
+screenshot-*.jpeg
 
 # ============================================================
 # IDE / Editor files
@@ -69,12 +84,10 @@ npm-debug.log*
 *.swo
 *~
 .DS_Store
+Thumbs.db
 
 # ============================================================
-# Ruby / Rails cache and compiled files
+# CI / Build artifacts
 # ============================================================
-*.rbc
-capybara-*.html
-.rspec_status
-/tmp/cache/
-*.pid
+/coverage/
+.byebug_history
