@@ -1,70 +1,89 @@
-<div class="max-w-7xl mx-auto">
-  <div class="mb-6">
-    <%= link_to repository_path(@repository.name), class: "inline-flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300" do %>
-      <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+<%# Back navigation %>
+<div class="mb-6">
+  <%= link_to repository_path(@repository.name), class: "inline-flex items-center gap-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors duration-150" do %>
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/>
+    </svg>
+    <%= @repository.name %> 으로 돌아가기
+  <% end %>
+</div>
+
+<%# Tag info card %>
+<div class="rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm p-6 mb-6">
+  <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4 break-keep"><%= @repository.name %>:<%= @tag.name %></h1>
+
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div>
+      <dt class="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Digest</dt>
+      <dd class="mt-1 text-base font-mono text-slate-900 dark:text-slate-100 tabular-nums"><%= short_digest(@manifest.digest) %></dd>
+    </div>
+    <div>
+      <dt class="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Size</dt>
+      <dd class="mt-1 text-base text-slate-900 dark:text-slate-100 tabular-nums"><%= human_size(@manifest.size) %></dd>
+    </div>
+    <div>
+      <dt class="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Architecture</dt>
+      <dd class="mt-1 text-base text-slate-900 dark:text-slate-100"><%= @manifest.architecture %>/<%= @manifest.os %></dd>
+    </div>
+    <div>
+      <dt class="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Pulls</dt>
+      <dd class="mt-1 text-base text-slate-900 dark:text-slate-100 tabular-nums"><%= @manifest.pull_count %></dd>
+    </div>
+  </div>
+
+  <%# Docker pull command %>
+  <div class="mt-4 bg-slate-100 dark:bg-slate-900 rounded-md px-4 py-3 flex items-center justify-between gap-3"
+       data-controller="clipboard"
+       data-clipboard-text-value="<%= docker_pull_command(@repository.name, @tag.name) %>">
+    <code class="text-sm font-mono text-slate-800 dark:text-blue-300 break-all"><%= docker_pull_command(@repository.name, @tag.name) %></code>
+    <button data-action="click->clipboard#copy" class="flex-shrink-0 p-2 rounded-md text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors duration-150" aria-label="명령어 복사">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/>
       </svg>
-      Back to <%= @repository.name %>
+    </button>
+  </div>
+</div>
+
+<%# Layers — desktop CSS Grid %>
+<div class="rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden mb-6">
+  <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+    <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Layers (<%= @layers.count %>)</h2>
+  </div>
+
+  <%# Desktop grid %>
+  <div class="hidden md:block">
+    <div class="grid bg-slate-100 dark:bg-slate-800/80" style="grid-template-columns: 60px 1fr 120px">
+      <div class="px-4 py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">#</div>
+      <div class="px-4 py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Digest</div>
+      <div class="px-4 py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">Size</div>
+    </div>
+    <% @layers.each do |layer| %>
+      <div class="grid border-t border-slate-100 dark:border-slate-700/50 hover:bg-slate-50/50 dark:hover:bg-slate-700/50 transition-colors" style="grid-template-columns: 60px 1fr 120px">
+        <div class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 tabular-nums"><%= layer.position %></div>
+        <div class="px-4 py-3 text-sm font-mono text-slate-600 dark:text-slate-400 tabular-nums"><%= short_digest(layer.blob.digest) %></div>
+        <div class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 tabular-nums text-right"><%= human_size(layer.blob.size) %></div>
+      </div>
     <% end %>
   </div>
 
-  <div class="bg-blue-50 dark:bg-gray-800 rounded-lg shadow border border-blue-200 dark:border-gray-700 p-6 mb-8">
-    <h1 class="text-3xl font-bold text-blue-900 dark:text-white mb-2"><%= @repository.name %>:<%= @tag.name %></h1>
-
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-      <div>
-        <dt class="text-xs text-blue-600 dark:text-gray-400 uppercase">Digest</dt>
-        <dd class="text-sm font-mono text-blue-900 dark:text-white"><%= short_digest(@manifest.digest) %></dd>
+  <%# Mobile card stack %>
+  <div class="md:hidden divide-y divide-slate-100 dark:divide-slate-700/50">
+    <% @layers.each do |layer| %>
+      <div class="px-4 py-3">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Layer #<%= layer.position %></span>
+          <span class="text-sm text-slate-600 dark:text-slate-400 tabular-nums"><%= human_size(layer.blob.size) %></span>
+        </div>
+        <p class="text-sm font-mono text-slate-400 dark:text-slate-500 tabular-nums truncate"><%= short_digest(layer.blob.digest) %></p>
       </div>
-      <div>
-        <dt class="text-xs text-blue-600 dark:text-gray-400 uppercase">Size</dt>
-        <dd class="text-sm text-blue-900 dark:text-white"><%= human_size(@manifest.size) %></dd>
-      </div>
-      <div>
-        <dt class="text-xs text-blue-600 dark:text-gray-400 uppercase">Architecture</dt>
-        <dd class="text-sm text-blue-900 dark:text-white"><%= @manifest.architecture %>/<%= @manifest.os %></dd>
-      </div>
-      <div>
-        <dt class="text-xs text-blue-600 dark:text-gray-400 uppercase">Pull Count</dt>
-        <dd class="text-sm text-blue-900 dark:text-white"><%= @manifest.pull_count %></dd>
-      </div>
-    </div>
-
-    <div class="mt-4 bg-blue-100 dark:bg-gray-900 rounded-lg px-4 py-2">
-      <code class="text-sm text-blue-800 dark:text-blue-300"><%= docker_pull_command(@repository.name, @tag.name) %></code>
-    </div>
+    <% end %>
   </div>
-
-  <div class="bg-blue-50 dark:bg-gray-800 rounded-lg shadow border border-blue-200 dark:border-gray-700 overflow-hidden mb-8">
-    <div class="px-6 py-4 border-b border-blue-200 dark:border-gray-700">
-      <h2 class="text-lg font-semibold text-blue-900 dark:text-white">Layers (<%= @layers.count %>)</h2>
-    </div>
-    <div class="overflow-x-auto">
-      <table class="min-w-full divide-y divide-blue-200 dark:divide-gray-700">
-        <thead class="bg-blue-100 dark:bg-gray-900">
-          <tr>
-            <th class="px-6 py-3 text-left text-xs font-medium text-blue-600 dark:text-gray-400 uppercase">#</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-blue-600 dark:text-gray-400 uppercase">Digest</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-blue-600 dark:text-gray-400 uppercase">Size</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-blue-200 dark:divide-gray-700">
-          <% @layers.each do |layer| %>
-            <tr>
-              <td class="px-6 py-3 text-sm text-blue-700 dark:text-gray-400"><%= layer.position %></td>
-              <td class="px-6 py-3 text-sm font-mono text-blue-700 dark:text-gray-400"><%= short_digest(layer.blob.digest) %></td>
-              <td class="px-6 py-3 text-sm text-blue-700 dark:text-gray-400"><%= human_size(layer.blob.size) %></td>
-            </tr>
-          <% end %>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <% if @manifest.docker_config.present? %>
-    <div class="bg-blue-50 dark:bg-gray-800 rounded-lg shadow border border-blue-200 dark:border-gray-700 p-6">
-      <h2 class="text-lg font-semibold text-blue-900 dark:text-white mb-4">Docker Config</h2>
-      <pre class="bg-blue-100 dark:bg-gray-900 rounded-lg p-4 text-sm text-blue-800 dark:text-blue-300 overflow-x-auto"><%= JSON.pretty_generate(JSON.parse(@manifest.docker_config)) rescue @manifest.docker_config %></pre>
-    </div>
-  <% end %>
 </div>
+
+<%# Docker Config %>
+<% if @manifest.docker_config.present? %>
+  <div class="rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm p-6">
+    <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">Docker Config</h2>
+    <pre class="bg-slate-100 dark:bg-slate-900 rounded-md p-4 text-sm font-mono text-slate-800 dark:text-blue-300 overflow-x-auto"><%= JSON.pretty_generate(JSON.parse(@manifest.docker_config)) rescue @manifest.docker_config %></pre>
+  </div>
+<% end %>
