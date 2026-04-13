@@ -3,7 +3,7 @@ Rails.application.routes.draw do
 
   resources :repositories, only: [:index, :show, :update, :destroy], param: :name,
                            constraints: { name: /[^\/]+(?:\/[^\/]+)*/ } do
-    resources :tags, only: [:show, :destroy], param: :name do
+    resources :tags, only: [:show, :destroy], param: :name, constraints: { name: /[a-zA-Z0-9._:-]+/ } do
       member do
         get :export
         get :history
