@@ -24,6 +24,8 @@ Rails.application.routes.draw do
   resources :imports, only: [:show]
   resources :exports, only: [:show]
 
+  get '/help', to: 'help#show'
+
   # Docker Registry V2 API
   ref_constraint = { reference: /[a-zA-Z0-9._:-]+/ }
   digest_constraint = { digest: /[a-zA-Z0-9._:-]+/ }
