@@ -5,24 +5,10 @@ Rails.application.routes.draw do
                            constraints: { name: /[^\/]+(?:\/[^\/]+)*/ } do
     resources :tags, only: [:show, :destroy], param: :name, constraints: { name: /[a-zA-Z0-9._:-]+/ } do
       member do
-        get :export
         get :history
-        get :compare
       end
     end
-
-    member do
-      get :pull_stats
-      get :dependency_graph
-    end
-
-    collection do
-      post :import
-    end
   end
-
-  resources :imports, only: [:show]
-  resources :exports, only: [:show]
 
   get '/help', to: 'help#show'
 

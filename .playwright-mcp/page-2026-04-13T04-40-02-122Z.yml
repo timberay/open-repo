@@ -1,0 +1,62 @@
+- generic [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e4]:
+      - link "RepoVista" [ref=e6] [cursor=pointer]:
+        - /url: /
+      - generic [ref=e7]:
+        - link "Help" [ref=e8] [cursor=pointer]:
+          - /url: /help
+          - img [ref=e9]
+          - text: Help
+        - button "다크 모드 전환" [active] [ref=e11]:
+          - img [ref=e72]
+  - main [ref=e14]:
+    - link "저장소 목록으로 돌아가기" [ref=e16] [cursor=pointer]:
+      - /url: /repositories
+      - img [ref=e17]
+      - text: 저장소 목록으로 돌아가기
+    - generic [ref=e19]:
+      - generic [ref=e20]:
+        - heading "whoami" [level=1] [ref=e21]
+        - generic [ref=e22]:
+          - generic [ref=e23]: 1 tags
+          - generic [ref=e24]: 2.7 MB
+      - group [ref=e26]:
+        - generic "설명 및 담당자 편집" [ref=e27] [cursor=pointer]:
+          - img [ref=e28]
+          - text: 설명 및 담당자 편집
+        - generic [ref=e63]:
+          - generic [ref=e64]:
+            - generic [ref=e65]: 설명
+            - textbox "이 저장소의 용도, 포함된 도구 등을 설명해 주세요..." [ref=e66]
+          - generic [ref=e67]:
+            - generic [ref=e68]: 담당자
+            - textbox "담당자 이름 또는 팀명..." [ref=e69]
+          - button "저장하기" [ref=e71] [cursor=pointer]
+      - generic [ref=e30]:
+        - code [ref=e31]: docker pull localhost:3000/whoami:v1.10
+        - button "명령어 복사" [ref=e32]:
+          - img [ref=e33]
+    - generic [ref=e35]:
+      - generic [ref=e36]:
+        - generic [ref=e37]: Tag
+        - generic [ref=e38]: Digest
+        - generic [ref=e39]: Size
+        - generic [ref=e40]: Arch
+        - generic [ref=e41]: Pulls
+        - generic [ref=e42]: Updated
+        - generic [ref=e43]: Actions
+      - generic [ref=e44]:
+        - link "v1.10" [ref=e46] [cursor=pointer]:
+          - /url: /repositories/whoami/tags/v1.10
+        - generic [ref=e47]: 02d8fe035f17
+        - generic [ref=e48]: 948.0 B
+        - generic [ref=e49]: amd64/linux
+        - generic [ref=e50]: "0"
+        - generic [ref=e51]: 10 minutes ago
+        - button "삭제" [ref=e54]:
+          - img [ref=e55]
+          - text: 삭제
+    - button "저장소 삭제" [ref=e59]:
+      - img [ref=e60]
+      - text: 저장소 삭제

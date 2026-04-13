@@ -1,6 +1,6 @@
 class TagsController < ApplicationController
   before_action :set_repository
-  before_action :set_tag, only: [:show, :destroy, :export, :history, :compare]
+  before_action :set_tag, only: [:show, :destroy, :history]
 
   def show
     @manifest = @tag.manifest
@@ -22,15 +22,6 @@ class TagsController < ApplicationController
 
   def history
     @events = TagEvent.where(repository: @repository, tag_name: @tag.name).order(occurred_at: :desc)
-  end
-
-  def compare
-    @other_tag = @repository.tags.find_by!(name: params[:with])
-    @diff = TagDiffService.new.call(@tag.manifest, @other_tag.manifest)
-  end
-
-  def export
-    redirect_to repository_tag_path(@repository.name, @tag.name), alert: 'Export not yet implemented.'
   end
 
   private
