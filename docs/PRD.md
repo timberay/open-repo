@@ -2,7 +2,7 @@
 
 ## 1. Introduction
 
-**RepoVista** is a lightweight, read-only web interface for Docker Registry (V2 compatible). It allows developers and operators to browse, search, and inspect Docker images stored in a private or public registry without needing command-line tools.
+**Open Repo** is a lightweight, read-only web interface for Docker Registry (V2 compatible). It allows developers and operators to browse, search, and inspect Docker images stored in a private or public registry without needing command-line tools.
 
 ### 1.1 Goals
 - Provide a user-friendly UI for viewing Docker images.

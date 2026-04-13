@@ -1,8 +1,8 @@
-# RepoVista Self-Hosted Registry Implementation Plan
+# Open Repo Self-Hosted Registry Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Convert RepoVista from an external Docker Registry client to a self-contained Docker Registry V2 server with web UI management.
+**Goal:** Convert Open Repo from an external Docker Registry client to a self-contained Docker Registry V2 server with web UI management.
 
 **Architecture:** Single Rails 8 process serving both Registry V2 API (`/v2/...`) and Web UI (`/`). Local filesystem for blob storage, SQLite for metadata. Solid Queue for async jobs (import/export, GC, retention).
 
