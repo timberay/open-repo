@@ -123,4 +123,45 @@ RSpec.describe 'V2 Manifests API', type: :request do
       expect(Tag.count).to eq(0)
     end
   end
+
+  describe 'DELETE /v2/:name/manifests/:reference (tag protection)' do
+    let!(:repo) { Repository.create!(name: 'example') }
+    let!(:manifest) do
+      repo.manifests.create!(
+        digest: 'sha256:abc',
+        media_type: 'application/vnd.docker.distribution.manifest.v2+json',
+        payload: '{}', size: 2
+      )
+    end
+    let!(:tag) { repo.tags.create!(name: 'v1.0.0', manifest: manifest) }
+
+    context 'when any connected tag is protected' do
+      before { repo.update!(tag_protection_policy: 'semver') }
+
+      it 'returns 409 Conflict with DENIED envelope (digest reference)' do
+        delete "/v2/#{repo.name}/manifests/#{manifest.digest}"
+        expect(response).to have_http_status(:conflict)
+        body = JSON.parse(response.body)
+        expect(body['errors'].first).to include('code' => 'DENIED')
+        expect(body['errors'].first['detail']).to include('tag' => 'v1.0.0', 'policy' => 'semver')
+      end
+
+      it 'returns 409 even when called with tag reference (decision 1-B)' do
+        delete "/v2/#{repo.name}/manifests/v1.0.0"
+        expect(response).to have_http_status(:conflict)
+      end
+
+      it 'does NOT destroy the manifest' do
+        delete "/v2/#{repo.name}/manifests/#{manifest.digest}"
+        expect(Manifest.find_by(id: manifest.id)).to be_present
+      end
+    end
+
+    context 'when no connected tag is protected' do
+      it 'returns 202 Accepted and destroys the manifest' do
+        delete "/v2/#{repo.name}/manifests/#{manifest.digest}"
+        expect(response).to have_http_status(:accepted)
+      end
+    end
+  end
 end
