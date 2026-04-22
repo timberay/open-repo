@@ -1962,7 +1962,7 @@ Do not expand scope into any of these during execution. If a test or implementat
 - Tidy First preserved: Task 1 is a pure refactor with its own commit before any behavior-adding commits.
 - Decision 1-A (check at entry, not in `assign_tag!`): enforced in Task 7 by moving the call to before `manifest.find_or_initialize_by` and wrapping in `with_lock`. REGRESSION specs lock this in.
 - Decision OV-2 (retention job P0): Task 10 with three protection scenarios.
-- Critical gap "Regexp::TimeoutError rescue": currently not handled explicitly — `Regexp.new` in `tag_protection_pattern_is_valid_regex` rescues `RegexpError` (the parent class of `Regexp::TimeoutError` in Ruby 3.2+). If the project pins an older Ruby, promote this rescue to include `Regexp::TimeoutError` explicitly. Ruby 3.4.8 (per STANDARDS.md) — `RegexpError` covers it, but add an explicit rescue if validation starts throwing 500s.
+- Critical gap "Regexp::TimeoutError rescue": currently not handled explicitly — `Regexp.new` in `tag_protection_pattern_is_valid_regex` rescues `RegexpError` (the parent class of `Regexp::TimeoutError` in Ruby 3.2+). If the project pins an older Ruby, promote this rescue to include `Regexp::TimeoutError` explicitly. Ruby 3.4.8 (per `docs/standards/STACK.md`) — `RegexpError` covers it, but add an explicit rescue if validation starts throwing 500s.
 
 ---
 
