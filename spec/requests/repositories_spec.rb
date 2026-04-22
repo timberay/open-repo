@@ -70,6 +70,23 @@ RSpec.describe 'Repositories', type: :request do
     end
   end
 
+  describe 'Destructive actions grounding' do
+    it 'wraps Delete Repository in a labeled Danger Zone section' do
+      get repository_path('test-repo')
+      expect(response).to be_successful
+      # Previously the Delete Repository button floated in a flex justify-end div
+      # with no container or warning label. Require a labeled section.
+      expect(response.body).to match(/Danger Zone/)
+      # The button itself must still be present.
+      expect(response.body).to include('Delete Repository')
+      # And the section should carry a top border (grounding).
+      danger_section = response.body.match(/<section[^>]*aria-labelledby="danger-zone"[^>]*>[\s\S]*?<\/section>/m)
+      expect(danger_section).not_to be_nil, 'expected <section aria-labelledby="danger-zone">'
+      expect(danger_section[0]).to include('border-t')
+      expect(danger_section[0]).to include('Delete Repository')
+    end
+  end
+
   describe 'Header touch targets (a11y)' do
     it 'gives the theme toggle and Help link at least 44px tap height' do
       get root_path
