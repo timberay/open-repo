@@ -70,6 +70,18 @@ RSpec.describe 'Repositories', type: :request do
     end
   end
 
+  describe 'Index page heading' do
+    it 'renders a single H1 with the page name for wayfinding' do
+      get root_path
+      expect(response).to be_successful
+      # There were zero <h1> on the index before; only <h3> per card.
+      # A page-level <h1> is table stakes for trunk-test wayfinding.
+      h1_matches = response.body.scan(/<h1\b[^>]*>([\s\S]*?)<\/h1>/m).flatten
+      expect(h1_matches.length).to eq(1), "expected exactly 1 <h1>, got #{h1_matches.length}"
+      expect(h1_matches.first).to match(/Repositories/)
+    end
+  end
+
   describe 'Repository card (index)' do
     let!(:no_maintainer_repo) { Repository.create!(name: 'no-maintainer', maintainer: nil) }
 
