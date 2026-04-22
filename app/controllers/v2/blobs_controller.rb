@@ -6,14 +6,14 @@ class V2::BlobsController < V2::BaseController
 
     raise Registry::BlobUnknown, "blob '#{params[:digest]}' not found" unless blob_store.exists?(params[:digest])
 
-    response.headers['Docker-Content-Digest'] = blob.digest
-    response.headers['Content-Length'] = blob.size.to_s
-    response.headers['Content-Type'] = blob.content_type || 'application/octet-stream'
+    response.headers["Docker-Content-Digest"] = blob.digest
+    response.headers["Content-Length"] = blob.size.to_s
+    response.headers["Content-Type"] = blob.content_type || "application/octet-stream"
 
     if request.head?
       head :ok
     else
-      send_file blob_store.path_for(blob.digest), type: 'application/octet-stream', disposition: 'inline'
+      send_file blob_store.path_for(blob.digest), type: "application/octet-stream", disposition: "inline"
     end
   rescue ActiveRecord::RecordNotFound
     raise Registry::BlobUnknown, "blob '#{params[:digest]}' not found"

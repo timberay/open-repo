@@ -31,11 +31,11 @@ RSpec.describe ImageImportService do
     layer_content = SecureRandom.random_bytes(256)
     layer_digest = Digest::SHA256.hexdigest(layer_content)
 
-    manifest_list = [{
+    manifest_list = [ {
       'Config' => "#{config_digest}.json",
-      'RepoTags' => ['imported-image:v1'],
-      'Layers' => ["#{layer_digest}/layer.tar"]
-    }]
+      'RepoTags' => [ 'imported-image:v1' ],
+      'Layers' => [ "#{layer_digest}/layer.tar" ]
+    } ]
 
     File.open(tar_path, 'wb') do |tar_io|
       Gem::Package::TarWriter.new(tar_io) do |tar|

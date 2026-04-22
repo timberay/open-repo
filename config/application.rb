@@ -40,7 +40,7 @@ module RepoVista
     config.generators.system_tests = nil
 
     # Registry storage configuration
-    config.storage_path = ENV.fetch('STORAGE_PATH', Rails.root.join('storage', 'registry'))
-    config.registry_host = ENV.fetch('REGISTRY_HOST', 'localhost:3000')
+    config.storage_path = ENV.fetch("STORAGE_PATH", Rails.root.join("storage", "registry"))
+    config.registry_host = ENV.fetch("REGISTRY_HOST", "localhost:3000")
   end
 end

@@ -14,7 +14,7 @@ RSpec.describe 'V2 Manifests API', type: :request do
       schemaVersion: 2,
       mediaType: 'application/vnd.docker.distribution.manifest.v2+json',
       config: { mediaType: 'application/vnd.docker.container.image.v1+json', size: config_content.bytesize, digest: config_digest },
-      layers: [{ mediaType: 'application/vnd.docker.image.rootfs.diff.tar.gzip', size: layer_content.bytesize, digest: layer_digest }]
+      layers: [ { mediaType: 'application/vnd.docker.image.rootfs.diff.tar.gzip', size: layer_content.bytesize, digest: layer_digest } ]
     }.to_json
   end
 

@@ -2,7 +2,7 @@ class DependencyAnalyzer
   def call(repository)
     layer_digests = repository.manifests
       .joins(layers: :blob)
-      .pluck('blobs.digest')
+      .pluck("blobs.digest")
       .uniq
 
     return [] if layer_digests.empty?
@@ -11,11 +11,11 @@ class DependencyAnalyzer
       .where.not(id: repository.id)
       .joins(manifests: { layers: :blob })
       .where(blobs: { digest: layer_digests })
-      .group('repositories.id')
-      .select('repositories.*, COUNT(DISTINCT blobs.digest) as shared_count')
+      .group("repositories.id")
+      .select("repositories.*, COUNT(DISTINCT blobs.digest) as shared_count")
 
     other_repos.map do |repo|
-      total_layers = repo.manifests.joins(:layers).distinct.count('layers.blob_id')
+      total_layers = repo.manifests.joins(:layers).distinct.count("layers.blob_id")
       {
         repository: repo.name,
         shared_layers: repo.shared_count.to_i,

@@ -16,9 +16,9 @@ class V2::BlobUploadsController < V2::BaseController
     blob_store.append_upload(upload.uuid, request.body)
     upload.update!(byte_offset: blob_store.upload_size(upload.uuid))
 
-    response.headers['Location'] = upload_url(upload)
-    response.headers['Docker-Upload-UUID'] = upload.uuid
-    response.headers['Range'] = "0-#{upload.byte_offset - 1}"
+    response.headers["Location"] = upload_url(upload)
+    response.headers["Docker-Upload-UUID"] = upload.uuid
+    response.headers["Range"] = "0-#{upload.byte_offset - 1}"
     head :accepted
   end
 
@@ -34,13 +34,13 @@ class V2::BlobUploadsController < V2::BaseController
 
     Blob.create_or_find_by!(digest: digest) do |b|
       b.size = blob_store.size(digest)
-      b.content_type = 'application/octet-stream'
+      b.content_type = "application/octet-stream"
     end
 
     upload.destroy!
 
-    response.headers['Docker-Content-Digest'] = digest
-    response.headers['Location'] = "/v2/#{repo_name}/blobs/#{digest}"
+    response.headers["Docker-Content-Digest"] = digest
+    response.headers["Location"] = "/v2/#{repo_name}/blobs/#{digest}"
     head :created
   end
 
@@ -68,9 +68,9 @@ class V2::BlobUploadsController < V2::BaseController
     blob_store.create_upload(uuid)
     upload = @repository.blob_uploads.create!(uuid: uuid)
 
-    response.headers['Location'] = upload_url(upload)
-    response.headers['Docker-Upload-UUID'] = uuid
-    response.headers['Range'] = '0-0'
+    response.headers["Location"] = upload_url(upload)
+    response.headers["Docker-Upload-UUID"] = uuid
+    response.headers["Range"] = "0-0"
     head :accepted
   end
 
@@ -83,11 +83,11 @@ class V2::BlobUploadsController < V2::BaseController
 
     Blob.create_or_find_by!(digest: digest) do |b|
       b.size = blob_store.size(digest)
-      b.content_type = 'application/octet-stream'
+      b.content_type = "application/octet-stream"
     end
 
-    response.headers['Docker-Content-Digest'] = digest
-    response.headers['Location'] = "/v2/#{repo_name}/blobs/#{digest}"
+    response.headers["Docker-Content-Digest"] = digest
+    response.headers["Location"] = "/v2/#{repo_name}/blobs/#{digest}"
     head :created
   end
 
@@ -98,8 +98,8 @@ class V2::BlobUploadsController < V2::BaseController
       ensure_repository!
       blob.increment!(:references_count)
 
-      response.headers['Docker-Content-Digest'] = params[:mount]
-      response.headers['Location'] = "/v2/#{repo_name}/blobs/#{params[:mount]}"
+      response.headers["Docker-Content-Digest"] = params[:mount]
+      response.headers["Location"] = "/v2/#{repo_name}/blobs/#{params[:mount]}"
       head :created
     else
       handle_start_upload

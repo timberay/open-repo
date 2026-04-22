@@ -31,14 +31,14 @@ class CleanupOrphanedBlobsJob < ApplicationJob
   end
 
   def cleanup_stale_exports
-    Export.where(status: ['completed', 'failed']).where('updated_at < ?', 1.hour.ago).find_each do |export|
+    Export.where(status: [ "completed", "failed" ]).where("updated_at < ?", 1.hour.ago).find_each do |export|
       FileUtils.rm_f(export.output_path) if export.output_path
       export.destroy!
     end
   end
 
   def cleanup_stale_imports
-    Import.where(status: ['completed', 'failed']).where('updated_at < ?', 24.hours.ago).find_each do |imp|
+    Import.where(status: [ "completed", "failed" ]).where("updated_at < ?", 24.hours.ago).find_each do |imp|
       FileUtils.rm_f(imp.tar_path) if imp.tar_path
       imp.destroy!
     end

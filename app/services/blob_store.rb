@@ -9,7 +9,7 @@ class BlobStore
 
   def get(digest)
     path = path_for(digest)
-    File.open(path, 'rb')
+    File.open(path, "rb")
   end
 
   def put(digest, io)
@@ -19,7 +19,7 @@ class BlobStore
     FileUtils.mkdir_p(File.dirname(target))
     tmp = "#{target}.#{SecureRandom.hex(8)}.tmp"
 
-    File.open(tmp, 'wb') do |f|
+    File.open(tmp, "wb") do |f|
       io.rewind if io.respond_to?(:rewind)
       while (chunk = io.read(CHUNK_SIZE))
         f.write(chunk)
@@ -41,9 +41,9 @@ class BlobStore
   end
 
   def path_for(digest)
-    algorithm, hex = digest.split(':')
+    algorithm, hex = digest.split(":")
     shard = hex[0..1]
-    File.join(@root_path, 'blobs', algorithm, shard, hex)
+    File.join(@root_path, "blobs", algorithm, shard, hex)
   end
 
   def size(digest)
@@ -55,12 +55,12 @@ class BlobStore
   def create_upload(uuid)
     dir = upload_dir(uuid)
     FileUtils.mkdir_p(dir)
-    File.write(File.join(dir, 'startedat'), Time.current.iso8601)
+    File.write(File.join(dir, "startedat"), Time.current.iso8601)
   end
 
   def append_upload(uuid, io)
-    data_path = File.join(upload_dir(uuid), 'data')
-    File.open(data_path, 'ab') do |f|
+    data_path = File.join(upload_dir(uuid), "data")
+    File.open(data_path, "ab") do |f|
       io.rewind if io.respond_to?(:rewind)
       while (chunk = io.read(CHUNK_SIZE))
         f.write(chunk)
@@ -72,14 +72,14 @@ class BlobStore
     dir = upload_dir(uuid)
     raise Errno::ENOENT, "upload #{uuid} not found" unless Dir.exist?(dir)
 
-    data_path = File.join(dir, 'data')
+    data_path = File.join(dir, "data")
     File.exist?(data_path) ? File.size(data_path) : 0
   end
 
   def finalize_upload(uuid, digest)
-    data_path = File.join(upload_dir(uuid), 'data')
-    DigestCalculator.verify!(File.open(data_path, 'rb'), digest)
-    put(digest, File.open(data_path, 'rb'))
+    data_path = File.join(upload_dir(uuid), "data")
+    DigestCalculator.verify!(File.open(data_path, "rb"), digest)
+    put(digest, File.open(data_path, "rb"))
     cancel_upload(uuid)
   end
 
@@ -88,12 +88,12 @@ class BlobStore
   end
 
   def cleanup_stale_uploads(max_age: 1.hour)
-    uploads_root = File.join(@root_path, 'uploads')
+    uploads_root = File.join(@root_path, "uploads")
     return unless Dir.exist?(uploads_root)
 
     Dir.each_child(uploads_root) do |uuid|
       dir = File.join(uploads_root, uuid)
-      startedat_path = File.join(dir, 'startedat')
+      startedat_path = File.join(dir, "startedat")
       next unless File.exist?(startedat_path)
 
       started_at = Time.parse(File.read(startedat_path))
@@ -104,6 +104,6 @@ class BlobStore
   private
 
   def upload_dir(uuid)
-    File.join(@root_path, 'uploads', uuid)
+    File.join(@root_path, "uploads", uuid)
   end
 end
