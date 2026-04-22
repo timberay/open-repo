@@ -6,6 +6,8 @@ const protectedTag = 'v1.0.0';
 const floatingTag = 'latest';
 
 test.describe('Tag Protection', () => {
+  test.describe.configure({ mode: 'serial' });
+
   test.beforeAll(() => {
     execSync(`bin/rails runner '
       repo = Repository.find_or_create_by!(name: "${repoName}")
@@ -27,18 +29,21 @@ test.describe('Tag Protection', () => {
   test('policy save reflects 🔒 badge and disabled delete button', async ({ page }) => {
     await page.goto(`/repositories/${repoName}`);
 
-    const protectedRow = page.locator(`a:has-text("${protectedTag}")`).locator('..');
+    // Scope to the desktop CSS grid; the template also renders a mobile card stack
+    // in the DOM, so we must narrow the locator to avoid strict-mode violations.
+    const desktopList = page.locator('.hidden.md\\:block').first();
+    const protectedRow = desktopList.locator(`a:has-text("${protectedTag}")`).locator('..');
     await expect(protectedRow.getByText('🔒 Protected')).toBeVisible();
 
-    const floatingRow = page.locator(`a:has-text("${floatingTag}")`).locator('..');
+    const floatingRow = desktopList.locator(`a:has-text("${floatingTag}")`).locator('..');
     await expect(floatingRow.getByText('🔒 Protected')).toHaveCount(0);
   });
 
   test('protected tag delete button on repo show is disabled with tooltip', async ({ page }) => {
     await page.goto(`/repositories/${repoName}`);
-    const protectedRow = page.locator(`a:has-text("${protectedTag}")`).locator('../..');
-    const disabledDelete = protectedRow.getByText('Delete', { exact: false }).first();
-    await expect(disabledDelete).toHaveAttribute('title', /Change the repository's tag protection policy/);
+    const desktopList = page.locator('.hidden.md\\:block').first();
+    const protectedRow = desktopList.locator('.grid.border-t').filter({ hasText: protectedTag });
+    await expect(protectedRow.getByTitle(/Change the repository's tag protection policy/)).toBeVisible();
   });
 
   test('protected tag detail page shows disabled delete button', async ({ page }) => {
