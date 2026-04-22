@@ -217,6 +217,19 @@ end
 
 UI components follow the project's design tokens and specs. When creating new components, follow patterns from existing components for consistency.
 
+### Layout container policy
+
+The application layout uses **full-bleed** content: `<nav>` and `<main>` share `px-4 md:px-6` horizontal padding and do NOT apply any outer `container`, `max-w-*`, or `mx-auto`. Content expands to the full viewport width minus padding.
+
+This aligns with the rails-ui DESIGN.md rule: "Sub-pages MUST NOT create their own layout wrapper — no `max-w-*`, no `mx-auto`, no `container`".
+
+**Rules:**
+
+- Layout owns horizontal padding only (`px-4 md:px-6`), not width caps.
+- Sub-page ERB templates must not wrap their content in `container`, `max-w-*`, or `mx-auto` at the page level.
+- **Exception — centered single-column pages:** Auth, settings, or form-only pages MAY apply `max-w-2xl mx-auto` (or `max-w-md mx-auto` for auth) to their inner content when a narrower reading width is intentional. Apply at the page level, not in the layout.
+- **Exception — prose-heavy pages:** If a page is primarily long-form prose, apply `max-w-prose` or `max-w-3xl` to the prose block itself. Do not re-cap the entire page.
+
 ### Icons
 
 Icons are sourced from Heroicons v2 via the `rails_heroicon` gem. The default variant is `outline` (`stroke-width="1.5"` per DESIGN.md). Use the `heroicon` helper to render icons:
