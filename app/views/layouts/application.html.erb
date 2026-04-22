@@ -34,7 +34,7 @@
   <body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 min-h-screen font-sans antialiased break-keep">
     <!-- Navigation Bar -->
     <nav class="bg-slate-800 dark:bg-slate-900 border-b border-slate-700">
-      <div class="container mx-auto px-4 md:px-6">
+      <div class="px-4 md:px-6">
         <div class="flex items-center justify-between h-16">
           <!-- Logo -->
           <div class="flex items-center">
@@ -69,7 +69,7 @@
     </nav>
 
     <!-- Main Content -->
-    <main class="container mx-auto px-4 py-4 md:px-6 md:py-6">
+    <main class="px-4 py-4 md:px-6 md:py-6">
       <% if flash[:alert].present? %>
         <div role="alert" class="mb-4 rounded-md border border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-700 px-4 py-3 text-sm text-red-800 dark:text-red-200">
           <%= flash[:alert] %>
