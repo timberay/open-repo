@@ -1,0 +1,9 @@
+<%= tag.div(class: wrapper_classes) do %>
+  <% if header? %>
+    <%= tag.div(header, class: header_classes) %>
+  <% end %>
+  <%= tag.div(content, class: body_classes.presence) %>
+  <% if footer? %>
+    <%= tag.div(footer, class: footer_classes) %>
+  <% end %>
+<% end %>
