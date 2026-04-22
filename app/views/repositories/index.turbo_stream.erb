@@ -1,6 +1,6 @@
 <%= turbo_stream.replace "repositories" do %>
   <% if @repositories.any? %>
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6">
       <% @repositories.each do |repository| %>
         <%= render "repository_card", repository: repository %>
       <% end %>
