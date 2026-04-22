@@ -166,7 +166,7 @@ No per-tag unprotect action. Protection is managed only at repo level.
 
 ## Testing
 
-### Minitest / RSpec (see existing split — RSpec for backend per README)
+### RSpec (backend)
 
 Unit specs on `Repository#tag_protected?`:
 - `none` returns false for any input.
@@ -191,7 +191,7 @@ Request specs on `V2::ManifestsController#update`:
 
 Extend `test/integration/docker_cli_test.sh` with a protection scenario:
 
-1. Create a repo, set policy to `semver` via an Active Record fixture or Rails runner one-liner.
+1. Create a repo and set policy to `semver` via `bin/rails runner`.
 2. `docker push localhost:3000/proto-img:v1.0.0` — succeeds.
 3. Tag a different image and `docker push localhost:3000/proto-img:v1.0.0` again — expect the CLI to print `denied:` and exit non-zero.
 4. `docker push localhost:3000/proto-img:v1.0.0` with the same image — expect success (idempotent).
