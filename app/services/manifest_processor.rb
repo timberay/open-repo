@@ -18,29 +18,40 @@ class ManifestProcessor
     repository = Repository.find_or_create_by!(name: repo_name)
     digest = DigestCalculator.compute(payload)
 
-    manifest = repository.manifests.find_or_initialize_by(digest: digest)
-    config_data = extract_config(config_digest)
+    tag_name = reference if reference.present? && !reference.start_with?('sha256:')
 
-    manifest.assign_attributes(
-      media_type: content_type,
-      payload: payload,
-      size: payload.bytesize,
-      config_digest: config_digest,
-      architecture: config_data[:architecture],
-      os: config_data[:os],
-      docker_config: config_data[:config_json]
-    )
-    manifest.save!
+    # Decision 1-A + OV-1: enforce tag protection at the ENTRY of the service,
+    # inside a row-lock on the repository, BEFORE any manifest.save! or blob
+    # references_count increments. This prevents orphan manifest rows,
+    # leaked blob refs, and concurrent-push races on the same tag.
+    repository.with_lock do
+      if tag_name
+        existing_tag = repository.tags.find_by(name: tag_name)
+        repository.enforce_tag_protection!(tag_name, new_digest: digest, existing_tag: existing_tag)
+      end
 
-    create_layers!(manifest, parsed['layers'])
+      manifest = repository.manifests.find_or_initialize_by(digest: digest)
+      config_data = extract_config(config_digest)
 
-    if reference.present? && !reference.start_with?('sha256:')
-      assign_tag!(repository, reference, manifest)
+      manifest.assign_attributes(
+        media_type: content_type,
+        payload: payload,
+        size: payload.bytesize,
+        config_digest: config_digest,
+        architecture: config_data[:architecture],
+        os: config_data[:os],
+        docker_config: config_data[:config_json]
+      )
+      manifest.save!
+
+      create_layers!(manifest, parsed['layers'])
+
+      assign_tag!(repository, tag_name, manifest) if tag_name
+
+      update_repository_size!(repository)
+
+      manifest
     end
-
-    update_repository_size!(repository)
-
-    manifest
   end
 
   private

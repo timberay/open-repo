@@ -106,4 +106,82 @@ RSpec.describe ManifestProcessor do
       expect(layer1_blob.references_count).to eq(1)
     end
   end
+
+  describe '#call with tag protection' do
+    let!(:repo) do
+      # Create with initial manifest and tag, then turn on protection.
+      r = Repository.create!(name: 'test-repo')
+      processor.call('test-repo', 'v1.0.0', 'application/vnd.docker.distribution.manifest.v2+json', manifest_json)
+      r.update!(tag_protection_policy: 'semver')
+      r.reload
+    end
+
+    context 'same digest re-push (idempotent)' do
+      it 'succeeds' do
+        expect {
+          processor.call('test-repo', 'v1.0.0', 'application/vnd.docker.distribution.manifest.v2+json', manifest_json)
+        }.not_to raise_error
+      end
+    end
+
+    context 'different digest push on protected tag' do
+      let(:different_manifest_json) do
+        new_layer = SecureRandom.random_bytes(512)
+        new_layer_digest = DigestCalculator.compute(new_layer)
+        blob_store.put(new_layer_digest, StringIO.new(new_layer))
+        {
+          schemaVersion: 2,
+          mediaType: 'application/vnd.docker.distribution.manifest.v2+json',
+          config: { mediaType: 'application/vnd.docker.container.image.v1+json', size: config_content.bytesize, digest: config_digest },
+          layers: [
+            { mediaType: 'application/vnd.docker.image.rootfs.diff.tar.gzip', size: new_layer.bytesize, digest: new_layer_digest }
+          ]
+        }.to_json
+      end
+
+      it 'raises Registry::TagProtected' do
+        expect {
+          processor.call('test-repo', 'v1.0.0', 'application/vnd.docker.distribution.manifest.v2+json', different_manifest_json)
+        }.to raise_error(Registry::TagProtected)
+      end
+
+      # REGRESSION guards for decision 1-A (check at entry, not inside assign_tag!)
+      it 'does NOT create a new manifest row' do
+        expect {
+          begin
+            processor.call('test-repo', 'v1.0.0', 'application/vnd.docker.distribution.manifest.v2+json', different_manifest_json)
+          rescue Registry::TagProtected
+          end
+        }.not_to change { Manifest.count }
+      end
+
+      it 'does NOT increment layer blob references_count' do
+        layer_blob = Blob.find_by(digest: layer1_digest)
+        before_refs = layer_blob.references_count
+        begin
+          processor.call('test-repo', 'v1.0.0', 'application/vnd.docker.distribution.manifest.v2+json', different_manifest_json)
+        rescue Registry::TagProtected
+        end
+        expect(layer_blob.reload.references_count).to eq(before_refs)
+      end
+    end
+
+    context 'unprotected tag (latest with semver policy)' do
+      it 'permits push (latest not semver)' do
+        expect {
+          processor.call('test-repo', 'latest', 'application/vnd.docker.distribution.manifest.v2+json', manifest_json)
+        }.not_to raise_error
+      end
+    end
+
+    context 'digest reference (sha256: prefix, not a tag mutation)' do
+      it 'bypasses protection check' do
+        r = Repository.find_by!(name: 'test-repo')
+        r.update!(tag_protection_policy: 'all_except_latest')
+        expect {
+          processor.call('test-repo', 'sha256:dummy-ignored-anyway', 'application/vnd.docker.distribution.manifest.v2+json', manifest_json)
+        }.not_to raise_error
+      end
+    end
+  end
 end
