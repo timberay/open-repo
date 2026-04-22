@@ -42,6 +42,34 @@ RSpec.describe 'Repositories', type: :request do
     end
   end
 
+  describe 'Protected tag badge rendering' do
+    let!(:protected_repo) { Repository.create!(name: 'protected-repo', tag_protection_policy: 'semver') }
+    let!(:protected_manifest) { Manifest.create!(repository: protected_repo, digest: 'sha256:def', media_type: 'application/vnd.docker.distribution.manifest.v2+json', payload: '{}', size: 200) }
+    let!(:protected_tag) { Tag.create!(repository: protected_repo, manifest: protected_manifest, name: 'v1.0.0') }
+
+    it 'renders protected badge with lock-closed heroicon, no emoji, text-sm' do
+      get repository_path('protected-repo')
+      expect(response).to be_successful
+      # Assert emoji is NOT rendered
+      expect(response.body).not_to include("🔒")
+      # Assert lock-closed heroicon is rendered (check for SVG with data-icon attribute or path signature)
+      expect(response.body).to match(/lock-closed|M16\.5 10\.5V6\.75/)
+      # Assert badge has text-sm (base class of BadgeComponent)
+      expect(response.body).to match(/class="[^"]*text-sm[^"]*"/)
+    end
+  end
+
+  describe 'Save button icon' do
+    it 'renders a heroicon inside the Save submit button' do
+      get repository_path('test-repo')
+      expect(response).to be_successful
+      # Parse the Save button and assert it contains an <svg> child
+      # The ButtonComponent with icon adds gap-2 and emits <svg class="w-5 h-5">…</svg> before text
+      # Assert: Save button has SVG before "Save" text
+      expect(response.body).to match(/<button[^>]*type="submit"[^>]*>\s*<svg[^>]*>.*?<\/svg>\s*Save\s*<\/button>/m)
+    end
+  end
+
   describe 'PATCH /repositories/:name with tag protection fields' do
     let!(:protection_repo) { Repository.create!(name: 'example') }
 
@@ -88,6 +116,19 @@ RSpec.describe 'Repositories', type: :request do
         params: { repository: { tag_protection_policy: 'custom_regex', tag_protection_pattern: '[unclosed' } }
       expect(response).to have_http_status(:unprocessable_content)
       expect(response.body).to include('v1.0.0')
+    end
+  end
+
+  describe 'Mobile tag Delete button icon' do
+    it 'renders a trash heroicon in BOTH desktop and mobile Delete buttons' do
+      get repository_path('test-repo')
+      expect(response).to be_successful
+      # Extract all tag-delete forms (action contains /tags/)
+      tag_delete_forms = response.body.scan(/<form[^>]*action="[^"]*\/tags\/[^"]*"[^>]*>.*?<\/form>/m)
+      expect(tag_delete_forms.size).to eq(2), "Expected 2 tag-delete forms (desktop + mobile), got #{tag_delete_forms.size}"
+      # Both forms must contain a trash heroicon SVG
+      forms_with_svg = tag_delete_forms.count { |form| form.include?('<svg') }
+      expect(forms_with_svg).to eq(2), "Expected both forms to have a trash heroicon SVG, but only #{forms_with_svg} did"
     end
   end
 end
