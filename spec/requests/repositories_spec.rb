@@ -70,6 +70,22 @@ RSpec.describe 'Repositories', type: :request do
     end
   end
 
+  describe 'docker pull command wrap behavior' do
+    it 'keeps the command on one line and scrolls horizontally, never breaking mid-URL' do
+      get repository_path('test-repo')
+      expect(response).to be_successful
+      # `break-all` split URLs in the middle ("localhost:300|0/name") on narrow
+      # viewports. Prefer whitespace-nowrap + overflow-x-auto so the URL stays
+      # intact and the container scrolls.
+      pull_code = response.body.match(/<code[^>]*class="([^"]*)"[^>]*>docker pull/m)
+      expect(pull_code).not_to be_nil, 'expected <code> with docker pull'
+      classes = pull_code[1]
+      expect(classes).not_to include('break-all')
+      expect(classes).to include('whitespace-nowrap')
+      expect(classes).to include('overflow-x-auto')
+    end
+  end
+
   describe 'Destructive actions grounding' do
     it 'wraps Delete Repository in a labeled Danger Zone section' do
       get repository_path('test-repo')
