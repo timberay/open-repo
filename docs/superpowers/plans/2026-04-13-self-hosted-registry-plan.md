@@ -1,6 +1,6 @@
 # Open Repo Self-Hosted Registry Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **STATUS: SHIPPED.** All tasks complete and merged to `main`. The Rails 8 app at this repo root is the shipped product. This plan is preserved as a historical reference for what was built, not a work queue — do NOT execute. See `git log` for per-task commits.
 
 **Goal:** Convert Open Repo from an external Docker Registry client to a self-contained Docker Registry V2 server with web UI management.
 
@@ -53,7 +53,7 @@
 - Modify: `config/routes.rb` — remove registry routes
 - Modify: `app/controllers/repositories_controller.rb` — strip registry service dependency (will rewrite in Phase 3)
 
-- [ ] **Step 1: Delete old service files**
+- [x] **Step 1: Delete old service files**
 
 ```bash
 rm -f app/services/docker_registry_service.rb \
@@ -63,7 +63,7 @@ rm -f app/services/docker_registry_service.rb \
       app/services/local_registry_scanner.rb
 ```
 
-- [ ] **Step 2: Delete old model and controller files**
+- [x] **Step 2: Delete old model and controller files**
 
 ```bash
 rm -f app/models/registry.rb \
@@ -73,14 +73,14 @@ rm -rf app/views/registries/
 rm -f app/views/shared/_registry_selector.html.erb
 ```
 
-- [ ] **Step 3: Delete old JS controllers**
+- [x] **Step 3: Delete old JS controllers**
 
 ```bash
 rm -f app/javascript/controllers/registry_selector_controller.js \
       app/javascript/controllers/registry_form_controller.js
 ```
 
-- [ ] **Step 4: Delete old initializers and migration**
+- [x] **Step 4: Delete old initializers and migration**
 
 ```bash
 rm -f config/initializers/docker_registry.rb \
@@ -88,7 +88,7 @@ rm -f config/initializers/docker_registry.rb \
       db/migrate/20260203010727_create_registries.rb
 ```
 
-- [ ] **Step 5: Delete old specs and e2e tests**
+- [x] **Step 5: Delete old specs and e2e tests**
 
 ```bash
 rm -f spec/models/registry_spec.rb \
@@ -105,7 +105,7 @@ rm -f e2e/registry-management.spec.js \
       e2e/registry-dropdown.spec.js
 ```
 
-- [ ] **Step 6: Clean up application_controller.rb**
+- [x] **Step 6: Clean up application_controller.rb**
 
 Replace contents of `app/controllers/application_controller.rb` with:
 
@@ -116,7 +116,7 @@ class ApplicationController < ActionController::Base
 end
 ```
 
-- [ ] **Step 7: Clean up routes.rb**
+- [x] **Step 7: Clean up routes.rb**
 
 Replace contents of `config/routes.rb` with:
 
@@ -128,7 +128,7 @@ Rails.application.routes.draw do
 end
 ```
 
-- [ ] **Step 8: Stub repositories_controller.rb**
+- [x] **Step 8: Stub repositories_controller.rb**
 
 Replace contents of `app/controllers/repositories_controller.rb` with:
 
@@ -140,7 +140,7 @@ class RepositoriesController < ApplicationController
 end
 ```
 
-- [ ] **Step 9: Clean up layout — remove registry selector from nav**
+- [x] **Step 9: Clean up layout — remove registry selector from nav**
 
 In `app/views/layouts/application.html.erb`, find the registry selector partial render and the registry-related nav elements. Remove:
 - The `render 'shared/registry_selector'` line
@@ -148,13 +148,13 @@ In `app/views/layouts/application.html.erb`, find the registry selector partial 
 
 Keep: logo, theme toggle, main content yield.
 
-- [ ] **Step 10: Drop registries table and reset schema**
+- [x] **Step 10: Drop registries table and reset schema**
 
 ```bash
 bin/rails db:drop db:create
 ```
 
-- [ ] **Step 11: Verify app boots without errors**
+- [x] **Step 11: Verify app boots without errors**
 
 ```bash
 bin/rails server &
@@ -165,7 +165,7 @@ kill %1
 
 Expected: HTML response with empty repository list (no errors).
 
-- [ ] **Step 12: Commit**
+- [x] **Step 12: Commit**
 
 ```bash
 git add -A
@@ -185,7 +185,7 @@ specs, and E2E tests. Clean up routes and layout."
 - Create: `app/errors/registry.rb`
 - Create: `spec/errors/registry_spec.rb`
 
-- [ ] **Step 1: Write the error module tests**
+- [x] **Step 1: Write the error module tests**
 
 Create `spec/errors/registry_spec.rb`:
 
@@ -216,7 +216,7 @@ RSpec.describe Registry do
 end
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```bash
 bundle exec rspec spec/errors/registry_spec.rb
@@ -224,7 +224,7 @@ bundle exec rspec spec/errors/registry_spec.rb
 
 Expected: FAIL — `uninitialized constant Registry`
 
-- [ ] **Step 3: Implement error module**
+- [x] **Step 3: Implement error module**
 
 Create `app/errors/registry.rb`:
 
@@ -241,7 +241,7 @@ module Registry
 end
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 ```bash
 bundle exec rspec spec/errors/registry_spec.rb
@@ -249,7 +249,7 @@ bundle exec rspec spec/errors/registry_spec.rb
 
 Expected: 3 examples, 0 failures
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/errors/registry.rb spec/errors/registry_spec.rb
@@ -263,13 +263,13 @@ git commit -m "feat: add Registry error module with V2 API exception hierarchy"
 **Files:**
 - Create: `db/migrate/TIMESTAMP_create_registry_tables.rb`
 
-- [ ] **Step 1: Generate migration**
+- [x] **Step 1: Generate migration**
 
 ```bash
 bin/rails generate migration CreateRegistryTables
 ```
 
-- [ ] **Step 2: Write migration**
+- [x] **Step 2: Write migration**
 
 Edit the generated migration file:
 
@@ -383,7 +383,7 @@ class CreateRegistryTables < ActiveRecord::Migration[8.0]
 end
 ```
 
-- [ ] **Step 3: Run migration**
+- [x] **Step 3: Run migration**
 
 ```bash
 bin/rails db:migrate
@@ -391,7 +391,7 @@ bin/rails db:migrate
 
 Expected: All tables created without errors.
 
-- [ ] **Step 4: Verify schema**
+- [x] **Step 4: Verify schema**
 
 ```bash
 bin/rails db:schema:dump
@@ -400,7 +400,7 @@ cat db/schema.rb | grep create_table
 
 Expected: 10 `create_table` lines (repositories, manifests, tags, blobs, layers, blob_uploads, tag_events, pull_events, imports, exports).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add db/migrate/*_create_registry_tables.rb db/schema.rb
@@ -434,7 +434,7 @@ tag_events, pull_events, imports, exports"
 - Create: `spec/models/tag_event_spec.rb`
 - Create: `spec/models/pull_event_spec.rb`
 
-- [ ] **Step 1: Write Repository model spec**
+- [x] **Step 1: Write Repository model spec**
 
 Create `spec/models/repository_spec.rb`:
 
@@ -473,7 +473,7 @@ RSpec.describe Repository, type: :model do
 end
 ```
 
-- [ ] **Step 2: Write Manifest model spec**
+- [x] **Step 2: Write Manifest model spec**
 
 Create `spec/models/manifest_spec.rb`:
 
@@ -516,7 +516,7 @@ RSpec.describe Manifest, type: :model do
 end
 ```
 
-- [ ] **Step 3: Write Blob model spec**
+- [x] **Step 3: Write Blob model spec**
 
 Create `spec/models/blob_spec.rb`:
 
@@ -548,7 +548,7 @@ RSpec.describe Blob, type: :model do
 end
 ```
 
-- [ ] **Step 4: Write remaining model specs**
+- [x] **Step 4: Write remaining model specs**
 
 Create `spec/models/tag_spec.rb`:
 
@@ -668,7 +668,7 @@ RSpec.describe PullEvent, type: :model do
 end
 ```
 
-- [ ] **Step 5: Run all model specs to verify they fail**
+- [x] **Step 5: Run all model specs to verify they fail**
 
 ```bash
 bundle exec rspec spec/models/
@@ -676,7 +676,7 @@ bundle exec rspec spec/models/
 
 Expected: All FAIL — models not yet defined.
 
-- [ ] **Step 6: Implement all models**
+- [x] **Step 6: Implement all models**
 
 Create `app/models/repository.rb`:
 
@@ -794,7 +794,7 @@ class Export < ApplicationRecord
 end
 ```
 
-- [ ] **Step 7: Run all model specs**
+- [x] **Step 7: Run all model specs**
 
 ```bash
 bundle exec rspec spec/models/
@@ -802,7 +802,7 @@ bundle exec rspec spec/models/
 
 Expected: All pass.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add app/models/ spec/models/
@@ -820,7 +820,7 @@ PullEvent, Import, Export with validations and associations"
 - Create: `app/services/digest_calculator.rb`
 - Create: `spec/services/digest_calculator_spec.rb`
 
-- [ ] **Step 1: Write spec**
+- [x] **Step 1: Write spec**
 
 Create `spec/services/digest_calculator_spec.rb`:
 
@@ -873,7 +873,7 @@ RSpec.describe DigestCalculator do
 end
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```bash
 bundle exec rspec spec/services/digest_calculator_spec.rb
@@ -881,7 +881,7 @@ bundle exec rspec spec/services/digest_calculator_spec.rb
 
 Expected: FAIL — `uninitialized constant DigestCalculator`
 
-- [ ] **Step 3: Implement DigestCalculator**
+- [x] **Step 3: Implement DigestCalculator**
 
 Create `app/services/digest_calculator.rb`:
 
@@ -915,7 +915,7 @@ class DigestCalculator
 end
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 ```bash
 bundle exec rspec spec/services/digest_calculator_spec.rb
@@ -923,7 +923,7 @@ bundle exec rspec spec/services/digest_calculator_spec.rb
 
 Expected: 5 examples, 0 failures
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/services/digest_calculator.rb spec/services/digest_calculator_spec.rb
@@ -938,7 +938,7 @@ git commit -m "feat: add DigestCalculator service for SHA256 computation and ver
 - Create: `app/services/blob_store.rb`
 - Create: `spec/services/blob_store_spec.rb`
 
-- [ ] **Step 1: Write spec**
+- [x] **Step 1: Write spec**
 
 Create `spec/services/blob_store_spec.rb`:
 
@@ -1072,7 +1072,7 @@ RSpec.describe BlobStore do
 end
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```bash
 bundle exec rspec spec/services/blob_store_spec.rb
@@ -1080,7 +1080,7 @@ bundle exec rspec spec/services/blob_store_spec.rb
 
 Expected: FAIL — `uninitialized constant BlobStore`
 
-- [ ] **Step 3: Implement BlobStore**
+- [x] **Step 3: Implement BlobStore**
 
 Create `app/services/blob_store.rb`:
 
@@ -1193,7 +1193,7 @@ class BlobStore
 end
 ```
 
-- [ ] **Step 4: Add storage_path config**
+- [x] **Step 4: Add storage_path config**
 
 Add to `config/application.rb` inside the `Application` class:
 
@@ -1202,7 +1202,7 @@ config.storage_path = ENV.fetch('STORAGE_PATH', Rails.root.join('storage', 'regi
 config.registry_host = ENV.fetch('REGISTRY_HOST', 'localhost:3000')
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 ```bash
 bundle exec rspec spec/services/blob_store_spec.rb
@@ -1210,7 +1210,7 @@ bundle exec rspec spec/services/blob_store_spec.rb
 
 Expected: All pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app/services/blob_store.rb spec/services/blob_store_spec.rb config/application.rb
@@ -1227,7 +1227,7 @@ git commit -m "feat: add BlobStore service with content-addressable storage and 
 - Create: `spec/fixtures/manifests/v2_schema2.json`
 - Create: `spec/fixtures/configs/image_config.json`
 
-- [ ] **Step 1: Create test fixture files**
+- [x] **Step 1: Create test fixture files**
 
 Create `spec/fixtures/manifests/v2_schema2.json`:
 
@@ -1270,7 +1270,7 @@ Create `spec/fixtures/configs/image_config.json`:
 }
 ```
 
-- [ ] **Step 2: Write spec**
+- [x] **Step 2: Write spec**
 
 Create `spec/services/manifest_processor_spec.rb`:
 
@@ -1386,7 +1386,7 @@ RSpec.describe ManifestProcessor do
 end
 ```
 
-- [ ] **Step 3: Run test to verify it fails**
+- [x] **Step 3: Run test to verify it fails**
 
 ```bash
 bundle exec rspec spec/services/manifest_processor_spec.rb
@@ -1394,7 +1394,7 @@ bundle exec rspec spec/services/manifest_processor_spec.rb
 
 Expected: FAIL — `uninitialized constant ManifestProcessor`
 
-- [ ] **Step 4: Implement ManifestProcessor**
+- [x] **Step 4: Implement ManifestProcessor**
 
 Create `app/services/manifest_processor.rb`:
 
@@ -1526,7 +1526,7 @@ class ManifestProcessor
 end
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 ```bash
 bundle exec rspec spec/services/manifest_processor_spec.rb
@@ -1534,7 +1534,7 @@ bundle exec rspec spec/services/manifest_processor_spec.rb
 
 Expected: All pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app/services/manifest_processor.rb spec/services/manifest_processor_spec.rb spec/fixtures/
@@ -1555,7 +1555,7 @@ git commit -m "feat: add ManifestProcessor service for manifest validation, stor
 - Create: `app/controllers/v2/base_controller.rb`
 - Create: `spec/requests/v2/base_spec.rb`
 
-- [ ] **Step 1: Write spec**
+- [x] **Step 1: Write spec**
 
 Create `spec/requests/v2/base_spec.rb`:
 
@@ -1578,7 +1578,7 @@ RSpec.describe 'V2 Base API', type: :request do
 end
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```bash
 bundle exec rspec spec/requests/v2/base_spec.rb
@@ -1586,7 +1586,7 @@ bundle exec rspec spec/requests/v2/base_spec.rb
 
 Expected: FAIL — route not defined.
 
-- [ ] **Step 3: Add V2 routes to config/routes.rb**
+- [x] **Step 3: Add V2 routes to config/routes.rb**
 
 Replace `config/routes.rb`:
 
@@ -1619,7 +1619,7 @@ Rails.application.routes.draw do
 end
 ```
 
-- [ ] **Step 4: Implement V2::BaseController**
+- [x] **Step 4: Implement V2::BaseController**
 
 Create `app/controllers/v2/base_controller.rb`:
 
@@ -1657,7 +1657,7 @@ class V2::BaseController < ActionController::API
 end
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 ```bash
 bundle exec rspec spec/requests/v2/base_spec.rb
@@ -1665,7 +1665,7 @@ bundle exec rspec spec/requests/v2/base_spec.rb
 
 Expected: 2 examples, 0 failures
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app/controllers/v2/ config/routes.rb spec/requests/v2/
@@ -1680,7 +1680,7 @@ git commit -m "feat: add V2 base controller with error handling and GET /v2/ end
 - Create: `app/controllers/v2/blob_uploads_controller.rb`
 - Create: `spec/requests/v2/blob_uploads_spec.rb`
 
-- [ ] **Step 1: Write spec**
+- [x] **Step 1: Write spec**
 
 Create `spec/requests/v2/blob_uploads_spec.rb`:
 
@@ -1805,7 +1805,7 @@ RSpec.describe 'V2 Blob Uploads API', type: :request do
 end
 ```
 
-- [ ] **Step 2: Implement BlobUploadsController**
+- [x] **Step 2: Implement BlobUploadsController**
 
 Create `app/controllers/v2/blob_uploads_controller.rb`:
 
@@ -1928,7 +1928,7 @@ class V2::BlobUploadsController < V2::BaseController
 end
 ```
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 ```bash
 bundle exec rspec spec/requests/v2/blob_uploads_spec.rb
@@ -1936,7 +1936,7 @@ bundle exec rspec spec/requests/v2/blob_uploads_spec.rb
 
 Expected: All pass.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add app/controllers/v2/blob_uploads_controller.rb spec/requests/v2/blob_uploads_spec.rb
@@ -1951,7 +1951,7 @@ git commit -m "feat: add V2 blob uploads controller with chunked, monolithic, an
 - Create: `app/controllers/v2/manifests_controller.rb`
 - Create: `spec/requests/v2/manifests_spec.rb`
 
-- [ ] **Step 1: Write spec**
+- [x] **Step 1: Write spec**
 
 Create `spec/requests/v2/manifests_spec.rb`:
 
@@ -2084,7 +2084,7 @@ RSpec.describe 'V2 Manifests API', type: :request do
 end
 ```
 
-- [ ] **Step 2: Implement ManifestsController**
+- [x] **Step 2: Implement ManifestsController**
 
 Create `app/controllers/v2/manifests_controller.rb`:
 
@@ -2184,7 +2184,7 @@ class V2::ManifestsController < V2::BaseController
 end
 ```
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 ```bash
 bundle exec rspec spec/requests/v2/manifests_spec.rb
@@ -2192,7 +2192,7 @@ bundle exec rspec spec/requests/v2/manifests_spec.rb
 
 Expected: All pass.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add app/controllers/v2/manifests_controller.rb spec/requests/v2/manifests_spec.rb
@@ -2207,7 +2207,7 @@ git commit -m "feat: add V2 manifests controller with HEAD/GET/PUT/DELETE, pull 
 - Create: `app/controllers/v2/blobs_controller.rb`
 - Create: `spec/requests/v2/blobs_spec.rb`
 
-- [ ] **Step 1: Write spec**
+- [x] **Step 1: Write spec**
 
 Create `spec/requests/v2/blobs_spec.rb`:
 
@@ -2258,7 +2258,7 @@ RSpec.describe 'V2 Blobs API', type: :request do
 end
 ```
 
-- [ ] **Step 2: Implement BlobsController**
+- [x] **Step 2: Implement BlobsController**
 
 Create `app/controllers/v2/blobs_controller.rb`:
 
@@ -2296,7 +2296,7 @@ class V2::BlobsController < V2::BaseController
 end
 ```
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 ```bash
 bundle exec rspec spec/requests/v2/blobs_spec.rb
@@ -2304,7 +2304,7 @@ bundle exec rspec spec/requests/v2/blobs_spec.rb
 
 Expected: All pass.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add app/controllers/v2/blobs_controller.rb spec/requests/v2/blobs_spec.rb
@@ -2321,7 +2321,7 @@ git commit -m "feat: add V2 blobs controller with HEAD/GET/DELETE and send_file 
 - Create: `spec/requests/v2/catalog_spec.rb`
 - Create: `spec/requests/v2/tags_spec.rb`
 
-- [ ] **Step 1: Write catalog spec**
+- [x] **Step 1: Write catalog spec**
 
 Create `spec/requests/v2/catalog_spec.rb`:
 
@@ -2356,7 +2356,7 @@ RSpec.describe 'V2 Catalog API', type: :request do
 end
 ```
 
-- [ ] **Step 2: Write tags spec**
+- [x] **Step 2: Write tags spec**
 
 Create `spec/requests/v2/tags_spec.rb`:
 
@@ -2394,7 +2394,7 @@ RSpec.describe 'V2 Tags API', type: :request do
 end
 ```
 
-- [ ] **Step 3: Implement controllers**
+- [x] **Step 3: Implement controllers**
 
 Create `app/controllers/v2/catalog_controller.rb`:
 
@@ -2437,7 +2437,7 @@ class V2::TagsController < V2::BaseController
 end
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 ```bash
 bundle exec rspec spec/requests/v2/catalog_spec.rb spec/requests/v2/tags_spec.rb
@@ -2445,7 +2445,7 @@ bundle exec rspec spec/requests/v2/catalog_spec.rb spec/requests/v2/tags_spec.rb
 
 Expected: All pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/controllers/v2/catalog_controller.rb app/controllers/v2/tags_controller.rb \
@@ -2460,7 +2460,7 @@ git commit -m "feat: add V2 catalog and tags controllers with Link header pagina
 **Files:**
 - Create: `test/integration/docker_cli_test.sh`
 
-- [ ] **Step 1: Create integration test script**
+- [x] **Step 1: Create integration test script**
 
 Create `test/integration/docker_cli_test.sh`:
 
@@ -2521,13 +2521,13 @@ echo ""
 echo "=== All Docker CLI integration tests PASSED ==="
 ```
 
-- [ ] **Step 2: Make executable**
+- [x] **Step 2: Make executable**
 
 ```bash
 chmod +x test/integration/docker_cli_test.sh
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add test/integration/docker_cli_test.sh
@@ -2555,7 +2555,7 @@ git commit -m "feat: add Docker CLI integration test script for push/pull/mount/
 - Modify: `config/routes.rb` — add web UI routes
 - Create: `spec/requests/repositories_spec.rb`
 
-- [ ] **Step 1: Update routes for web UI**
+- [x] **Step 1: Update routes for web UI**
 
 Add web UI routes to `config/routes.rb` (before the V2 scope):
 
@@ -2586,7 +2586,7 @@ resources :imports, only: [:show]
 resources :exports, only: [:show]
 ```
 
-- [ ] **Step 2: Implement RepositoriesController**
+- [x] **Step 2: Implement RepositoriesController**
 
 Replace `app/controllers/repositories_controller.rb`:
 
@@ -2641,7 +2641,7 @@ class RepositoriesController < ApplicationController
 end
 ```
 
-- [ ] **Step 3: Implement TagsController**
+- [x] **Step 3: Implement TagsController**
 
 Create `app/controllers/tags_controller.rb`:
 
@@ -2694,7 +2694,7 @@ class TagsController < ApplicationController
 end
 ```
 
-- [ ] **Step 4: Implement repositories_helper**
+- [x] **Step 4: Implement repositories_helper**
 
 Replace `app/helpers/repositories_helper.rb`:
 
@@ -2721,13 +2721,13 @@ module RepositoriesHelper
 end
 ```
 
-- [ ] **Step 5: Create view templates**
+- [x] **Step 5: Create view templates**
 
 Create `app/views/repositories/index.html.erb`, `app/views/repositories/show.html.erb`, `app/views/repositories/_repository_card.html.erb`, `app/views/tags/show.html.erb`, `app/views/tags/history.html.erb` — these follow existing TailwindCSS patterns from the current codebase. Implementation details for ERB templates should follow the existing blue pastel theme and dark mode patterns.
 
 (Note for implementer: Reference existing `app/views/repositories/index.html.erb` and `app/views/repositories/show.html.erb` for layout patterns. Adapt them to use the new ActiveRecord-backed Repository and Tag models instead of the old in-memory models. Add description/maintainer display and edit fields. Add pull count column to tag tables.)
 
-- [ ] **Step 6: Write request spec**
+- [x] **Step 6: Write request spec**
 
 Create `spec/requests/repositories_spec.rb`:
 
@@ -2778,7 +2778,7 @@ RSpec.describe 'Repositories', type: :request do
 end
 ```
 
-- [ ] **Step 7: Run tests**
+- [x] **Step 7: Run tests**
 
 ```bash
 bundle exec rspec spec/requests/repositories_spec.rb
@@ -2786,7 +2786,7 @@ bundle exec rspec spec/requests/repositories_spec.rb
 
 Expected: All pass.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add app/controllers/ app/views/ app/helpers/ config/routes.rb spec/requests/repositories_spec.rb
@@ -2803,7 +2803,7 @@ git commit -m "feat: add web UI for repository listing, detail, editing, deletio
 - Create: `spec/services/tag_diff_service_spec.rb`
 - Create: `spec/services/dependency_analyzer_spec.rb`
 
-- [ ] **Step 1: Write TagDiffService spec**
+- [x] **Step 1: Write TagDiffService spec**
 
 Create `spec/services/tag_diff_service_spec.rb`:
 
@@ -2854,7 +2854,7 @@ RSpec.describe TagDiffService do
 end
 ```
 
-- [ ] **Step 2: Implement TagDiffService**
+- [x] **Step 2: Implement TagDiffService**
 
 Create `app/services/tag_diff_service.rb`:
 
@@ -2903,7 +2903,7 @@ class TagDiffService
 end
 ```
 
-- [ ] **Step 3: Write DependencyAnalyzer spec**
+- [x] **Step 3: Write DependencyAnalyzer spec**
 
 Create `spec/services/dependency_analyzer_spec.rb`:
 
@@ -2937,7 +2937,7 @@ RSpec.describe DependencyAnalyzer do
 end
 ```
 
-- [ ] **Step 4: Implement DependencyAnalyzer**
+- [x] **Step 4: Implement DependencyAnalyzer**
 
 Create `app/services/dependency_analyzer.rb`:
 
@@ -2971,7 +2971,7 @@ class DependencyAnalyzer
 end
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 ```bash
 bundle exec rspec spec/services/tag_diff_service_spec.rb spec/services/dependency_analyzer_spec.rb
@@ -2979,7 +2979,7 @@ bundle exec rspec spec/services/tag_diff_service_spec.rb spec/services/dependenc
 
 Expected: All pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app/services/tag_diff_service.rb app/services/dependency_analyzer.rb \
@@ -3000,7 +3000,7 @@ git commit -m "feat: add TagDiffService for layer/config comparison and Dependen
 - Create: `spec/services/image_export_service_spec.rb`
 - Create: `spec/jobs/process_tar_import_job_spec.rb`
 
-- [ ] **Step 1: Write ImageImportService spec**
+- [x] **Step 1: Write ImageImportService spec**
 
 Create `spec/services/image_import_service_spec.rb`:
 
@@ -3060,7 +3060,7 @@ RSpec.describe ImageImportService do
 end
 ```
 
-- [ ] **Step 2: Implement ImageImportService**
+- [x] **Step 2: Implement ImageImportService**
 
 Create `app/services/image_import_service.rb`:
 
@@ -3145,7 +3145,7 @@ class ImageImportService
 end
 ```
 
-- [ ] **Step 3: Implement Jobs**
+- [x] **Step 3: Implement Jobs**
 
 Create `app/jobs/process_tar_import_job.rb`:
 
@@ -3230,7 +3230,7 @@ class PrepareExportJob < ApplicationJob
 end
 ```
 
-- [ ] **Step 4: Implement ImageExportService**
+- [x] **Step 4: Implement ImageExportService**
 
 Create `app/services/image_export_service.rb`:
 
@@ -3280,7 +3280,7 @@ class ImageExportService
 end
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 ```bash
 bundle exec rspec spec/services/image_import_service_spec.rb
@@ -3288,7 +3288,7 @@ bundle exec rspec spec/services/image_import_service_spec.rb
 
 Expected: All pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app/services/image_import_service.rb app/services/image_export_service.rb \
@@ -3315,7 +3315,7 @@ git commit -m "feat: add async tar import/export with Solid Queue jobs and Turbo
 - Create: `spec/jobs/cleanup_orphaned_blobs_job_spec.rb`
 - Create: `spec/jobs/enforce_retention_policy_job_spec.rb`
 
-- [ ] **Step 1: Write CleanupOrphanedBlobsJob spec**
+- [x] **Step 1: Write CleanupOrphanedBlobsJob spec**
 
 Create `spec/jobs/cleanup_orphaned_blobs_job_spec.rb`:
 
@@ -3357,7 +3357,7 @@ RSpec.describe CleanupOrphanedBlobsJob do
 end
 ```
 
-- [ ] **Step 2: Implement GC Job**
+- [x] **Step 2: Implement GC Job**
 
 Create `app/jobs/cleanup_orphaned_blobs_job.rb`:
 
@@ -3417,7 +3417,7 @@ class CleanupOrphanedBlobsJob < ApplicationJob
 end
 ```
 
-- [ ] **Step 3: Implement Retention Policy Job**
+- [x] **Step 3: Implement Retention Policy Job**
 
 Create `app/jobs/enforce_retention_policy_job.rb`:
 
@@ -3464,7 +3464,7 @@ class EnforceRetentionPolicyJob < ApplicationJob
 end
 ```
 
-- [ ] **Step 4: Implement Event Pruning Job**
+- [x] **Step 4: Implement Event Pruning Job**
 
 Create `app/jobs/prune_old_events_job.rb`:
 
@@ -3478,7 +3478,7 @@ class PruneOldEventsJob < ApplicationJob
 end
 ```
 
-- [ ] **Step 5: Create recurring schedule**
+- [x] **Step 5: Create recurring schedule**
 
 Create `config/recurring.yml`:
 
@@ -3496,7 +3496,7 @@ prune_old_events:
   schedule: every day at 4am
 ```
 
-- [ ] **Step 6: Run tests**
+- [x] **Step 6: Run tests**
 
 ```bash
 bundle exec rspec spec/jobs/cleanup_orphaned_blobs_job_spec.rb
@@ -3504,7 +3504,7 @@ bundle exec rspec spec/jobs/cleanup_orphaned_blobs_job_spec.rb
 
 Expected: All pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add app/jobs/ config/recurring.yml spec/jobs/
@@ -3521,7 +3521,7 @@ git commit -m "feat: add background jobs for GC, retention policy, and event pru
 - Modify: `config/routes.rb` — add help route
 - Modify: `config/puma.rb` — production tuning
 
-- [ ] **Step 1: Add help route**
+- [x] **Step 1: Add help route**
 
 Add to `config/routes.rb`:
 
@@ -3529,7 +3529,7 @@ Add to `config/routes.rb`:
 get '/help', to: 'help#show'
 ```
 
-- [ ] **Step 2: Create HelpController**
+- [x] **Step 2: Create HelpController**
 
 Create `app/controllers/help_controller.rb`:
 
@@ -3541,7 +3541,7 @@ class HelpController < ApplicationController
 end
 ```
 
-- [ ] **Step 3: Create help page view**
+- [x] **Step 3: Create help page view**
 
 Create `app/views/help/show.html.erb` with setup instructions for:
 - Docker daemon `insecure-registries` configuration (with `@registry_host` auto-filled)
@@ -3552,7 +3552,7 @@ Create `app/views/help/show.html.erb` with setup instructions for:
 
 (Note for implementer: Follow existing TailwindCSS patterns. Use code blocks with copy buttons via clipboard_controller.js. Support dark mode.)
 
-- [ ] **Step 4: Update puma.rb for production**
+- [x] **Step 4: Update puma.rb for production**
 
 Modify `config/puma.rb` to read from environment:
 
@@ -3571,7 +3571,7 @@ pidfile ENV.fetch("PIDFILE", "tmp/pids/server.pid")
 plugin :solid_queue if ENV.fetch("RAILS_ENV", "development") == "production"
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/controllers/help_controller.rb app/views/help/ config/routes.rb config/puma.rb
@@ -3582,7 +3582,7 @@ git commit -m "feat: add help page with Docker/K8s client setup guide and produc
 
 ### Task 19: Full Test Suite Verification
 
-- [ ] **Step 1: Run all RSpec tests**
+- [x] **Step 1: Run all RSpec tests**
 
 ```bash
 bundle exec rspec
@@ -3590,7 +3590,7 @@ bundle exec rspec
 
 Expected: All pass.
 
-- [ ] **Step 2: Run E2E tests (if dev server is available)**
+- [x] **Step 2: Run E2E tests (if dev server is available)**
 
 ```bash
 bin/dev &
@@ -3599,7 +3599,7 @@ npx playwright test e2e/repository-list.spec.js e2e/tag-details.spec.js e2e/sear
 kill %1
 ```
 
-- [ ] **Step 3: Final commit**
+- [x] **Step 3: Final commit**
 
 ```bash
 git add -A
