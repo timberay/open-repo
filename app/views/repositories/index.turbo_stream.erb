@@ -1,29 +1,25 @@
 <%= turbo_stream.replace "repositories" do %>
   <% if @repositories.any? %>
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
       <% @repositories.each do |repository| %>
         <%= render "repository_card", repository: repository %>
       <% end %>
     </div>
-
-    <% if @next_page %>
-      <div class="text-center">
-        <%= link_to "Load More", 
-          repositories_path(query: @query, sort_by: @sort_by, page: @next_page),
-          class: "inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700" %>
-      </div>
-    <% end %>
   <% else %>
-    <div class="text-center py-12">
-      <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
-      </svg>
-      <h3 class="mt-2 text-lg font-medium text-gray-900 dark:text-white">No repositories found</h3>
-      <p class="mt-1 text-gray-500 dark:text-gray-400">
-        <% if @query.present? %>
-          Try adjusting your search query
+    <div class="flex flex-col items-center justify-center py-16 px-4">
+      <%= heroicon "archive-box", class: "w-12 h-12 text-slate-300 dark:text-slate-600 mb-4" %>
+      <h3 class="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-1">
+        <% if params[:q].present? %>
+          No results found
         <% else %>
-          No repositories available in the registry
+          No repositories yet
+        <% end %>
+      </h3>
+      <p class="text-sm text-slate-500 dark:text-slate-400 text-center max-w-sm break-keep">
+        <% if params[:q].present? %>
+          Try adjusting your search query.
+        <% else %>
+          Push an image to get started.
         <% end %>
       </p>
     </div>
