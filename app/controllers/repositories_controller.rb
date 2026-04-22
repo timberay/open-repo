@@ -43,6 +43,6 @@ class RepositoriesController < ApplicationController
   private
 
   def repository_params
-    params.require(:repository).permit(:description, :maintainer)
+    params.expect(repository: [:description, :maintainer])
   end
 end
