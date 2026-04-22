@@ -73,32 +73,3 @@ ship together.
 
 **Source:** `/plan-eng-review` on `docs/superpowers/specs/2026-04-22-tag-immutability-design.md`.
 
----
-
-## [P3] Migration rollback safety note for tag_protection columns
-
-**What:** Add an inline comment to the `AddTagProtectionToRepositories`
-migration warning that `db:rollback` drops `tag_protection_policy` and
-`tag_protection_pattern`, which permanently discards every repo's configured
-protection policy. Consider a `down` method that raises
-`ActiveRecord::IrreversibleMigration` once the feature has shipped and any
-repo has a non-default policy.
-
-**Why:** SQLite `add_column` rollbacks do a full table rewrite and data loss
-is silent. Operators running `rails db:rollback` on a hotfix can lose every
-protection setting without a prompt.
-
-**Pros:** Cheap insurance. One comment + optionally an `IrreversibleMigration`
-guard.
-
-**Cons:** Slightly non-idiomatic Rails migration style (most `down` methods
-just reverse the `up`). Adds friction during legitimate rollback testing.
-
-**Context:** Raised in 2026-04-22 eng review outside-voice step (subagent
-finding #7). Minor concern — production SQLite row counts are expected to be
-small (internal registry), so table rewrite performance is not the issue.
-The real issue is silent data loss.
-
-**Depends on / blocked by:** Tag protection migration has shipped.
-
-**Source:** `/plan-eng-review` on `docs/superpowers/specs/2026-04-22-tag-immutability-design.md`.
