@@ -44,6 +44,10 @@ class V2::ManifestsController < V2::BaseController
     repository = find_repository!
     manifest = find_manifest!(repository, params[:reference])
 
+    # Decision 1-B: whether reference is a digest or a tag name, if ANY tag
+    # connected to this manifest is protected, block the delete.
+    manifest.tags.each { |tag| repository.enforce_tag_protection!(tag.name) }
+
     manifest.tags.each do |tag|
       TagEvent.create!(
         repository: repository,
