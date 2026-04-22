@@ -217,3 +217,58 @@ New spec `e2e/tag-protection.spec.js`:
 ## Open Questions
 
 None. All decisions resolved during brainstorming.
+
+## GSTACK REVIEW REPORT
+
+| Review | Trigger | Why | Runs | Status | Findings |
+|--------|---------|-----|------|--------|----------|
+| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
+| Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | — |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | ISSUES_OPEN (PLAN) | 16 issues, 2 critical gaps |
+| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | — |
+| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
+| Outside Voice | via /plan-eng-review | Cross-model plan challenge | 1 | ISSUES_FOUND (claude subagent) | 9 findings, 5 decisions made |
+
+**UNRESOLVED:** 3 decisions (policy-change preview UI → TODO; Regexp::TimeoutError rescue → inline recommendation; `with_lock` concurrency test scenario → plan stage).
+
+**VERDICT:** ENG REVIEW COMPLETE with issues_open. Spec requires revision before implementation. 13 decisions locked; 3 TODOs captured; 9 inline recommendations. Proceed to `/superpowers:writing-plans` only after spec is updated with the decisions below.
+
+### Review Decisions (to apply to this spec before writing-plans)
+
+**Architecture:**
+- **1-A:** Move tag protection enforcement to the very start of `ManifestProcessor#call` (before `manifest.save!` and layer creation) to prevent orphan manifest/blob-ref leakage.
+- **1-B:** `DELETE /v2/:name/manifests/:reference` applies the same policy whether `reference` is a tag or a digest — any connected protected tag blocks the delete.
+- **1-C:** Rename `TagImmutabilityError` → `Registry::TagProtected < Registry::Error` for namespace consistency and feature-name alignment.
+- **1-D:** Add a delete button to `tags/show.html.erb`. On both `repositories/show.html.erb` and `tags/show.html.erb`, protected-tag delete buttons render `disabled` + tooltip. Client `disabled` is UX only — controller layer (`TagsController#destroy`) is the enforcement point.
+- **1-F:** Document `all_except_latest` assumption — "latest is the only floating tag"; use `custom_regex` for other floating tags (`main`, `develop`, etc.).
+
+**Outside Voice:**
+- **OV-1 concurrency:** Wrap the protection check + `assign_tag!` in `repository.with_lock { ... }` to serialize concurrent pushes to the same tag. Add threaded RSpec case.
+- **OV-2 retention coupling (P0):** `EnforceRetentionPolicyJob` must skip tags where `repo.tag_protected?(tag.name)`. Add a job spec asserting protected tags survive stale thresholds.
+- **OV-4 K8s messaging:** Update Goals section — include Kubernetes `imagePullPolicy=Always` reproducibility alongside Jenkins.
+- **OV-6 rebuild idempotency:** Accept that `--no-cache` rebuilds produce new digests and are blocked. Error message includes guidance — "release tags require fixed digests; use a new tag (e.g. `v1.0.1`) for a rebuild." Help page includes Jenkinsfile pattern example.
+- **OV-9 strategic:** Server-side enforcement remains the primary control given mixed client population (Jenkins, K8s, batch scripts). No Jenkinsfile lint in scope.
+
+**Code Quality:**
+- **2-A DRY helper:** Add `Repository#enforce_tag_protection!(tag_name, new_digest: nil)` encapsulating the check + idempotent-skip logic. Three call sites (`ManifestProcessor`, `TagsController#destroy`, `V2::ManifestsController#destroy`, `EnforceRetentionPolicyJob` filter) use this helper.
+- **2-B Tidy First:** Split `params.require(:repository).permit(:description, :maintainer)` → `params.expect(repository: [:description, :maintainer])` into a separate tidy commit before adding new fields.
+- **2-D:** Add `before_save :clear_tag_protection_pattern_unless_custom_regex` to keep `tag_protection_pattern` in sync with the policy.
+
+**Performance:**
+- **4-A:** Memoize `protection_regex` inside the model (`@protection_regex ||= Regexp.new(tag_protection_pattern)`) so rendering a tag list does not recompile on every call.
+- **4-B:** `enforce_tag_protection!` should reuse an already-loaded `existing_tag` (passed as argument) when called from `ManifestProcessor` to avoid a duplicate `tags.find_by(name:)` query.
+
+**Testing additions (spec — RSpec, the project's actual framework):**
+- REGRESSION test: blocked push creates no manifest row and does not increment blob `references_count`.
+- `EnforceRetentionPolicyJob` spec: stale protected tags survive retention run.
+- `with_lock` concurrency spec for `ManifestProcessor`.
+- Idempotent re-push request spec (two consecutive PUTs with identical digest).
+- `Docker-Distribution-API-Version` header present on 409 responses.
+- `before_save` callback spec: policy change clears pattern.
+- Model spec covering `all_except_latest` on `main`, `develop` names.
+- E2E specs: invalid regex validation, disabled-button tooltip, Stimulus show/hide behavior.
+- Docker CLI integration sh: assert stderr contains `denied:` prefix.
+
+**Critical gaps flagged (must address in spec revision):**
+- Rescue `Regexp::TimeoutError` in `valid_tag_protection_regex` — Rails 8 `Regexp.timeout = 1` raises this and will 500 without explicit handling.
+- Concurrency coverage — define threaded RSpec scenario explicitly in the spec's testing section.
