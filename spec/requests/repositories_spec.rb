@@ -70,5 +70,24 @@ RSpec.describe 'Repositories', type: :request do
         params: { repository: { tag_protection_policy: 'custom_regex', tag_protection_pattern: '[unclosed' } }
       expect(protection_repo.reload.tag_protection_policy).to eq('none')
     end
+
+    it 'renders 422 with the validation message when regex is invalid (no 500)' do
+      patch "/repositories/#{protection_repo.name}",
+        params: { repository: { tag_protection_policy: 'custom_regex', tag_protection_pattern: '[unclosed' } }
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.body).to match(/is not a valid regex/)
+    end
+
+    it 'does not crash when the invalid in-memory state touches tags in the view' do
+      protection_repo.manifests.create!(
+        digest: 'sha256:showcrash', media_type: 'application/vnd.docker.distribution.manifest.v2+json',
+        payload: '{}', size: 2
+      ).tap { |m| protection_repo.tags.create!(name: 'v1.0.0', manifest: m) }
+
+      patch "/repositories/#{protection_repo.name}",
+        params: { repository: { tag_protection_policy: 'custom_regex', tag_protection_pattern: '[unclosed' } }
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.body).to include('v1.0.0')
+    end
   end
 end
