@@ -70,6 +70,29 @@ RSpec.describe 'Repositories', type: :request do
     end
   end
 
+  describe 'Header touch targets (a11y)' do
+    it 'gives the theme toggle and Help link at least 44px tap height' do
+      get root_path
+      expect(response).to be_successful
+      # Theme toggle: p-2 + w-5 h-5 svg = 36px tap target. Bump padding to p-3 → 44px.
+      toggle = response.body.match(/<button[^>]*data-action="click->theme#toggle"[^>]*class="([^"]*)"/m)
+      expect(toggle).not_to be_nil, 'expected theme toggle button'
+      expect(toggle[1]).to include('p-3')
+      expect(toggle[1]).not_to match(/\bp-2\b/)
+
+      # Help link: inline-flex + text-sm with no vertical padding ≈ 20px. Require a
+      # min-h-11 (44px) minimum to guarantee WCAG mobile touch-target size.
+      # Rails' link_to emits attributes in an unspecified order, so match either class-first
+      # or href-first forms.
+      help_link = response.body.match(
+        /<a\s+(?:class="([^"]*)"[^>]*href="\/help"|href="\/help"[^>]*class="([^"]*)")/m
+      )
+      expect(help_link).not_to be_nil, 'expected Help link'
+      help_classes = help_link[1] || help_link[2]
+      expect(help_classes).to include('min-h-11')
+    end
+  end
+
   describe 'Index page heading' do
     it 'renders a single H1 with the page name for wayfinding' do
       get root_path
