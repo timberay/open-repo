@@ -25,8 +25,13 @@ class RepositoriesController < ApplicationController
 
   def update
     @repository = Repository.find_by!(name: params[:name])
-    @repository.update!(repository_params)
-    redirect_to repository_path(@repository.name), notice: 'Repository updated.'
+    if @repository.update(repository_params)
+      redirect_to repository_path(@repository.name), notice: 'Repository updated.'
+    else
+      @tags = @repository.tags.includes(:manifest).order(updated_at: :desc)
+      flash.now[:alert] = @repository.errors.full_messages.to_sentence
+      render :show, status: :unprocessable_content
+    end
   end
 
   def destroy
@@ -43,6 +48,6 @@ class RepositoriesController < ApplicationController
   private
 
   def repository_params
-    params.expect(repository: [:description, :maintainer])
+    params.expect(repository: [:description, :maintainer, :tag_protection_policy, :tag_protection_pattern])
   end
 end

@@ -41,4 +41,34 @@ RSpec.describe 'Repositories', type: :request do
       expect(Repository.find_by(name: 'test-repo')).to be_nil
     end
   end
+
+  describe 'PATCH /repositories/:name with tag protection fields' do
+    let!(:protection_repo) { Repository.create!(name: 'example') }
+
+    it 'persists tag_protection_policy when set to semver' do
+      patch "/repositories/#{protection_repo.name}",
+        params: { repository: { tag_protection_policy: 'semver' } }
+      expect(protection_repo.reload.tag_protection_policy).to eq('semver')
+    end
+
+    it 'persists tag_protection_pattern when policy is custom_regex' do
+      patch "/repositories/#{protection_repo.name}",
+        params: { repository: { tag_protection_policy: 'custom_regex', tag_protection_pattern: '^release-\d+$' } }
+      expect(protection_repo.reload.tag_protection_policy).to eq('custom_regex')
+      expect(protection_repo.reload.tag_protection_pattern).to eq('^release-\d+$')
+    end
+
+    it 'clears pattern when policy reverts from custom_regex' do
+      protection_repo.update!(tag_protection_policy: 'custom_regex', tag_protection_pattern: '^v.+$')
+      patch "/repositories/#{protection_repo.name}",
+        params: { repository: { tag_protection_policy: 'semver', tag_protection_pattern: '^v.+$' } }
+      expect(protection_repo.reload.tag_protection_pattern).to be_nil
+    end
+
+    it 'rejects invalid regex' do
+      patch "/repositories/#{protection_repo.name}",
+        params: { repository: { tag_protection_policy: 'custom_regex', tag_protection_pattern: '[unclosed' } }
+      expect(protection_repo.reload.tag_protection_policy).to eq('none')
+    end
+  end
 end
