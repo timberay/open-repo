@@ -3,7 +3,7 @@ class ProcessTarImportJob < ApplicationJob
 
   def perform(import_id)
     import = Import.find(import_id)
-    import.update!(status: 'processing', progress: 10)
+    import.update!(status: "processing", progress: 10)
 
     begin
       ImageImportService.new.call(
@@ -11,9 +11,9 @@ class ProcessTarImportJob < ApplicationJob
         repository_name: import.repository_name,
         tag_name: import.tag_name
       )
-      import.update!(status: 'completed', progress: 100)
+      import.update!(status: "completed", progress: 100)
     rescue => e
-      import.update!(status: 'failed', error_message: e.message)
+      import.update!(status: "failed", error_message: e.message)
       raise
     end
   end

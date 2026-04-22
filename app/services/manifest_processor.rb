@@ -7,10 +7,10 @@ class ManifestProcessor
     parsed = JSON.parse(payload)
     validate_schema!(parsed)
 
-    config_digest = parsed['config']['digest']
-    raise Registry::ManifestInvalid, 'config blob not found' unless @blob_store.exists?(config_digest)
+    config_digest = parsed["config"]["digest"]
+    raise Registry::ManifestInvalid, "config blob not found" unless @blob_store.exists?(config_digest)
 
-    layer_digests = parsed['layers'].map { |l| l['digest'] }
+    layer_digests = parsed["layers"].map { |l| l["digest"] }
     layer_digests.each do |d|
       raise Registry::ManifestInvalid, "layer blob not found: #{d}" unless @blob_store.exists?(d)
     end
@@ -18,7 +18,7 @@ class ManifestProcessor
     repository = Repository.find_or_create_by!(name: repo_name)
     digest = DigestCalculator.compute(payload)
 
-    tag_name = reference if reference.present? && !reference.start_with?('sha256:')
+    tag_name = reference if reference.present? && !reference.start_with?("sha256:")
 
     # Decision 1-A + OV-1: enforce tag protection at the ENTRY of the service,
     # inside a row-lock on the repository, BEFORE any manifest.save! or blob
@@ -44,7 +44,7 @@ class ManifestProcessor
       )
       manifest.save!
 
-      create_layers!(manifest, parsed['layers'])
+      create_layers!(manifest, parsed["layers"])
 
       assign_tag!(repository, tag_name, manifest) if tag_name
 
@@ -57,16 +57,16 @@ class ManifestProcessor
   private
 
   def validate_schema!(parsed)
-    unless parsed['schemaVersion'] == 2
-      raise Registry::ManifestInvalid, 'unsupported schema version'
+    unless parsed["schemaVersion"] == 2
+      raise Registry::ManifestInvalid, "unsupported schema version"
     end
 
-    unless parsed['config'].is_a?(Hash) && parsed['config']['digest'].present?
-      raise Registry::ManifestInvalid, 'missing config'
+    unless parsed["config"].is_a?(Hash) && parsed["config"]["digest"].present?
+      raise Registry::ManifestInvalid, "missing config"
     end
 
-    unless parsed['layers'].is_a?(Array)
-      raise Registry::ManifestInvalid, 'missing layers'
+    unless parsed["layers"].is_a?(Array)
+      raise Registry::ManifestInvalid, "missing layers"
     end
   end
 
@@ -77,9 +77,9 @@ class ManifestProcessor
     parsed = JSON.parse(config_json)
 
     {
-      architecture: parsed['architecture'],
-      os: parsed['os'],
-      config_json: (parsed['config'] || {}).to_json
+      architecture: parsed["architecture"],
+      os: parsed["os"],
+      config_json: (parsed["config"] || {}).to_json
     }
   rescue JSON::ParserError
     { architecture: nil, os: nil, config_json: nil }
@@ -89,9 +89,9 @@ class ManifestProcessor
     manifest.layers.destroy_all
 
     layers_data.each_with_index do |layer_data, index|
-      blob = Blob.find_or_create_by!(digest: layer_data['digest']) do |b|
-        b.size = layer_data['size']
-        b.content_type = layer_data['mediaType']
+      blob = Blob.find_or_create_by!(digest: layer_data["digest"]) do |b|
+        b.size = layer_data["size"]
+        b.content_type = layer_data["mediaType"]
       end
       blob.increment!(:references_count)
 
@@ -109,10 +109,10 @@ class ManifestProcessor
         TagEvent.create!(
           repository: repository,
           tag_name: tag_name,
-          action: 'update',
+          action: "update",
           previous_digest: old_digest,
           new_digest: manifest.digest,
-          actor: 'anonymous',
+          actor: "anonymous",
           occurred_at: Time.current
         )
       end
@@ -121,16 +121,16 @@ class ManifestProcessor
       TagEvent.create!(
         repository: repository,
         tag_name: tag_name,
-        action: 'create',
+        action: "create",
         new_digest: manifest.digest,
-        actor: 'anonymous',
+        actor: "anonymous",
         occurred_at: Time.current
       )
     end
   end
 
   def update_repository_size!(repository)
-    total = repository.manifests.joins(layers: :blob).sum('blobs.size')
+    total = repository.manifests.joins(layers: :blob).sum("blobs.size")
     repository.update_column(:total_size, total)
   end
 end

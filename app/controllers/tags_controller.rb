@@ -1,6 +1,6 @@
 class TagsController < ApplicationController
   before_action :set_repository
-  before_action :set_tag, only: [:show, :destroy, :history]
+  before_action :set_tag, only: [ :show, :destroy, :history ]
 
   def show
     @manifest = @tag.manifest
@@ -13,9 +13,9 @@ class TagsController < ApplicationController
     TagEvent.create!(
       repository: @repository,
       tag_name: @tag.name,
-      action: 'delete',
+      action: "delete",
       previous_digest: @tag.manifest.digest,
-      actor: 'anonymous',
+      actor: "anonymous",
       occurred_at: Time.current
     )
     @tag.destroy!

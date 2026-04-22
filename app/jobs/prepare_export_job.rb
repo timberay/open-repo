@@ -3,11 +3,11 @@ class PrepareExportJob < ApplicationJob
 
   def perform(export_id)
     export = Export.find(export_id)
-    export.update!(status: 'processing')
+    export.update!(status: "processing")
 
     begin
       output_path = File.join(
-        Rails.configuration.storage_path, 'tmp', 'exports', "#{export.id}.tar"
+        Rails.configuration.storage_path, "tmp", "exports", "#{export.id}.tar"
       )
       FileUtils.mkdir_p(File.dirname(output_path))
 
@@ -17,9 +17,9 @@ class PrepareExportJob < ApplicationJob
         output_path: output_path
       )
 
-      export.update!(status: 'completed', output_path: output_path)
+      export.update!(status: "completed", output_path: output_path)
     rescue => e
-      export.update!(status: 'failed', error_message: e.message)
+      export.update!(status: "failed", error_message: e.message)
       raise
     end
   end

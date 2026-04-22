@@ -4,17 +4,17 @@ class RepositoriesController < ApplicationController
 
     if params[:q].present?
       q = "%#{params[:q]}%"
-      @repositories = @repositories.where('name LIKE ? OR description LIKE ? OR maintainer LIKE ?', q, q, q)
+      @repositories = @repositories.where("name LIKE ? OR description LIKE ? OR maintainer LIKE ?", q, q, q)
     end
 
     case params[:sort]
-    when 'name' then @repositories = @repositories.reorder(:name)
-    when 'size' then @repositories = @repositories.reorder(total_size: :desc)
-    when 'pulls'
+    when "name" then @repositories = @repositories.reorder(:name)
+    when "size" then @repositories = @repositories.reorder(total_size: :desc)
+    when "pulls"
       @repositories = @repositories
         .left_joins(:manifests)
         .group(:id)
-        .reorder(Arel.sql('COALESCE(SUM(manifests.pull_count), 0) DESC'))
+        .reorder(Arel.sql("COALESCE(SUM(manifests.pull_count), 0) DESC"))
     end
   end
 
@@ -26,7 +26,7 @@ class RepositoriesController < ApplicationController
   def update
     @repository = Repository.find_by!(name: params[:name])
     if @repository.update(repository_params)
-      redirect_to repository_path(@repository.name), notice: 'Repository updated.'
+      redirect_to repository_path(@repository.name), notice: "Repository updated."
     else
       @tags = @repository.tags.includes(:manifest).order(updated_at: :desc)
       flash.now[:alert] = @repository.errors.full_messages.to_sentence
