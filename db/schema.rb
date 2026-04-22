@@ -17,8 +17,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_22_014348) do
     t.integer "repository_id", null: false
     t.datetime "updated_at", null: false
     t.string "uuid", null: false
-    t.index ["repository_id"], name: "index_blob_uploads_on_repository_id"
-    t.index ["uuid"], name: "index_blob_uploads_on_uuid", unique: true
+    t.index [ "repository_id" ], name: "index_blob_uploads_on_repository_id"
+    t.index [ "uuid" ], name: "index_blob_uploads_on_uuid", unique: true
   end
 
   create_table "blobs", force: :cascade do |t|
@@ -28,7 +28,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_22_014348) do
     t.integer "references_count", default: 0
     t.bigint "size", null: false
     t.datetime "updated_at", null: false
-    t.index ["digest"], name: "index_blobs_on_digest", unique: true
+    t.index [ "digest" ], name: "index_blobs_on_digest", unique: true
   end
 
   create_table "exports", force: :cascade do |t|
@@ -39,7 +39,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_22_014348) do
     t.string "status", default: "pending", null: false
     t.string "tag_name", null: false
     t.datetime "updated_at", null: false
-    t.index ["repository_id"], name: "index_exports_on_repository_id"
+    t.index [ "repository_id" ], name: "index_exports_on_repository_id"
   end
 
   create_table "imports", force: :cascade do |t|
@@ -57,10 +57,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_22_014348) do
     t.integer "blob_id", null: false
     t.integer "manifest_id", null: false
     t.integer "position", null: false
-    t.index ["blob_id"], name: "index_layers_on_blob_id"
-    t.index ["manifest_id", "blob_id"], name: "index_layers_on_manifest_id_and_blob_id", unique: true
-    t.index ["manifest_id", "position"], name: "index_layers_on_manifest_id_and_position", unique: true
-    t.index ["manifest_id"], name: "index_layers_on_manifest_id"
+    t.index [ "blob_id" ], name: "index_layers_on_blob_id"
+    t.index [ "manifest_id", "blob_id" ], name: "index_layers_on_manifest_id_and_blob_id", unique: true
+    t.index [ "manifest_id", "position" ], name: "index_layers_on_manifest_id_and_position", unique: true
+    t.index [ "manifest_id" ], name: "index_layers_on_manifest_id"
   end
 
   create_table "manifests", force: :cascade do |t|
@@ -77,10 +77,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_22_014348) do
     t.integer "repository_id", null: false
     t.bigint "size", null: false
     t.datetime "updated_at", null: false
-    t.index ["digest"], name: "index_manifests_on_digest", unique: true
-    t.index ["last_pulled_at"], name: "index_manifests_on_last_pulled_at"
-    t.index ["repository_id", "digest"], name: "index_manifests_on_repository_id_and_digest"
-    t.index ["repository_id"], name: "index_manifests_on_repository_id"
+    t.index [ "digest" ], name: "index_manifests_on_digest", unique: true
+    t.index [ "last_pulled_at" ], name: "index_manifests_on_last_pulled_at"
+    t.index [ "repository_id", "digest" ], name: "index_manifests_on_repository_id_and_digest"
+    t.index [ "repository_id" ], name: "index_manifests_on_repository_id"
   end
 
   create_table "pull_events", force: :cascade do |t|
@@ -90,11 +90,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_22_014348) do
     t.integer "repository_id", null: false
     t.string "tag_name"
     t.string "user_agent"
-    t.index ["manifest_id", "occurred_at"], name: "index_pull_events_on_manifest_id_and_occurred_at"
-    t.index ["manifest_id"], name: "index_pull_events_on_manifest_id"
-    t.index ["occurred_at"], name: "index_pull_events_on_occurred_at"
-    t.index ["repository_id", "occurred_at"], name: "index_pull_events_on_repository_id_and_occurred_at"
-    t.index ["repository_id"], name: "index_pull_events_on_repository_id"
+    t.index [ "manifest_id", "occurred_at" ], name: "index_pull_events_on_manifest_id_and_occurred_at"
+    t.index [ "manifest_id" ], name: "index_pull_events_on_manifest_id"
+    t.index [ "occurred_at" ], name: "index_pull_events_on_occurred_at"
+    t.index [ "repository_id", "occurred_at" ], name: "index_pull_events_on_repository_id_and_occurred_at"
+    t.index [ "repository_id" ], name: "index_pull_events_on_repository_id"
   end
 
   create_table "repositories", force: :cascade do |t|
@@ -107,7 +107,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_22_014348) do
     t.integer "tags_count", default: 0
     t.bigint "total_size", default: 0
     t.datetime "updated_at", null: false
-    t.index ["name"], name: "index_repositories_on_name", unique: true
+    t.index [ "name" ], name: "index_repositories_on_name", unique: true
   end
 
   create_table "tag_events", force: :cascade do |t|
@@ -118,9 +118,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_22_014348) do
     t.string "previous_digest"
     t.integer "repository_id", null: false
     t.string "tag_name", null: false
-    t.index ["occurred_at"], name: "index_tag_events_on_occurred_at"
-    t.index ["repository_id", "tag_name"], name: "index_tag_events_on_repository_id_and_tag_name"
-    t.index ["repository_id"], name: "index_tag_events_on_repository_id"
+    t.index [ "occurred_at" ], name: "index_tag_events_on_occurred_at"
+    t.index [ "repository_id", "tag_name" ], name: "index_tag_events_on_repository_id_and_tag_name"
+    t.index [ "repository_id" ], name: "index_tag_events_on_repository_id"
   end
 
   create_table "tags", force: :cascade do |t|
@@ -129,9 +129,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_22_014348) do
     t.string "name", null: false
     t.integer "repository_id", null: false
     t.datetime "updated_at", null: false
-    t.index ["manifest_id"], name: "index_tags_on_manifest_id"
-    t.index ["repository_id", "name"], name: "index_tags_on_repository_id_and_name", unique: true
-    t.index ["repository_id"], name: "index_tags_on_repository_id"
+    t.index [ "manifest_id" ], name: "index_tags_on_manifest_id"
+    t.index [ "repository_id", "name" ], name: "index_tags_on_repository_id_and_name", unique: true
+    t.index [ "repository_id" ], name: "index_tags_on_repository_id"
   end
 
   add_foreign_key "blob_uploads", "repositories"
