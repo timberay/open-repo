@@ -46,6 +46,45 @@ HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" -I http://$REGISTRY/v2/test-
 [ "$HTTP_CODE" = "200" ] || { echo "FAIL: HEAD manifest returned $HTTP_CODE"; exit 1; }
 echo "PASS: HEAD manifest returns 200"
 
+# ============================================================
+# Tag Protection scenarios (see 2026-04-22-tag-immutability-design.md)
+# ============================================================
+
+echo ""
+echo "--- Test P1: enable semver protection on proto-img ---"
+bin/rails runner 'Repository.find_or_create_by!(name: "proto-img").update!(tag_protection_policy: "semver")'
+echo "PASS: policy set"
+
+echo ""
+echo "--- Test P2: initial push of v1.0.0 succeeds ---"
+echo -e "FROM alpine:latest\nRUN echo protection-test-v1" | docker build -t $REGISTRY/proto-img:v1.0.0 - >/dev/null
+docker push $REGISTRY/proto-img:v1.0.0 >/dev/null
+echo "PASS: initial push accepted"
+
+echo ""
+echo "--- Test P3: re-push SAME digest succeeds (idempotent CI retry safety) ---"
+docker push $REGISTRY/proto-img:v1.0.0 >/dev/null
+echo "PASS: idempotent re-push accepted"
+
+echo ""
+echo "--- Test P4: push DIFFERENT digest to v1.0.0 is denied ---"
+echo -e "FROM alpine:latest\nRUN echo protection-test-v2-DIFFERENT" | docker build -t $REGISTRY/proto-img:v1.0.0 - >/dev/null
+PUSH_OUTPUT=$(docker push $REGISTRY/proto-img:v1.0.0 2>&1 || true)
+echo "$PUSH_OUTPUT" | grep -q "denied" || { echo "FAIL: expected stderr to contain 'denied', got:"; echo "$PUSH_OUTPUT"; exit 1; }
+echo "PASS: CLI printed 'denied:' on protected overwrite attempt"
+
+echo ""
+echo "--- Test P5: unprotected tag (latest) can still be overwritten under semver ---"
+echo -e "FROM alpine:latest\nRUN echo protection-test-latest" | docker build -t $REGISTRY/proto-img:latest - >/dev/null
+docker push $REGISTRY/proto-img:latest >/dev/null
+echo "PASS: latest push succeeded under semver policy"
+
+echo ""
+echo "--- Protection cleanup: reset proto-img ---"
+bin/rails runner 'Repository.find_by(name: "proto-img")&.update!(tag_protection_policy: "none")'
+docker rmi $REGISTRY/proto-img:v1.0.0 $REGISTRY/proto-img:latest 2>/dev/null || true
+echo "PASS: protection cleanup done"
+
 # Cleanup
 echo "--- Cleanup ---"
 docker rmi $REGISTRY/test-image:v1 $REGISTRY/test-image:v2 2>/dev/null || true
