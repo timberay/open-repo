@@ -118,4 +118,17 @@ RSpec.describe 'Repositories', type: :request do
       expect(response.body).to include('v1.0.0')
     end
   end
+
+  describe 'Mobile tag Delete button icon' do
+    it 'renders a trash heroicon in BOTH desktop and mobile Delete buttons' do
+      get repository_path('test-repo')
+      expect(response).to be_successful
+      # Extract all tag-delete forms (action contains /tags/)
+      tag_delete_forms = response.body.scan(/<form[^>]*action="[^"]*\/tags\/[^"]*"[^>]*>.*?<\/form>/m)
+      expect(tag_delete_forms.size).to eq(2), "Expected 2 tag-delete forms (desktop + mobile), got #{tag_delete_forms.size}"
+      # Both forms must contain a trash heroicon SVG
+      forms_with_svg = tag_delete_forms.count { |form| form.include?('<svg') }
+      expect(forms_with_svg).to eq(2), "Expected both forms to have a trash heroicon SVG, but only #{forms_with_svg} did"
+    end
+  end
 end
