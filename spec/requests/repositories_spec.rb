@@ -82,6 +82,24 @@ RSpec.describe 'Repositories', type: :request do
       expect(response.body).not_to include('Docker Image')
     end
 
+    it 'renders the maintainer text with contrast that meets WCAG AA on both themes' do
+      get root_path
+      expect(response).to be_successful
+      # Old: text-slate-400 dark:text-slate-500 — ~2.5:1 on dark surfaces, fails AA (4.5:1).
+      # New target: text-slate-600 dark:text-slate-300 — comfortably >4.5:1 on both.
+      test_repo_card = response.body.match(
+        /<a[^>]*href="\/repositories\/test-repo"[\s\S]*?<\/a>/m
+      )
+      expect(test_repo_card).not_to be_nil
+      maintainer_span = test_repo_card[0].match(/<span[^>]*class="([^"]*)"[^>]*>\s*Team A\s*<\/span>/m)
+      expect(maintainer_span).not_to be_nil, 'expected maintainer span with "Team A"'
+      classes = maintainer_span[1]
+      expect(classes).to include('text-slate-600')
+      expect(classes).to include('dark:text-slate-300')
+      expect(classes).not_to include('text-slate-400')
+      expect(classes).not_to include('dark:text-slate-500')
+    end
+
     it 'omits the card bottom row entirely when the repository has no maintainer' do
       get root_path
       expect(response).to be_successful
