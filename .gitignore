@@ -74,6 +74,8 @@ npm-debug.log*
 .playwright-mcp/
 screenshot-*.png
 screenshot-*.jpeg
+/docs/screenshots/
+/docs/e2e-test-report.md
 
 # ============================================================
 # IDE / Editor files
