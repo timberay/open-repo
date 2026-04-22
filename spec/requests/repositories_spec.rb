@@ -70,6 +70,32 @@ RSpec.describe 'Repositories', type: :request do
     end
   end
 
+  describe 'Repository card (index)' do
+    let!(:no_maintainer_repo) { Repository.create!(name: 'no-maintainer', maintainer: nil) }
+
+    it 'does not render a redundant "Docker Image" badge on each card' do
+      get root_path
+      expect(response).to be_successful
+      # Every card currently renders a "Docker Image" info pill. It is pure noise
+      # (every artifact in this registry is a Docker image by definition) and it
+      # creates the card-height inconsistency called out in FINDING-007.
+      expect(response.body).not_to include('Docker Image')
+    end
+
+    it 'omits the card bottom row entirely when the repository has no maintainer' do
+      get root_path
+      expect(response).to be_successful
+      # After removing the Docker Image pill, the bottom <div class="...border-t...">
+      # should not render for repositories with no maintainer — otherwise we leak
+      # an empty bordered row under the card.
+      no_maintainer_card = response.body.match(
+        /<a[^>]*href="\/repositories\/no-maintainer"[\s\S]*?<\/a>/m
+      )
+      expect(no_maintainer_card).not_to be_nil
+      expect(no_maintainer_card[0]).not_to include('border-t')
+    end
+  end
+
   describe 'Edit details disclosure marker' do
     it 'hides the native disclosure triangle so only the custom chevron shows' do
       get repository_path('test-repo')
