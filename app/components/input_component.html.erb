@@ -1,0 +1,13 @@
+<div>
+  <% if label %>
+    <label for="<%= input_id %>" class="<%= InputComponent::LABEL_CLASSES %>">
+      <%= label %><% if required %><span class="<%= InputComponent::REQUIRED_MARK_CLASSES %>">*</span><% end %>
+    </label>
+  <% end %>
+  <%= tag.input(**input_attrs) %>
+  <% if error? %>
+    <p id="<%= error_id %>" class="<%= InputComponent::ERROR_MESSAGE_CLASSES %>"><%= error %></p>
+  <% elsif help_text? %>
+    <p id="<%= help_id %>" class="<%= InputComponent::HELP_TEXT_CLASSES %>"><%= help_text %></p>
+  <% end %>
+</div>
