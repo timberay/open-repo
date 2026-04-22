@@ -70,6 +70,21 @@ RSpec.describe 'Repositories', type: :request do
     end
   end
 
+  describe 'Edit details disclosure marker' do
+    it 'hides the native disclosure triangle so only the custom chevron shows' do
+      get repository_path('test-repo')
+      expect(response).to be_successful
+      # The <summary> for "Edit description & maintainer" uses a custom SVG chevron.
+      # Without suppressing the native marker, browsers render BOTH the default triangle
+      # and our chevron (double-icon bug). Assert list-none + webkit-marker hide is applied.
+      summary_match = response.body.match(/<summary([^>]*class="[^"]*")[^>]*>(?:.(?!<\/summary>))*?Edit description/m)
+      expect(summary_match).not_to be_nil, 'expected summary with "Edit description" label'
+      summary_classes = summary_match[1]
+      expect(summary_classes).to include('list-none')
+      expect(summary_classes).to include('[&::-webkit-details-marker]:hidden')
+    end
+  end
+
   describe 'PATCH /repositories/:name with tag protection fields' do
     let!(:protection_repo) { Repository.create!(name: 'example') }
 
