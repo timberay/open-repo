@@ -59,6 +59,17 @@ RSpec.describe 'Repositories', type: :request do
     end
   end
 
+  describe 'Save button icon' do
+    it 'renders a heroicon inside the Save submit button' do
+      get repository_path('test-repo')
+      expect(response).to be_successful
+      # Parse the Save button and assert it contains an <svg> child
+      # The ButtonComponent with icon adds gap-2 and emits <svg class="w-5 h-5">…</svg> before text
+      # Assert: Save button has SVG before "Save" text
+      expect(response.body).to match(/<button[^>]*type="submit"[^>]*>\s*<svg[^>]*>.*?<\/svg>\s*Save\s*<\/button>/m)
+    end
+  end
+
   describe 'PATCH /repositories/:name with tag protection fields' do
     let!(:protection_repo) { Repository.create!(name: 'example') }
 
