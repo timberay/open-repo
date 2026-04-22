@@ -96,6 +96,22 @@ RSpec.describe 'Repositories', type: :request do
     end
   end
 
+  describe 'Tag count badge variant' do
+    it 'renders the "N tags" count with a neutral variant, not success (green)' do
+      get repository_path('test-repo')
+      expect(response).to be_successful
+      # The tag count is a plain number; success/green implies a positive state
+      # outcome, which is semantically wrong for a count.
+      count_badge = response.body.match(
+        /<span[^>]*class="([^"]*)"[^>]*>\s*(?:<svg[^>]*>.*?<\/svg>\s*)?1 tags\s*<\/span>/m
+      )
+      expect(count_badge).not_to be_nil, 'expected "1 tags" badge'
+      badge_classes = count_badge[1]
+      expect(badge_classes).not_to match(/bg-green-|text-green-/), 'tag count badge should not use success (green) colors'
+      expect(badge_classes).to include('bg-slate-200').or include('bg-slate-700')
+    end
+  end
+
   describe 'Edit details disclosure marker' do
     it 'hides the native disclosure triangle so only the custom chevron shows' do
       get repository_path('test-repo')

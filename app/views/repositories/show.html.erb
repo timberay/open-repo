@@ -12,7 +12,7 @@
     <div class="flex items-start justify-between gap-4 mb-4">
       <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100 break-keep"><%= @repository.name %></h1>
       <div class="flex items-center gap-3 flex-shrink-0">
-        <%= render(BadgeComponent.new(variant: :success)) { "#{@tags.count} tags" } %>
+        <%= render(BadgeComponent.new(variant: :default)) { "#{@tags.count} tags" } %>
         <span class="text-sm text-slate-600 dark:text-slate-400"><%= human_size(@repository.total_size) %></span>
       </div>
     </div>
