@@ -103,6 +103,15 @@ RSpec.describe Repository, type: :model do
         expect(repo.tag_protected?('v1.0.0')).to be false
       end
     end
+
+    context 'when policy is custom_regex but in-memory pattern is invalid' do
+      it 'does not raise and returns false (view-render safety)' do
+        repo.tag_protection_policy = 'custom_regex'
+        repo.tag_protection_pattern = '[unclosed'
+        expect { repo.tag_protected?('anything') }.not_to raise_error
+        expect(repo.tag_protected?('anything')).to be false
+      end
+    end
   end
 
   describe 'tag_protection_pattern validation' do

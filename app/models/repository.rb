@@ -21,7 +21,7 @@ class Repository < ApplicationRecord
     when "none"              then false
     when "semver"            then tag_name.match?(SEMVER_PATTERN)
     when "all_except_latest" then tag_name != "latest"
-    when "custom_regex"      then tag_name.match?(protection_regex)
+    when "custom_regex"      then !!(protection_regex && tag_name.match?(protection_regex))
     end
   end
 
@@ -49,7 +49,10 @@ class Repository < ApplicationRecord
   private
 
   def protection_regex
+    return nil if tag_protection_pattern.blank?
     @protection_regex ||= Regexp.new(tag_protection_pattern)
+  rescue RegexpError
+    nil
   end
 
   def tag_protection_pattern_is_valid_regex
