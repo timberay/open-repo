@@ -39,6 +39,11 @@ module RepoVista
     # Don't generate system test files.
     config.generators.system_tests = nil
 
+    # View Component configuration
+    config.view_component.preview_paths ||= []
+    config.view_component.preview_paths << Rails.root.join("test/components/previews").to_s
+    config.view_component.default_preview_layout = "component_preview"
+
     # Registry storage configuration
     config.storage_path = ENV.fetch("STORAGE_PATH", Rails.root.join("storage", "registry"))
     config.registry_host = ENV.fetch("REGISTRY_HOST", "localhost:3000")

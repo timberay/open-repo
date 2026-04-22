@@ -1,0 +1,13 @@
+<div>
+  <% if label %>
+    <label for="<%= textarea_id %>" class="<%= TextareaComponent::LABEL_CLASSES %>">
+      <%= label %><% if required %><span class="<%= TextareaComponent::REQUIRED_MARK_CLASSES %>">*</span><% end %>
+    </label>
+  <% end %>
+  <%= tag.textarea(value, **textarea_attrs) %>
+  <% if error? %>
+    <p id="<%= error_id %>" class="<%= TextareaComponent::ERROR_MESSAGE_CLASSES %>"><%= error %></p>
+  <% elsif help_text? %>
+    <p id="<%= help_id %>" class="<%= TextareaComponent::HELP_TEXT_CLASSES %>"><%= help_text %></p>
+  <% end %>
+</div>

@@ -1,9 +1,7 @@
 <%# Back navigation %>
 <div class="mb-6">
   <%= link_to repository_tag_path(@repository.name, @tag), class: "inline-flex items-center gap-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors duration-150" do %>
-    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/>
-    </svg>
+    <%= heroicon "chevron-left", class: "w-5 h-5" %>
     Back to <%= @repository.name %>:<%= @tag.name %>
   <% end %>
 </div>
@@ -16,36 +14,30 @@
 <% if @events.any? %>
   <div class="space-y-4">
     <% @events.each do |event| %>
-      <div class="rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm p-4">
-        <div class="flex items-center justify-between mb-2">
-          <span class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium
-            <%= case event.action
-                when 'create' then 'bg-green-200 text-green-800 dark:bg-green-900/30 dark:text-green-400 ring-1 ring-inset ring-green-600/20 dark:ring-green-400/20'
-                when 'update' then 'bg-amber-200 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 ring-1 ring-inset ring-amber-600/20 dark:ring-amber-400/20'
-                when 'delete' then 'bg-red-200 text-red-800 dark:bg-red-900/30 dark:text-red-400 ring-1 ring-inset ring-red-600/20 dark:ring-red-400/20'
-                end %>">
-            <%= event.action %>
-          </span>
-          <span class="text-sm text-slate-400 dark:text-slate-500"><%= event.occurred_at.strftime('%Y-%m-%d %H:%M') %></span>
+      <% variant = { "create" => :success, "update" => :warning, "delete" => :danger }[event.action] %>
+      <%= render CardComponent.new(padding: :none) do %>
+        <div class="p-4">
+          <div class="flex items-center justify-between mb-2">
+            <%= render(BadgeComponent.new(variant: variant)) { event.action } %>
+            <span class="text-sm text-slate-400 dark:text-slate-500"><%= event.occurred_at.strftime('%Y-%m-%d %H:%M') %></span>
+          </div>
+          <% if event.previous_digest.present? %>
+            <div class="text-sm text-slate-600 dark:text-slate-400">
+              Previous: <code class="font-mono text-sm bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded"><%= short_digest(event.previous_digest) %></code>
+            </div>
+          <% end %>
+          <% if event.new_digest.present? %>
+            <div class="text-sm text-slate-600 dark:text-slate-400 mt-1">
+              New: <code class="font-mono text-sm bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded"><%= short_digest(event.new_digest) %></code>
+            </div>
+          <% end %>
         </div>
-        <% if event.previous_digest.present? %>
-          <div class="text-sm text-slate-600 dark:text-slate-400">
-            Previous: <code class="font-mono text-sm bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded"><%= short_digest(event.previous_digest) %></code>
-          </div>
-        <% end %>
-        <% if event.new_digest.present? %>
-          <div class="text-sm text-slate-600 dark:text-slate-400 mt-1">
-            New: <code class="font-mono text-sm bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded"><%= short_digest(event.new_digest) %></code>
-          </div>
-        <% end %>
-      </div>
+      <% end %>
     <% end %>
   </div>
 <% else %>
   <div class="flex flex-col items-center justify-center py-16 px-4">
-    <svg class="w-12 h-12 text-slate-300 dark:text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
-    </svg>
+    <%= heroicon "clock", class: "w-12 h-12 text-slate-300 dark:text-slate-600 mb-4" %>
     <h3 class="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-1">No history events</h3>
     <p class="text-sm text-slate-500 dark:text-slate-400 text-center max-w-sm">No changes have been recorded for this tag yet.</p>
   </div>

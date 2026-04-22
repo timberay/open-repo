@@ -16,6 +16,10 @@ gem "turbo-rails"
 gem "stimulus-rails"
 # Use Tailwind CSS [https://github.com/rails/tailwindcss-rails]
 gem "tailwindcss-rails"
+# Heroicons for Rails [https://github.com/cristianbote/rails_heroicon]
+gem "rails_heroicon"
+# View component extraction and preview [https://github.com/viewcomponent/view_component]
+gem "view_component"
 # Build JSON APIs with ease [https://github.com/rails/jbuilder]
 gem "jbuilder"
 
@@ -54,6 +58,10 @@ group :development, :test do
 
    gem "rspec-rails"
    gem "webmock"
+
+   # Capybara powers ViewComponent::TestHelpers `page`/`have_css` matchers used
+   # in component specs (spec/components/**/*_spec.rb).
+   gem "capybara"
 end
 
 group :development do

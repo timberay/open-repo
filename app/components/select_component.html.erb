@@ -1,0 +1,20 @@
+<div>
+  <% if label %>
+    <label for="<%= select_id %>" class="<%= SelectComponent::LABEL_CLASSES %>">
+      <%= label %><% if required %><span class="<%= SelectComponent::REQUIRED_MARK_CLASSES %>">*</span><% end %>
+    </label>
+  <% end %>
+  <%= tag.select(**select_attrs) do %>
+    <% if prompt %>
+      <%= tag.option(prompt, value: "", disabled: true, selected: prompt_selected?) %>
+    <% end %>
+    <% options.each do |opt_label, opt_value| %>
+      <%= tag.option(opt_label, value: opt_value, selected: option_selected?(opt_value)) %>
+    <% end %>
+  <% end %>
+  <% if error? %>
+    <p id="<%= error_id %>" class="<%= SelectComponent::ERROR_MESSAGE_CLASSES %>"><%= error %></p>
+  <% elsif help_text? %>
+    <p id="<%= help_id %>" class="<%= SelectComponent::HELP_TEXT_CLASSES %>"><%= help_text %></p>
+  <% end %>
+</div>

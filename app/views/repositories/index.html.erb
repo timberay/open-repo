@@ -1,33 +1,38 @@
 <%# Search & Sort bar %>
-<div class="mb-6 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm p-4">
-  <%= form_with url: repositories_path, method: :get,
-      data: { controller: "search", search_target: "form", turbo_frame: "repositories" },
-      class: "flex flex-col sm:flex-row items-center gap-3" do |f| %>
+<%= render CardComponent.new(padding: :none, class: "mb-6") do %>
+  <div class="p-4">
+    <%= form_with url: repositories_path, method: :get,
+        data: { controller: "search", search_target: "form", turbo_frame: "repositories" },
+        class: "flex flex-col sm:flex-row items-center gap-3" do |f| %>
 
-    <div class="flex-1 w-full">
-      <%= f.text_field :q,
-        value: params[:q],
-        placeholder: "Search by name, description, or maintainer...",
-        data: { action: "input->search#search" },
-        class: "block w-full h-10 px-3 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-base text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 focus:border-blue-500 dark:focus:border-blue-400 transition-colors duration-150" %>
-    </div>
+      <div class="flex-1 w-full">
+        <%= render InputComponent.new(
+              name: "q",
+              value: params[:q],
+              type: :search,
+              size: :md,
+              placeholder: "Search by name, description, or maintainer...",
+              data: { action: "input->search#search" }
+            ) %>
+      </div>
 
-    <div class="w-full sm:w-48">
-      <%= f.select :sort,
-        options_for_select([
-          ["Recent", ""],
-          ["Name (A-Z)", "name"],
-          ["Size", "size"],
-          ["Pulls", "pulls"]
-        ], params[:sort]),
-        {},
-        {
-          data: { action: "change->search#search" },
-          class: "block w-full h-10 px-3 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-base text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 focus:border-blue-500 dark:focus:border-blue-400 transition-colors duration-150"
-        } %>
-    </div>
-  <% end %>
-</div>
+      <div class="w-full sm:w-48">
+        <%= render SelectComponent.new(
+              name: "sort",
+              options: [
+                ["Recent", ""],
+                ["Name (A-Z)", "name"],
+                ["Size", "size"],
+                ["Pulls", "pulls"]
+              ],
+              selected: params[:sort],
+              size: :md,
+              data: { action: "change->search#search" }
+            ) %>
+      </div>
+    <% end %>
+  </div>
+<% end %>
 
 <%# Repository list %>
 <%= turbo_frame_tag "repositories" do %>
@@ -39,9 +44,7 @@
     </div>
   <% else %>
     <div class="flex flex-col items-center justify-center py-16 px-4">
-      <svg class="w-12 h-12 text-slate-300 dark:text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
-      </svg>
+      <%= heroicon "archive-box", class: "w-12 h-12 text-slate-300 dark:text-slate-600 mb-4" %>
       <h3 class="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-1">
         <% if params[:q].present? %>
           No results found

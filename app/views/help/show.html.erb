@@ -5,50 +5,57 @@
 </div>
 
 <%# Docker Daemon Configuration %>
-<div class="rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm p-6 mb-6">
-  <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4">Docker Daemon Configuration</h2>
-  <p class="text-base text-slate-700 dark:text-slate-300 mb-3">Add this registry as an insecure registry in <code class="bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-sm font-mono">/etc/docker/daemon.json</code>:</p>
-  <pre class="bg-slate-100 dark:bg-slate-900 rounded-md p-4 text-sm font-mono text-slate-800 dark:text-blue-300 overflow-x-auto">{
+<%= render CardComponent.new(padding: :none, class: "mb-6") do %>
+  <div class="p-6">
+    <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4">Docker Daemon Configuration</h2>
+    <p class="text-base text-slate-700 dark:text-slate-300 mb-3">Add this registry as an insecure registry in <code class="bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-sm font-mono">/etc/docker/daemon.json</code>:</p>
+    <pre class="bg-slate-100 dark:bg-slate-900 rounded-md p-4 text-sm font-mono text-slate-800 dark:text-blue-300 overflow-x-auto">{
   "insecure-registries": ["<%= @registry_host %>"]
 }</pre>
-  <p class="text-sm text-slate-500 dark:text-slate-400 mt-3">Restart Docker after making changes: <code class="bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-sm font-mono">sudo systemctl restart docker</code></p>
-</div>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-3">Restart Docker after making changes: <code class="bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-sm font-mono">sudo systemctl restart docker</code></p>
+  </div>
+<% end %>
 
 <%# Push & Pull %>
-<div class="rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm p-6 mb-6">
-  <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4">Push & Pull Images</h2>
-  <div class="space-y-4">
-    <div>
-      <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Tag an image for this registry</h3>
-      <pre class="bg-slate-100 dark:bg-slate-900 rounded-md p-4 text-sm font-mono text-slate-800 dark:text-blue-300 overflow-x-auto">docker tag myapp:latest <%= @registry_host %>/myapp:latest</pre>
-    </div>
-    <div>
-      <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Push</h3>
-      <pre class="bg-slate-100 dark:bg-slate-900 rounded-md p-4 text-sm font-mono text-slate-800 dark:text-blue-300 overflow-x-auto">docker push <%= @registry_host %>/myapp:latest</pre>
-    </div>
-    <div>
-      <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Pull</h3>
-      <pre class="bg-slate-100 dark:bg-slate-900 rounded-md p-4 text-sm font-mono text-slate-800 dark:text-blue-300 overflow-x-auto">docker pull <%= @registry_host %>/myapp:latest</pre>
+<%= render CardComponent.new(padding: :none, class: "mb-6") do %>
+  <div class="p-6">
+    <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4">Push & Pull Images</h2>
+    <div class="space-y-4">
+      <div>
+        <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Tag an image for this registry</h3>
+        <pre class="bg-slate-100 dark:bg-slate-900 rounded-md p-4 text-sm font-mono text-slate-800 dark:text-blue-300 overflow-x-auto">docker tag myapp:latest <%= @registry_host %>/myapp:latest</pre>
+      </div>
+      <div>
+        <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Push</h3>
+        <pre class="bg-slate-100 dark:bg-slate-900 rounded-md p-4 text-sm font-mono text-slate-800 dark:text-blue-300 overflow-x-auto">docker push <%= @registry_host %>/myapp:latest</pre>
+      </div>
+      <div>
+        <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Pull</h3>
+        <pre class="bg-slate-100 dark:bg-slate-900 rounded-md p-4 text-sm font-mono text-slate-800 dark:text-blue-300 overflow-x-auto">docker pull <%= @registry_host %>/myapp:latest</pre>
+      </div>
     </div>
   </div>
-</div>
+<% end %>
 
 <%# Kubernetes Configuration %>
-<div class="rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm p-6 mb-6">
-  <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4">Kubernetes / containerd Configuration</h2>
-  <p class="text-base text-slate-700 dark:text-slate-300 mb-3">Add a mirror in <code class="bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-sm font-mono">/etc/containerd/config.toml</code>:</p>
-  <pre class="bg-slate-100 dark:bg-slate-900 rounded-md p-4 text-sm font-mono text-slate-800 dark:text-blue-300 overflow-x-auto">[plugins."io.containerd.grpc.v1.cri".registry.mirrors."<%= @registry_host %>"]
+<%= render CardComponent.new(padding: :none, class: "mb-6") do %>
+  <div class="p-6">
+    <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4">Kubernetes / containerd Configuration</h2>
+    <p class="text-base text-slate-700 dark:text-slate-300 mb-3">Add a mirror in <code class="bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-sm font-mono">/etc/containerd/config.toml</code>:</p>
+    <pre class="bg-slate-100 dark:bg-slate-900 rounded-md p-4 text-sm font-mono text-slate-800 dark:text-blue-300 overflow-x-auto">[plugins."io.containerd.grpc.v1.cri".registry.mirrors."<%= @registry_host %>"]
   endpoint = ["http://<%= @registry_host %>"]
 
 [plugins."io.containerd.grpc.v1.cri".registry.configs."<%= @registry_host %>".tls]
   insecure_skip_verify = true</pre>
-  <p class="text-sm text-slate-500 dark:text-slate-400 mt-3">Restart containerd: <code class="bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-sm font-mono">sudo systemctl restart containerd</code></p>
-</div>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-3">Restart containerd: <code class="bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-sm font-mono">sudo systemctl restart containerd</code></p>
+  </div>
+<% end %>
 
 <%# Nginx Reverse Proxy %>
-<div class="rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm p-6 mb-6">
-  <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4">Nginx Reverse Proxy (TLS)</h2>
-  <pre class="bg-slate-100 dark:bg-slate-900 rounded-md p-4 text-sm font-mono text-slate-800 dark:text-blue-300 overflow-x-auto">server {
+<%= render CardComponent.new(padding: :none, class: "mb-6") do %>
+  <div class="p-6">
+    <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4">Nginx Reverse Proxy (TLS)</h2>
+    <pre class="bg-slate-100 dark:bg-slate-900 rounded-md p-4 text-sm font-mono text-slate-800 dark:text-blue-300 overflow-x-auto">server {
     listen 443 ssl;
     server_name registry.example.com;
 
@@ -65,7 +72,8 @@
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 }</pre>
-</div>
+  </div>
+<% end %>
 
 <%# Supported Image Formats %>
 <div class="rounded-lg bg-amber-100 dark:bg-amber-900/20 border border-amber-400 dark:border-amber-700 p-6">

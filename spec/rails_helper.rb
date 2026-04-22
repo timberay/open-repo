@@ -5,6 +5,8 @@ require_relative '../config/environment'
 abort("The Rails environment is running in production mode!") if Rails.env.production?
 require 'rspec/rails'
 require 'webmock/rspec'
+require 'view_component/test_helpers'
+require 'capybara/rspec'
 # Add additional requires below this line. Rails is not loaded until this point!
 
 # Requires supporting ruby files with custom matchers and macros, etc, in
@@ -61,6 +63,14 @@ RSpec.configure do |config|
   #
   # To enable this behaviour uncomment the line below.
   # config.infer_spec_type_from_file_location!
+
+  # ViewComponent test helpers — enables `render_inline` and Capybara matchers
+  # in component specs (files matching spec/components/**/*_spec.rb).
+  config.include ViewComponent::TestHelpers, type: :component
+  config.include Capybara::RSpecMatchers, type: :component
+  config.define_derived_metadata(file_path: %r{/spec/components/}) do |metadata|
+    metadata[:type] ||= :component
+  end
 
   # Filter lines from Rails gems in backtraces.
   config.filter_rails_from_backtrace!
