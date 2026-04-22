@@ -124,4 +124,27 @@ RSpec.describe CardComponent, type: :component do
       }.to raise_error(ArgumentError, /padding/)
     end
   end
+
+  describe "html_options passthrough" do
+    it "merges additional classes with base classes on the wrapper" do
+      render_inline(described_class.new(class: "hover:shadow-md transition-shadow duration-150")) { "Body" }
+
+      # Base classes still present.
+      expect(page).to have_css("div.rounded-lg.bg-white.border.border-slate-200.shadow-sm")
+      # Extra classes also applied on the SAME outer wrapper.
+      expect(page).to have_css("div.rounded-lg.hover\\:shadow-md.transition-shadow.duration-150")
+    end
+
+    it "passes through data attributes to the outer wrapper" do
+      render_inline(described_class.new(data: { controller: "card" })) { "Body" }
+
+      expect(page).to have_css("div.rounded-lg[data-controller='card']")
+    end
+
+    it "passes through id attribute to the outer wrapper" do
+      render_inline(described_class.new(id: "repo-card")) { "Body" }
+
+      expect(page).to have_css("div#repo-card.rounded-lg")
+    end
+  end
 end

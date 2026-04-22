@@ -39,14 +39,19 @@ class CardComponent < ViewComponent::Base
     none: ""
   }.freeze
 
-  def initialize(padding: :default)
+  def initialize(padding: :default, **html_options)
     raise ArgumentError, "unknown padding: #{padding.inspect}" unless BODY_PADDING.key?(padding)
 
     @padding = padding
+    @html_options = html_options
   end
 
   def wrapper_classes
-    WRAPPER_CLASSES
+    [ WRAPPER_CLASSES, @html_options[:class] ].compact.join(" ").strip
+  end
+
+  def wrapper_options
+    @html_options.except(:class).merge(class: wrapper_classes)
   end
 
   def header_classes
