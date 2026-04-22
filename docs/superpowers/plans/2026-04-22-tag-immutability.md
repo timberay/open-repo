@@ -1,6 +1,6 @@
 # Tag Immutability Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **STATUS: SHIPPED (2026-04-22).** All tasks complete and merged via PR #12. See the "Post-ship notes (2026-04-22)" section at the bottom of this file for the one bug caught during E2E review and its fix. This plan is preserved as a historical reference — do NOT execute. See `git log` for per-task commits.
 
 **Goal:** Ship per-repository tag protection policy (`none` / `semver` / `all_except_latest` / `custom_regex`) that blocks overwrite + delete of protected tags across Registry PUT, Registry DELETE, Web UI DELETE, and the retention job — while preserving idempotent re-push for CI retry safety.
 
@@ -14,14 +14,14 @@
 
 ## Pre-flight
 
-- [ ] **Step 0: Ensure clean working tree**
+- [x] **Step 0: Ensure clean working tree**
 
 ```bash
 git status
 ```
 Expected: clean (no staged or unstaged changes). If dirty, stash or commit first.
 
-- [ ] **Step 1: Baseline tests green**
+- [x] **Step 1: Baseline tests green**
 
 ```bash
 bin/rails db:test:prepare
@@ -38,7 +38,7 @@ Expected: PASS for all existing specs. If any fail on baseline, fix before start
 **Files:**
 - Modify: `app/controllers/repositories_controller.rb:45-47`
 
-- [ ] **Step 1: Read the current method**
+- [x] **Step 1: Read the current method**
 
 Current content (line 45-47):
 
@@ -48,7 +48,7 @@ def repository_params
 end
 ```
 
-- [ ] **Step 2: Replace with `params.expect`**
+- [x] **Step 2: Replace with `params.expect`**
 
 Replacement:
 
@@ -58,14 +58,14 @@ def repository_params
 end
 ```
 
-- [ ] **Step 3: Run repository request spec to confirm no regression**
+- [x] **Step 3: Run repository request spec to confirm no regression**
 
 ```bash
 bundle exec rspec spec/requests/repositories_spec.rb
 ```
 Expected: PASS (all existing request specs still green).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add app/controllers/repositories_controller.rb
@@ -80,7 +80,7 @@ git commit -m "refactor: use params.expect for repository strong params"
 - Modify: `app/errors/registry.rb`
 - Test: `spec/errors/registry_spec.rb`
 
-- [ ] **Step 1: Write failing test appending to existing spec**
+- [x] **Step 1: Write failing test appending to existing spec**
 
 Append to `spec/errors/registry_spec.rb` inside `RSpec.describe Registry do ... end`:
 
@@ -107,14 +107,14 @@ Append to `spec/errors/registry_spec.rb` inside `RSpec.describe Registry do ... 
   end
 ```
 
-- [ ] **Step 2: Run the test — verify it fails**
+- [x] **Step 2: Run the test — verify it fails**
 
 ```bash
 bundle exec rspec spec/errors/registry_spec.rb
 ```
 Expected: FAIL with `uninitialized constant Registry::TagProtected`.
 
-- [ ] **Step 3: Implement the error class**
+- [x] **Step 3: Implement the error class**
 
 Replace the body of `app/errors/registry.rb` with:
 
@@ -140,14 +140,14 @@ module Registry
 end
 ```
 
-- [ ] **Step 4: Run the test — verify it passes**
+- [x] **Step 4: Run the test — verify it passes**
 
 ```bash
 bundle exec rspec spec/errors/registry_spec.rb
 ```
 Expected: PASS (all existing Registry tests + 4 new TagProtected tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/errors/registry.rb spec/errors/registry_spec.rb
@@ -162,7 +162,7 @@ git commit -m "feat: add Registry::TagProtected error with detail payload"
 - Modify: `app/controllers/v2/base_controller.rb`
 - Test: `spec/requests/v2/base_spec.rb`
 
-- [ ] **Step 1: Write failing request spec**
+- [x] **Step 1: Write failing request spec**
 
 Append to `spec/requests/v2/base_spec.rb` (create `RSpec.describe 'V2 TagProtected handling', type: :request do ... end` block if the file doesn't already have a matching context):
 
@@ -236,14 +236,14 @@ RSpec.describe V2::BaseController, type: :controller do
 end
 ```
 
-- [ ] **Step 2: Run the test — verify it fails**
+- [x] **Step 2: Run the test — verify it fails**
 
 ```bash
 bundle exec rspec spec/requests/v2/base_spec.rb
 ```
 Expected: FAIL — `Registry::TagProtected` is raised and not rescued; Rails renders a generic 500.
 
-- [ ] **Step 3: Add the rescue_from**
+- [x] **Step 3: Add the rescue_from**
 
 Edit `app/controllers/v2/base_controller.rb`. Find the rescue_from block (around line 4-10) and add inside it:
 
@@ -264,14 +264,14 @@ Place this line after `rescue_from Registry::Unsupported` so the full block read
   rescue_from Registry::TagProtected, with: -> (e) { render_error('DENIED', e.message, 409, detail: e.detail) }
 ```
 
-- [ ] **Step 4: Run the test — verify it passes**
+- [x] **Step 4: Run the test — verify it passes**
 
 ```bash
 bundle exec rspec spec/requests/v2/base_spec.rb
 ```
 Expected: PASS (existing tests + 3 new TagProtected tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/controllers/v2/base_controller.rb spec/requests/v2/base_spec.rb
@@ -286,13 +286,13 @@ git commit -m "feat: rescue Registry::TagProtected as 409 DENIED in V2 base"
 - Create: `db/migrate/YYYYMMDDHHMMSS_add_tag_protection_to_repositories.rb`
 - Modify: `db/schema.rb` (regenerated automatically)
 
-- [ ] **Step 1: Generate migration timestamp**
+- [x] **Step 1: Generate migration timestamp**
 
 ```bash
 bin/rails generate migration AddTagProtectionToRepositories
 ```
 
-- [ ] **Step 2: Write the migration body**
+- [x] **Step 2: Write the migration body**
 
 Open the newly created `db/migrate/YYYYMMDDHHMMSS_add_tag_protection_to_repositories.rb` and replace the body with:
 
@@ -309,7 +309,7 @@ class AddTagProtectionToRepositories < ActiveRecord::Migration[8.1]
 end
 ```
 
-- [ ] **Step 3: Run the migration**
+- [x] **Step 3: Run the migration**
 
 ```bash
 bin/rails db:migrate
@@ -317,14 +317,14 @@ bin/rails db:test:prepare
 ```
 Expected: migration completes; `schema.rb` now shows the two columns.
 
-- [ ] **Step 4: Confirm baseline specs still green**
+- [x] **Step 4: Confirm baseline specs still green**
 
 ```bash
 bundle exec rspec --fail-fast
 ```
 Expected: PASS (columns are additive; nothing existing references them yet).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add db/migrate/ db/schema.rb
@@ -339,7 +339,7 @@ git commit -m "feat: add tag_protection_policy and tag_protection_pattern column
 - Modify: `app/models/repository.rb`
 - Test: `spec/models/repository_spec.rb`
 
-- [ ] **Step 1: Write failing unit specs for all four policies**
+- [x] **Step 1: Write failing unit specs for all four policies**
 
 Append inside `RSpec.describe Repository, type: :model do ... end` in `spec/models/repository_spec.rb`:
 
@@ -453,14 +453,14 @@ Append inside `RSpec.describe Repository, type: :model do ... end` in `spec/mode
   end
 ```
 
-- [ ] **Step 2: Run the spec — verify it fails**
+- [x] **Step 2: Run the spec — verify it fails**
 
 ```bash
 bundle exec rspec spec/models/repository_spec.rb
 ```
 Expected: FAIL — `tag_protected?` undefined, enum undefined, no validations.
 
-- [ ] **Step 3: Implement the model additions**
+- [x] **Step 3: Implement the model additions**
 
 Replace the body of `app/models/repository.rb` with:
 
@@ -512,14 +512,14 @@ class Repository < ApplicationRecord
 end
 ```
 
-- [ ] **Step 4: Run the spec — verify it passes**
+- [x] **Step 4: Run the spec — verify it passes**
 
 ```bash
 bundle exec rspec spec/models/repository_spec.rb
 ```
 Expected: PASS (original association/validation tests + 14 new tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/models/repository.rb spec/models/repository_spec.rb
@@ -534,7 +534,7 @@ git commit -m "feat: add tag_protected? with four-policy enum on Repository"
 - Modify: `app/models/repository.rb`
 - Test: `spec/models/repository_spec.rb`
 
-- [ ] **Step 1: Write failing spec**
+- [x] **Step 1: Write failing spec**
 
 Append inside `RSpec.describe Repository, type: :model do ... end`:
 
@@ -590,14 +590,14 @@ Append inside `RSpec.describe Repository, type: :model do ... end`:
   end
 ```
 
-- [ ] **Step 2: Run the spec — verify it fails**
+- [x] **Step 2: Run the spec — verify it fails**
 
 ```bash
 bundle exec rspec spec/models/repository_spec.rb
 ```
 Expected: FAIL — `enforce_tag_protection!` undefined.
 
-- [ ] **Step 3: Implement the method**
+- [x] **Step 3: Implement the method**
 
 In `app/models/repository.rb`, add this method just after `tag_protected?`:
 
@@ -624,14 +624,14 @@ In `app/models/repository.rb`, add this method just after `tag_protected?`:
   end
 ```
 
-- [ ] **Step 4: Run the spec — verify it passes**
+- [x] **Step 4: Run the spec — verify it passes**
 
 ```bash
 bundle exec rspec spec/models/repository_spec.rb
 ```
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/models/repository.rb spec/models/repository_spec.rb
@@ -646,7 +646,7 @@ git commit -m "feat: add Repository#enforce_tag_protection! helper for all call 
 - Modify: `app/services/manifest_processor.rb`
 - Test: `spec/services/manifest_processor_spec.rb`
 
-- [ ] **Step 1: Write failing specs (including REGRESSION guards)**
+- [x] **Step 1: Write failing specs (including REGRESSION guards)**
 
 Append to `RSpec.describe ManifestProcessor do ... end` in `spec/services/manifest_processor_spec.rb`:
 
@@ -730,14 +730,14 @@ Append to `RSpec.describe ManifestProcessor do ... end` in `spec/services/manife
   end
 ```
 
-- [ ] **Step 2: Run the spec — verify it fails**
+- [x] **Step 2: Run the spec — verify it fails**
 
 ```bash
 bundle exec rspec spec/services/manifest_processor_spec.rb
 ```
 Expected: FAIL — protection check not wired in yet.
 
-- [ ] **Step 3: Rewrite `ManifestProcessor#call` with entry check + `with_lock`**
+- [x] **Step 3: Rewrite `ManifestProcessor#call` with entry check + `with_lock`**
 
 Replace the body of `app/services/manifest_processor.rb` with:
 
@@ -880,14 +880,14 @@ class ManifestProcessor
 end
 ```
 
-- [ ] **Step 4: Run the spec — verify it passes**
+- [x] **Step 4: Run the spec — verify it passes**
 
 ```bash
 bundle exec rspec spec/services/manifest_processor_spec.rb
 ```
 Expected: PASS — all original specs still green, 5 new protection specs green, REGRESSION guards green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/services/manifest_processor.rb spec/services/manifest_processor_spec.rb
@@ -902,7 +902,7 @@ git commit -m "feat: enforce tag protection at ManifestProcessor entry with row 
 - Modify: `app/controllers/tags_controller.rb`
 - Test: `spec/requests/tags_spec.rb` (create if missing)
 
-- [ ] **Step 1: Write failing request spec**
+- [x] **Step 1: Write failing request spec**
 
 Create or append to `spec/requests/tags_spec.rb`:
 
@@ -954,14 +954,14 @@ RSpec.describe 'Tags', type: :request do
 end
 ```
 
-- [ ] **Step 2: Run the spec — verify it fails**
+- [x] **Step 2: Run the spec — verify it fails**
 
 ```bash
 bundle exec rspec spec/requests/tags_spec.rb
 ```
 Expected: FAIL — current controller destroys tag unconditionally.
 
-- [ ] **Step 3: Gate the destroy action**
+- [x] **Step 3: Gate the destroy action**
 
 Replace the body of `app/controllers/tags_controller.rb` with:
 
@@ -1009,14 +1009,14 @@ class TagsController < ApplicationController
 end
 ```
 
-- [ ] **Step 4: Run the spec — verify it passes**
+- [x] **Step 4: Run the spec — verify it passes**
 
 ```bash
 bundle exec rspec spec/requests/tags_spec.rb
 ```
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/controllers/tags_controller.rb spec/requests/tags_spec.rb
@@ -1031,7 +1031,7 @@ git commit -m "feat: block protected tag deletion via Web UI"
 - Modify: `app/controllers/v2/manifests_controller.rb`
 - Test: `spec/requests/v2/manifests_spec.rb`
 
-- [ ] **Step 1: Write failing request spec**
+- [x] **Step 1: Write failing request spec**
 
 Append inside the existing `RSpec.describe 'V2 manifests', type: :request do ... end` block in `spec/requests/v2/manifests_spec.rb`:
 
@@ -1078,14 +1078,14 @@ Append inside the existing `RSpec.describe 'V2 manifests', type: :request do ...
   end
 ```
 
-- [ ] **Step 2: Run the spec — verify it fails**
+- [x] **Step 2: Run the spec — verify it fails**
 
 ```bash
 bundle exec rspec spec/requests/v2/manifests_spec.rb
 ```
 Expected: FAIL — destroy action has no protection check.
 
-- [ ] **Step 3: Gate the destroy action**
+- [x] **Step 3: Gate the destroy action**
 
 In `app/controllers/v2/manifests_controller.rb`, replace the `destroy` method (currently lines 43-66) with:
 
@@ -1120,14 +1120,14 @@ In `app/controllers/v2/manifests_controller.rb`, replace the `destroy` method (c
   end
 ```
 
-- [ ] **Step 4: Run the spec — verify it passes**
+- [x] **Step 4: Run the spec — verify it passes**
 
 ```bash
 bundle exec rspec spec/requests/v2/manifests_spec.rb
 ```
 Expected: PASS (existing destroy specs still green + 4 new protection specs).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/controllers/v2/manifests_controller.rb spec/requests/v2/manifests_spec.rb
@@ -1142,7 +1142,7 @@ git commit -m "feat: block protected manifest deletion via Registry V2 DELETE"
 - Modify: `app/jobs/enforce_retention_policy_job.rb`
 - Test: `spec/jobs/enforce_retention_policy_job_spec.rb`
 
-- [ ] **Step 1: Write failing spec**
+- [x] **Step 1: Write failing spec**
 
 Create or replace `spec/jobs/enforce_retention_policy_job_spec.rb`:
 
@@ -1233,14 +1233,14 @@ grep -q "climate_control" Gemfile && echo "USE_CLIMATE" || echo "USE_STUB"
 
 Use the matching variant.
 
-- [ ] **Step 2: Run the spec — verify it fails**
+- [x] **Step 2: Run the spec — verify it fails**
 
 ```bash
 bundle exec rspec spec/jobs/enforce_retention_policy_job_spec.rb
 ```
 Expected: FAIL — retention job currently deletes protected tags.
 
-- [ ] **Step 3: Add protection skip**
+- [x] **Step 3: Add protection skip**
 
 Replace the body of `app/jobs/enforce_retention_policy_job.rb` with:
 
@@ -1290,14 +1290,14 @@ class EnforceRetentionPolicyJob < ApplicationJob
 end
 ```
 
-- [ ] **Step 4: Run the spec — verify it passes**
+- [x] **Step 4: Run the spec — verify it passes**
 
 ```bash
 bundle exec rspec spec/jobs/enforce_retention_policy_job_spec.rb
 ```
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/jobs/enforce_retention_policy_job.rb spec/jobs/enforce_retention_policy_job_spec.rb
@@ -1312,7 +1312,7 @@ git commit -m "fix: EnforceRetentionPolicyJob skips protected tags"
 - Modify: `app/controllers/repositories_controller.rb`
 - Test: `spec/requests/repositories_spec.rb`
 
-- [ ] **Step 1: Write failing request spec**
+- [x] **Step 1: Write failing request spec**
 
 Append to `spec/requests/repositories_spec.rb` inside the existing `RSpec.describe 'Repositories', type: :request do ... end` block:
 
@@ -1350,14 +1350,14 @@ Append to `spec/requests/repositories_spec.rb` inside the existing `RSpec.descri
   end
 ```
 
-- [ ] **Step 2: Run the spec — verify it fails**
+- [x] **Step 2: Run the spec — verify it fails**
 
 ```bash
 bundle exec rspec spec/requests/repositories_spec.rb
 ```
 Expected: FAIL — strong params drops the new fields.
 
-- [ ] **Step 3: Update strong params and render form error on validation failure**
+- [x] **Step 3: Update strong params and render form error on validation failure**
 
 Replace `update` and `repository_params` in `app/controllers/repositories_controller.rb` with:
 
@@ -1380,14 +1380,14 @@ Replace `update` and `repository_params` in `app/controllers/repositories_contro
   end
 ```
 
-- [ ] **Step 4: Run the spec — verify it passes**
+- [x] **Step 4: Run the spec — verify it passes**
 
 ```bash
 bundle exec rspec spec/requests/repositories_spec.rb
 ```
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/controllers/repositories_controller.rb spec/requests/repositories_spec.rb
@@ -1402,7 +1402,7 @@ git commit -m "feat: accept tag protection fields in repository update"
 - Create: `app/javascript/controllers/tag_protection_controller.js`
 - Modify: `app/javascript/controllers/index.js` (if it manually registers controllers; Rails 8 auto-registers via stimulus-rails, so usually no edit)
 
-- [ ] **Step 1: Check whether controllers are auto-registered**
+- [x] **Step 1: Check whether controllers are auto-registered**
 
 ```bash
 cat app/javascript/controllers/index.js 2>/dev/null | head -20
@@ -1410,7 +1410,7 @@ cat app/javascript/controllers/index.js 2>/dev/null | head -20
 
 If the file uses `import { application } from "./application"` + `eagerLoadControllersFrom("controllers", application)`, controllers are auto-loaded by file name. Otherwise, a manual `application.register` line is needed for each controller.
 
-- [ ] **Step 2: Write the Stimulus controller**
+- [x] **Step 2: Write the Stimulus controller**
 
 Create `app/javascript/controllers/tag_protection_controller.js`:
 
@@ -1433,7 +1433,7 @@ export default class extends Controller {
 }
 ```
 
-- [ ] **Step 3: Manually register if needed**
+- [x] **Step 3: Manually register if needed**
 
 If Step 1 shows `index.js` uses manual registration, add:
 
@@ -1444,7 +1444,7 @@ application.register("tag-protection", TagProtectionController)
 
 If auto-loaded, skip.
 
-- [ ] **Step 4: Sanity check — no build error**
+- [x] **Step 4: Sanity check — no build error**
 
 Rails 8 with importmap has no build step. A syntax error surfaces only when the browser loads the JS. We'll verify in the E2E spec (Task 16) and via manual browser load in Task 13. No commit yet — hold until paired with the view (Task 13).
 
@@ -1455,7 +1455,7 @@ Rails 8 with importmap has no build step. A syntax error surfaces only when the 
 **Files:**
 - Modify: `app/views/repositories/show.html.erb`
 
-- [ ] **Step 1: Add policy select + regex input to the edit form**
+- [x] **Step 1: Add policy select + regex input to the edit form**
 
 In `app/views/repositories/show.html.erb`, find the form block that currently contains `<%= form_with model: @repository, ... do |f| %>` (around line 60-74). Extend it. Replace the form body (inside the `do |f| ... end`) with:
 
@@ -1497,7 +1497,7 @@ In `app/views/repositories/show.html.erb`, find the form block that currently co
 <% end %>
 ```
 
-- [ ] **Step 2: Add 🔒 Protected badge + disabled delete button in the desktop table row**
+- [x] **Step 2: Add 🔒 Protected badge + disabled delete button in the desktop table row**
 
 In the same file, find the desktop tag row (around line 110-141). In the row's first column (the Tag column, currently line 112-115), replace with:
 
@@ -1542,7 +1542,7 @@ Then replace the desktop delete button cell (currently around line 131-140) with
 </div>
 ```
 
-- [ ] **Step 3: Apply the same badge + disable logic to the mobile card stack**
+- [x] **Step 3: Apply the same badge + disable logic to the mobile card stack**
 
 In the same file's mobile section (around line 147-170), update each card. Replace the card block body with:
 
@@ -1583,7 +1583,7 @@ In the same file's mobile section (around line 147-170), update each card. Repla
 </div>
 ```
 
-- [ ] **Step 4: Manual smoke test**
+- [x] **Step 4: Manual smoke test**
 
 ```bash
 bin/dev
@@ -1593,7 +1593,7 @@ Open `http://localhost:3000/repositories/<existing-repo>` in the browser. Expand
 
 If anything misbehaves, fix before committing. Also verify dark mode renders correctly.
 
-- [ ] **Step 5: Commit (bundles Task 12 + Task 13)**
+- [x] **Step 5: Commit (bundles Task 12 + Task 13)**
 
 ```bash
 git add app/views/repositories/show.html.erb app/javascript/controllers/tag_protection_controller.js app/javascript/controllers/index.js
@@ -1607,7 +1607,7 @@ git commit -m "feat: add tag protection form and protected badge to repo show"
 **Files:**
 - Modify: `app/views/tags/show.html.erb`
 
-- [ ] **Step 1: Insert a delete-button section above the "Layers" heading**
+- [x] **Step 1: Insert a delete-button section above the "Layers" heading**
 
 In `app/views/tags/show.html.erb`, the current structure is: back nav → tag info card → layers card → docker config. Insert a new section between the tag info card and the layers card.
 
@@ -1637,11 +1637,11 @@ After the closing `</div>` of the tag info card (around line 45) and before the 
 </div>
 ```
 
-- [ ] **Step 2: Manual smoke test**
+- [x] **Step 2: Manual smoke test**
 
 Reload a protected tag detail page — button shows "Delete tag (protected)" disabled with tooltip. Reload an unprotected tag — button is active. Click delete on an unprotected tag — confirms + redirects with success flash.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add app/views/tags/show.html.erb
@@ -1655,7 +1655,7 @@ git commit -m "feat: add delete button to tag detail with disabled state when pr
 **Files:**
 - Modify: `test/integration/docker_cli_test.sh`
 
-- [ ] **Step 1: Review current structure**
+- [x] **Step 1: Review current structure**
 
 ```bash
 cat test/integration/docker_cli_test.sh
@@ -1663,7 +1663,7 @@ cat test/integration/docker_cli_test.sh
 
 Note the existing `REGISTRY=${REGISTRY:-localhost:3000}` variable and the pattern of `echo "--- Test N: ..." ; ... ; echo "PASS: ..."`.
 
-- [ ] **Step 2: Append the protection scenarios**
+- [x] **Step 2: Append the protection scenarios**
 
 Append to `test/integration/docker_cli_test.sh` before any final summary line:
 
@@ -1708,7 +1708,7 @@ docker rmi $REGISTRY/proto-img:v1.0.0 $REGISTRY/proto-img:latest 2>/dev/null || 
 echo "PASS: cleanup done"
 ```
 
-- [ ] **Step 3: Run the full integration suite**
+- [x] **Step 3: Run the full integration suite**
 
 ```bash
 # Start a fresh local registry in another terminal:
@@ -1718,7 +1718,7 @@ echo "PASS: cleanup done"
 ```
 Expected: all existing tests PASS, all P1-P5 PASS. If P4 fails because the CLI does not include `"denied"` in stderr, inspect the actual output — Docker CLI typically surfaces the DENIED code as `denied:` prefix in the error line.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add test/integration/docker_cli_test.sh
@@ -1732,7 +1732,7 @@ git commit -m "test: add Docker CLI scenarios for tag protection"
 **Files:**
 - Create: `e2e/tag-protection.spec.js`
 
-- [ ] **Step 1: Inspect an existing E2E spec to match the conventions**
+- [x] **Step 1: Inspect an existing E2E spec to match the conventions**
 
 ```bash
 ls e2e/
@@ -1741,7 +1741,7 @@ cat e2e/$(ls e2e/ | head -1) 2>/dev/null | head -50
 
 Use the same import/convention pattern (imports, `test`, `expect`, `baseURL`, any fixtures for DB seed).
 
-- [ ] **Step 2: Write the spec**
+- [x] **Step 2: Write the spec**
 
 Create `e2e/tag-protection.spec.js`:
 
@@ -1842,7 +1842,7 @@ test.describe('Tag Protection', () => {
 })
 ```
 
-- [ ] **Step 3: Add seed fixture support**
+- [x] **Step 3: Add seed fixture support**
 
 If `e2e/` has no seed mechanism yet, use the existing `test/integration/docker_cli_test.sh` approach — seed via `bin/rails runner` in a pre-spec hook. Add this helper at the top of `e2e/tag-protection.spec.js` if no `beforeAll` seed endpoint exists:
 
@@ -1870,7 +1870,7 @@ test.afterAll(() => {
 
 (Remove the lifecycle hooks if the project has a better seed pattern — check `e2e/README.md` or existing specs first.)
 
-- [ ] **Step 4: Run the E2E spec**
+- [x] **Step 4: Run the E2E spec**
 
 ```bash
 # Ensure dev server is running in another terminal
@@ -1878,7 +1878,7 @@ npx playwright test e2e/tag-protection.spec.js
 ```
 Expected: all 6 tests PASS. If any fail due to selector specificity, tighten the locators — the Tailwind classes and structure from Task 13/14 are the source of truth.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add e2e/tag-protection.spec.js
@@ -1889,35 +1889,35 @@ git commit -m "test: add Playwright E2E for tag protection flow"
 
 ## Task 17: Final verification — full test suite + rubocop + brakeman
 
-- [ ] **Step 1: Full RSpec**
+- [x] **Step 1: Full RSpec**
 
 ```bash
 bundle exec rspec
 ```
 Expected: PASS for all specs.
 
-- [ ] **Step 2: Rubocop**
+- [x] **Step 2: Rubocop**
 
 ```bash
 bin/rubocop
 ```
 Expected: PASS. If any offenses appear in the changed files, run `bin/rubocop -a` and re-commit via an additional "style:" commit if the changes are auto-corrections.
 
-- [ ] **Step 3: Brakeman security scan**
+- [x] **Step 3: Brakeman security scan**
 
 ```bash
 bin/brakeman --quiet --no-pager --exit-on-warn --exit-on-error
 ```
 Expected: no new warnings. The new regex-input field accepts user-supplied strings but is only used as a `Regexp.new(...)` pattern (not shell-evaled, not SQL-interpolated). Rails 8 `Regexp.timeout = 1` prevents ReDoS.
 
-- [ ] **Step 4: Full CI dry run**
+- [x] **Step 4: Full CI dry run**
 
 ```bash
 bin/ci
 ```
 Expected: green. If seed check fails, inspect and fix (the migration adds a column with a safe default so no seed changes should be needed).
 
-- [ ] **Step 5: Diff review**
+- [x] **Step 5: Diff review**
 
 ```bash
 git log --oneline main..HEAD
