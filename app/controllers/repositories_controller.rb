@@ -48,6 +48,6 @@ class RepositoriesController < ApplicationController
   private
 
   def repository_params
-    params.expect(repository: [:description, :maintainer, :tag_protection_policy, :tag_protection_pattern])
+    params.expect(repository: [ :description, :maintainer, :tag_protection_policy, :tag_protection_pattern ])
   end
 end

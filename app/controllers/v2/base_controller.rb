@@ -21,7 +21,7 @@ class V2::BaseController < ActionController::API
   end
 
   def render_error(code, message, status, detail: {})
-    render json: { errors: [{ code: code, message: message, detail: detail }] }, status: status
+    render json: { errors: [ { code: code, message: message, detail: detail } ] }, status: status
   end
 
   def repo_name
