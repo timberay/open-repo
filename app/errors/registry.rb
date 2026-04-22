@@ -7,4 +7,13 @@ module Registry
   class NameUnknown < Error; end
   class DigestMismatch < Error; end
   class Unsupported < Error; end
+
+  class TagProtected < Error
+    attr_reader :detail
+
+    def initialize(tag:, policy:, message: nil)
+      @detail = { tag: tag, policy: policy }
+      super(message || "tag '#{tag}' is protected by immutability policy '#{policy}'")
+    end
+  end
 end

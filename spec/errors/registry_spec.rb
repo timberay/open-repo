@@ -21,4 +21,25 @@ RSpec.describe Registry do
       expect(error.message).to eq('blob sha256:abc not found')
     end
   end
+
+  describe Registry::TagProtected do
+    it 'inherits from Registry::Error' do
+      expect(described_class.new(tag: 'v1.0.0', policy: 'semver')).to be_a(Registry::Error)
+    end
+
+    it 'builds a default message from tag and policy' do
+      error = described_class.new(tag: 'v1.0.0', policy: 'semver')
+      expect(error.message).to eq("tag 'v1.0.0' is protected by immutability policy 'semver'")
+    end
+
+    it 'accepts an explicit message override' do
+      error = described_class.new(tag: 'v1.0.0', policy: 'semver', message: 'custom')
+      expect(error.message).to eq('custom')
+    end
+
+    it 'exposes detail hash for Docker Registry error envelope' do
+      error = described_class.new(tag: 'v1.0.0', policy: 'semver')
+      expect(error.detail).to eq(tag: 'v1.0.0', policy: 'semver')
+    end
+  end
 end
