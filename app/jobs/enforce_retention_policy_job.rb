@@ -19,6 +19,9 @@ class EnforceRetentionPolicyJob < ApplicationJob
       scope = scope.where.not(name: 'latest') if protect_latest
 
       scope.find_each do |tag|
+        # OV-2 (P0): do not touch tags protected by repo policy.
+        next if manifest.repository.tag_protected?(tag.name)
+
         TagEvent.create!(
           repository: manifest.repository,
           tag_name: tag.name,
