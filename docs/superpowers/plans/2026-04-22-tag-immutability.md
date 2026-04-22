@@ -1963,3 +1963,27 @@ Do not expand scope into any of these during execution. If a test or implementat
 - Decision 1-A (check at entry, not in `assign_tag!`): enforced in Task 7 by moving the call to before `manifest.find_or_initialize_by` and wrapping in `with_lock`. REGRESSION specs lock this in.
 - Decision OV-2 (retention job P0): Task 10 with three protection scenarios.
 - Critical gap "Regexp::TimeoutError rescue": currently not handled explicitly — `Regexp.new` in `tag_protection_pattern_is_valid_regex` rescues `RegexpError` (the parent class of `Regexp::TimeoutError` in Ruby 3.2+). If the project pins an older Ruby, promote this rescue to include `Regexp::TimeoutError` explicitly. Ruby 3.4.8 (per STANDARDS.md) — `RegexpError` covers it, but add an explicit rescue if validation starts throwing 500s.
+
+---
+
+## Post-ship notes (2026-04-22)
+
+### Issue found during E2E review (PR #12)
+
+The self-review above correctly predicted that `Regexp.new` could throw a 500 — but only flagged the **validation** path. The **view-render** path was missed: when `RepositoriesController#update` fails validation, `@repository` is left in memory with the invalid `tag_protection_pattern`, and the re-rendered `show` template calls `tag_protected?` → `protection_regex` → `Regexp.new("[unclosed")` → `RegexpError` → HTTP 500.
+
+### Fixes applied in this PR
+
+- `e516b73` `fix: guard Repository#protection_regex against invalid pattern` — `protection_regex` now short-circuits on blank patterns and rescues `RegexpError` → `nil`. `tag_protected?`'s `custom_regex` branch is nil-safe.
+- `8cbf7c0` `feat: render flash alert in layout to surface validation errors` — `application.html.erb` now renders `flash[:alert]` / `flash[:notice]` so validation failures are actually visible to the user.
+- `9f150c5` `test: scope tag-protection Playwright spec to desktop grid and serial run` — locators narrowed to `.hidden.md\:block` to avoid strict-mode matches against the mobile card stack; describe marked `serial` so the shared SQLite seed/teardown is not raced by parallel workers.
+
+### Regression tests
+
+- `spec/models/repository_spec.rb` — "when policy is custom_regex but in-memory pattern is invalid" covers the view-safety unit case.
+- `spec/requests/repositories_spec.rb` — "renders 422 with the validation message when regex is invalid (no 500)" and "does not crash when the invalid in-memory state touches tags in the view" cover the controller+view integration case.
+- `e2e/tag-protection.spec.js` — "invalid regex surfaces validation error" exercises the full browser flow under Playwright.
+
+### Takeaway for future plans
+
+When a plan rescues an exception class in a validator, also explicitly check every call site that may dereference the same attribute **after** a failed validation (re-rendered forms, before_save hooks, memoised getters). The self-review prompt should include "does any view path call a method that performs the same dangerous operation without its own rescue?"
