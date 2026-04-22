@@ -8,6 +8,7 @@ class V2::BaseController < ActionController::API
   rescue_from Registry::NameUnknown, with: -> (e) { render_error('NAME_UNKNOWN', e.message, 404) }
   rescue_from Registry::DigestMismatch, with: -> (e) { render_error('DIGEST_INVALID', e.message, 400) }
   rescue_from Registry::Unsupported, with: -> (e) { render_error('UNSUPPORTED', e.message, 415) }
+  rescue_from Registry::TagProtected, with: -> (e) { render_error('DENIED', e.message, 409, detail: e.detail) }
 
   def index
     render json: {}
