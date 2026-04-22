@@ -1,0 +1,50 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(git commit*)",
+            "command": "export PATH=\"$HOME/.rbenv/shims:$HOME/.rbenv/bin:$PATH\"; if [ -x bin/rails ]; then bin/rails test > /tmp/test_output.txt 2>&1; rc=$?; if [ $rc -ne 0 ]; then jq -n --rawfile out /tmp/test_output.txt '{hookSpecificOutput:{hookEventName:\"PreToolUse\",permissionDecision:\"deny\",permissionDecisionReason:(\"Rails test failed. Diagnose the failures, fix the code, and retry the commit.\\n\\n--- bin/rails test output ---\\n\" + $out)}}'; fi; fi",
+            "timeout": 120,
+            "statusMessage": "Running tests before commit..."
+          },
+          {
+            "type": "command",
+            "if": "Bash(git commit*)",
+            "command": "export PATH=\"$HOME/.rbenv/shims:$HOME/.rbenv/bin:$PATH\"; if [ -x bin/rubocop ]; then bin/rubocop --format quiet > /tmp/rubocop_output.txt 2>&1; rc=$?; if [ $rc -ne 0 ]; then jq -n --rawfile out /tmp/rubocop_output.txt '{hookSpecificOutput:{hookEventName:\"PreToolUse\",permissionDecision:\"deny\",permissionDecisionReason:(\"Rubocop violations found. Run `bin/rubocop -a` to auto-fix, manually address any remaining issues, re-stage, and retry the commit.\\n\\n--- bin/rubocop --format quiet output ---\\n\" + $out)}}'; fi; fi",
+            "timeout": 60,
+            "statusMessage": "Running rubocop before commit..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "export PATH=\"$HOME/.rbenv/shims:$HOME/.rbenv/bin:$PATH\"; jq -r '.tool_input.file_path' | { read -r f; if [[ \"$f\" == *.rb ]] && [ -x bin/rubocop ]; then bin/rubocop \"$f\" 2>&1; fi; } 2>/dev/null || true",
+            "timeout": 30,
+            "statusMessage": "Linting Ruby file..."
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "p=$(jq -r '.prompt'); if echo \"$p\" | grep -qiE '기능|구현|추가|만들|개발|feature|implement|build|develop'; then jq -n --rawfile ctx .claude/hooks/pipeline-reminder.txt '{hookSpecificOutput:{hookEventName:\"UserPromptSubmit\",additionalContext:$ctx}}'; fi",
+            "timeout": 5,
+            "statusMessage": "Checking pipeline phase..."
+          }
+        ]
+      }
+    ]
+  }
+}

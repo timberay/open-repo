@@ -1,0 +1,16 @@
+⚠️ FEATURE REQUEST DETECTED — Pipeline Phase Check Required
+
+Before any planning or implementation, verify the 4-phase design separation (see `docs/standards/WORKFLOW.md`):
+
+- **Phase 1 (Product Decision)** — `~/.gstack/projects/<slug>/designs/<feature>.md` via `/office-hours`
+- **Phase 2 (System Architecture)** — `~/.gstack/projects/<slug>/designs/<feature>-eng-review.md` via `/plan-eng-review`
+- **Phase 3 (Technical Design)** — `docs/superpowers/specs/<date>-<feature>-tech-design.md` via `/superpowers:brainstorming`
+- **Phase 4 (Task Breakdown)** — `docs/superpowers/plans/<date>-<feature>-plan.md` via `/superpowers:writing-plans`
+
+Rules:
+1. Check each phase artifact BEFORE implementing. If missing, START from that phase — do not skip.
+2. If this prompt is a continuation of an ongoing phase (e.g., "Phase 3 계속", "플랜 수정", 이미 열려있는 design doc 편집), proceed without re-checking.
+3. If the user explicitly overrides ("간단한 버그 수정이니 phase 건너뛰어"), confirm the task truly doesn't need the pipeline, then proceed.
+4. For bug fixes, refactors, small tweaks — the pipeline does not apply. Use judgment.
+
+If you are unsure whether this request needs the pipeline, ASK the user before jumping into implementation.
