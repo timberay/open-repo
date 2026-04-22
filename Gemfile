@@ -58,6 +58,10 @@ group :development, :test do
 
    gem "rspec-rails"
    gem "webmock"
+
+   # Capybara powers ViewComponent::TestHelpers `page`/`have_css` matchers used
+   # in component specs (spec/components/**/*_spec.rb).
+   gem "capybara"
 end
 
 group :development do
