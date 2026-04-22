@@ -42,6 +42,23 @@ RSpec.describe 'Repositories', type: :request do
     end
   end
 
+  describe 'Protected tag badge rendering' do
+    let!(:protected_repo) { Repository.create!(name: 'protected-repo', tag_protection_policy: 'semver') }
+    let!(:protected_manifest) { Manifest.create!(repository: protected_repo, digest: 'sha256:def', media_type: 'application/vnd.docker.distribution.manifest.v2+json', payload: '{}', size: 200) }
+    let!(:protected_tag) { Tag.create!(repository: protected_repo, manifest: protected_manifest, name: 'v1.0.0') }
+
+    it 'renders protected badge with lock-closed heroicon, no emoji, text-sm' do
+      get repository_path('protected-repo')
+      expect(response).to be_successful
+      # Assert emoji is NOT rendered
+      expect(response.body).not_to include("🔒")
+      # Assert lock-closed heroicon is rendered (check for SVG with data-icon attribute or path signature)
+      expect(response.body).to match(/lock-closed|M16\.5 10\.5V6\.75/)
+      # Assert badge has text-sm (base class of BadgeComponent)
+      expect(response.body).to match(/class="[^"]*text-sm[^"]*"/)
+    end
+  end
+
   describe 'PATCH /repositories/:name with tag protection fields' do
     let!(:protection_repo) { Repository.create!(name: 'example') }
 

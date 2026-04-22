@@ -136,9 +136,10 @@
             <% if @repository.tag_protected?(tag.name) %>
               <%= render(BadgeComponent.new(
                     variant: :warning,
+                    icon: "lock-closed",
                     role: "img",
                     "aria-label": "Protected tag (policy: #{@repository.tag_protection_policy})"
-                  )) { "🔒 Protected" } %>
+                  )) { "Protected" } %>
             <% end %>
           </div>
         </div>
@@ -188,10 +189,11 @@
             <% if @repository.tag_protected?(tag.name) %>
               <%= render(BadgeComponent.new(
                     variant: :warning,
+                    icon: "lock-closed",
                     role: "img",
                     "aria-label": "Protected tag (policy: #{@repository.tag_protection_policy})",
                     class: "flex-shrink-0"
-                  )) { "🔒 Protected" } %>
+                  )) { "Protected" } %>
             <% end %>
           </div>
           <span class="text-sm text-slate-400 dark:text-slate-500 flex-shrink-0"><%= time_ago_in_words(tag.updated_at) %> ago</span>
