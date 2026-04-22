@@ -13,9 +13,3 @@
     --text-primary: 243 244 246;
   }
 }
-
-@layer components {
-  .container-custom {
-    @apply container mx-auto px-4 sm:px-6 lg:px-8;
-  }
-}
