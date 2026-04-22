@@ -25,6 +25,27 @@ class Repository < ApplicationRecord
     end
   end
 
+  # Raises Registry::TagProtected when the tag is protected and the operation
+  # would mutate it. Used by ManifestProcessor (PUT), TagsController#destroy
+  # (Web UI DELETE), V2::ManifestsController#destroy (Registry DELETE), and
+  # EnforceRetentionPolicyJob (retention skip).
+  #
+  # @param tag_name [String]
+  # @param new_digest [String, nil] for PUT, the digest being pushed; same
+  #   digest as existing tag is idempotent (CI retry safety) and does not raise.
+  # @param existing_tag [Tag, nil] pass an already-loaded Tag to avoid a
+  #   duplicate `tags.find_by(name:)` query when the caller already has it.
+  def enforce_tag_protection!(tag_name, new_digest: nil, existing_tag: :unset)
+    return unless tag_protected?(tag_name)
+
+    if new_digest
+      current = existing_tag.equal?(:unset) ? tags.find_by(name: tag_name) : existing_tag
+      return if current && current.manifest.digest == new_digest
+    end
+
+    raise Registry::TagProtected.new(tag: tag_name, policy: tag_protection_policy)
+  end
+
   private
 
   def protection_regex

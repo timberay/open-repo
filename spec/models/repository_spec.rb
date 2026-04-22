@@ -137,4 +137,54 @@ RSpec.describe Repository, type: :model do
       expect(repo.reload.tag_protection_pattern).to eq('^release-\d+$')
     end
   end
+
+  describe '#enforce_tag_protection!' do
+    let(:repo) { Repository.create!(name: 'example', tag_protection_policy: 'semver') }
+    let(:manifest) do
+      m = repo.manifests.create!(
+        digest: 'sha256:existing', media_type: 'application/vnd.docker.distribution.manifest.v2+json',
+        payload: '{}', size: 2
+      )
+      repo.tags.create!(name: 'v1.0.0', manifest: m)
+      m
+    end
+    before { manifest } # force setup
+
+    context 'when tag is not protected' do
+      it 'returns nil and does not raise' do
+        expect(repo.enforce_tag_protection!('latest')).to be_nil
+      end
+    end
+
+    context 'when tag is protected and no existing tag' do
+      it 'raises Registry::TagProtected' do
+        expect { repo.enforce_tag_protection!('v2.0.0') }
+          .to raise_error(Registry::TagProtected) { |e|
+            expect(e.detail).to eq(tag: 'v2.0.0', policy: 'semver')
+          }
+      end
+    end
+
+    context 'when tag is protected and existing digest differs' do
+      it 'raises Registry::TagProtected' do
+        expect { repo.enforce_tag_protection!('v1.0.0', new_digest: 'sha256:different') }
+          .to raise_error(Registry::TagProtected)
+      end
+    end
+
+    context 'when tag is protected and existing digest matches (idempotent)' do
+      it 'does not raise' do
+        expect { repo.enforce_tag_protection!('v1.0.0', new_digest: 'sha256:existing') }.not_to raise_error
+      end
+    end
+
+    context 'when called with an already-loaded tag (to avoid duplicate query)' do
+      it 'accepts existing_tag keyword and uses it' do
+        tag = repo.tags.find_by(name: 'v1.0.0')
+        expect {
+          repo.enforce_tag_protection!('v1.0.0', new_digest: 'sha256:existing', existing_tag: tag)
+        }.not_to raise_error
+      end
+    end
+  end
 end
