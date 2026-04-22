@@ -217,6 +217,16 @@ end
 
 UI components follow the project's design tokens and specs. When creating new components, follow patterns from existing components for consistency.
 
+### Icons
+
+Icons are sourced from Heroicons v2 via the `rails_heroicon` gem. The default variant is `outline` (`stroke-width="1.5"` per DESIGN.md). Use the `heroicon` helper to render icons:
+
+```erb
+<%= heroicon "archive-box", class: "w-12 h-12 text-slate-300" %>
+```
+
+All new icons should use this helper; inline SVGs will be migrated progressively.
+
 ## Internationalization (i18n)
 
 - Use Rails `I18n` API (`config/locales/*.yml`) as primary translation engine
