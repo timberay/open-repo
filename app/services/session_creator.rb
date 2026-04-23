@@ -24,7 +24,20 @@ class SessionCreator
           )
           matched
         else
-          raise NotImplementedError, "Case C — next task"
+          # Case C — brand-new user
+          new_user = User.create!(
+            email: profile.email,
+            admin: User.admin_email?(profile.email)
+          )
+          identity = new_user.identities.create!(
+            provider: profile.provider,
+            uid: profile.uid,
+            email: profile.email,
+            email_verified: profile.email_verified,
+            name: profile.name,
+            avatar_url: profile.avatar_url
+          )
+          new_user
         end
 
       user.track_login!(identity)

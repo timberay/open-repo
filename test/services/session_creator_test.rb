@@ -80,4 +80,47 @@ class SessionCreatorTest < ActiveSupport::TestCase
     )
     assert_raises(Auth::EmailMismatch) { SessionCreator.new.call(profile) }
   end
+
+  test "Case C — new email creates User + Identity" do
+    profile = Auth::ProviderProfile.new(
+      provider: "google_oauth2",
+      uid: "brand-new-uid",
+      email: "newbie@timberay.com",
+      email_verified: true,
+      name: "New Bie",
+      avatar_url: nil
+    )
+
+    assert_difference -> { User.count }, +1 do
+      assert_difference -> { Identity.count }, +1 do
+        user = SessionCreator.new.call(profile)
+        assert_equal "newbie@timberay.com", user.email
+        assert_equal user.identities.first.id, user.primary_identity_id
+        refute user.admin?
+      end
+    end
+  end
+
+  test "Case C — REGISTRY_ADMIN_EMAIL match grants admin=true" do
+    Rails.configuration.x.registry.admin_email = "boss@timberay.com"
+    profile = Auth::ProviderProfile.new(
+      provider: "google_oauth2",
+      uid: "boss-uid",
+      email: "boss@timberay.com",
+      email_verified: true,
+      name: "The Boss",
+      avatar_url: nil
+    )
+
+    user = SessionCreator.new.call(profile)
+    assert user.admin?
+  end
+
+  test "InvalidProfile raised for blank email" do
+    profile = Auth::ProviderProfile.new(
+      provider: "google_oauth2", uid: "x", email: "",
+      email_verified: true, name: nil, avatar_url: nil
+    )
+    assert_raises(Auth::InvalidProfile) { SessionCreator.new.call(profile) }
+  end
 end
