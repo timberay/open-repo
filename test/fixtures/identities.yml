@@ -1,0 +1,21 @@
+admin_google:
+  user: admin
+  provider: google_oauth2
+  uid: "admin-google-1"
+  email: admin@timberay.com
+  email_verified: true
+  name: Admin User
+  last_login_at: <%= 1.minute.ago %>
+  created_at: <%= 2.days.ago %>
+  updated_at: <%= 1.minute.ago %>
+
+tonny_google:
+  user: tonny
+  provider: google_oauth2
+  uid: "tonny-google-1"
+  email: tonny@timberay.com
+  email_verified: true
+  name: Tonny Kim
+  last_login_at: <%= 5.minutes.ago %>
+  created_at: <%= 1.day.ago %>
+  updated_at: <%= 5.minutes.ago %>
