@@ -1,0 +1,3 @@
+# Stage 2 테스트용 — tonny가 소유한 repo의 admin_google 이 writer 멤버
+# 실제 repo fixture 없음. 테스트에서 인라인 create! 사용.
+# (현재 이 파일은 빈 fixtures — 필요 시 테스트에서 인라인 생성)
