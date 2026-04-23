@@ -1,4 +1,7 @@
 class Auth::SessionsController < ApplicationController
+  ALLOWED_FAILURE_MESSAGES = %w[email_mismatch invalid_profile provider_outage failed].freeze
+  ALLOWED_STRATEGIES        = %w[google_oauth2].freeze
+
   skip_forgery_protection only: [ :create ]
 
   def create
@@ -22,8 +25,8 @@ class Auth::SessionsController < ApplicationController
   end
 
   def failure
-    strategy = params[:strategy].presence || "unknown"
-    message  = params[:message].presence  || "failed"
+    strategy = ALLOWED_STRATEGIES.include?(params[:strategy]) ? params[:strategy] : "unknown"
+    message  = ALLOWED_FAILURE_MESSAGES.include?(params[:message]) ? params[:message] : "failed"
     flash[:alert] = "Sign-in failed (#{strategy}: #{message})."
     redirect_to root_path
   end

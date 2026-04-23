@@ -49,4 +49,17 @@ class Auth::SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to root_path
     assert_nil session[:user_id]
   end
+
+  # /auth/failure allowlist tests
+  test "failure with unknown strategy and message → coerced to fallbacks" do
+    get "/auth/failure", params: { strategy: "evil-strategy", message: "Your bank password is wrong" }
+    assert_redirected_to root_path
+    assert_equal "Sign-in failed (unknown: failed).", flash[:alert]
+  end
+
+  test "failure with allowed strategy and message → passed through unchanged" do
+    get "/auth/failure", params: { strategy: "google_oauth2", message: "email_mismatch" }
+    assert_redirected_to root_path
+    assert_equal "Sign-in failed (google_oauth2: email_mismatch).", flash[:alert]
+  end
 end
