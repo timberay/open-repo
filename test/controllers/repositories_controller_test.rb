@@ -31,6 +31,8 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "DELETE /repositories/:name destroys repository" do
+    @repo.update!(owner_identity: identities(:tonny_google))
+    post "/testing/sign_in", params: { user_id: users(:tonny).id }
     delete repository_path("test-repo")
     assert_redirected_to root_path
     assert_nil Repository.find_by(name: "test-repo")
@@ -212,5 +214,39 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     assert_equal 2, tag_delete_forms.size, "Expected 2 tag-delete forms (desktop + mobile), got #{tag_delete_forms.size}"
     forms_with_svg = tag_delete_forms.count { |form| form.include?("<svg") }
     assert_equal 2, forms_with_svg, "Expected both forms to have a trash heroicon SVG, but only #{forms_with_svg} did"
+  end
+
+  # ---------------------------------------------------------------------------
+  # Stage 2: destroy authz
+  # ---------------------------------------------------------------------------
+
+  test "DELETE /repositories/:name by non-owner returns 302 redirect with alert" do
+    owner_identity = identities(:tonny_google)
+    repo = Repository.create!(
+      name: "destroy-authz-#{SecureRandom.hex(4)}",
+      owner_identity: owner_identity
+    )
+
+    # admin user (not owner) tries to delete
+    post "/testing/sign_in", params: { user_id: users(:admin).id }
+    delete "/repositories/#{repo.name}"
+
+    assert_redirected_to repository_path(repo.name)
+    assert_match(/permission/, flash[:alert])
+    assert Repository.exists?(name: repo.name), "repository should NOT be destroyed"
+  end
+
+  test "DELETE /repositories/:name by owner succeeds" do
+    owner_identity = identities(:tonny_google)
+    repo = Repository.create!(
+      name: "destroy-owner-#{SecureRandom.hex(4)}",
+      owner_identity: owner_identity
+    )
+
+    post "/testing/sign_in", params: { user_id: users(:tonny).id }
+    delete "/repositories/#{repo.name}"
+
+    assert_redirected_to root_path
+    refute Repository.exists?(name: repo.name)
   end
 end

@@ -1,4 +1,6 @@
 class RepositoriesController < ApplicationController
+  before_action :set_repository_for_authz, only: [ :destroy ]
+
   def index
     @repositories = Repository.all.order(updated_at: :desc)
 
@@ -35,17 +37,20 @@ class RepositoriesController < ApplicationController
   end
 
   def destroy
-    repository = Repository.find_by!(name: params[:name])
-
-    repository.manifests.includes(layers: :blob).find_each do |manifest|
+    @repository.manifests.includes(layers: :blob).find_each do |manifest|
       manifest.layers.each { |layer| layer.blob.decrement!(:references_count) }
     end
 
-    repository.destroy!
-    redirect_to root_path, notice: "Repository '#{repository.name}' deleted."
+    @repository.destroy!
+    redirect_to root_path, notice: "Repository '#{@repository.name}' deleted."
   end
 
   private
+
+  def set_repository_for_authz
+    @repository = Repository.find_by!(name: params[:name])
+    authorize_for!(:delete)
+  end
 
   def repository_params
     params.expect(repository: [ :description, :maintainer, :tag_protection_policy, :tag_protection_pattern ])
