@@ -188,7 +188,7 @@ This registry accepts **single-platform Docker V2 Schema 2** manifests only. Mul
 ### Tag Detail (`GET /repositories/:name/tags/:tag_name`)
 
 - Tag header: full name, short digest (12 chars), size, architecture/OS, pull count.
-- **Layers section** listing every layer in `position` order with digest + size (desktop grid / mobile cards).
+- **Layers section** listing every layer in `position` order with its digest (one-click copy of the full `sha256:` value) and size (desktop grid / mobile cards).
 - **Docker Config section** — pretty-printed JSON extracted from the config blob (`manifest.docker_config`).
 - **Docker pull command** with copy button.
 - Delete button disabled for protected tags.
@@ -419,6 +419,14 @@ This lets Docker stream large blob uploads without buffering them to disk on the
 
 ```
 app/
+├── components/                       # ViewComponent UI primitives
+│   ├── badge_component.rb            # Status badges (info/success/warning/danger)
+│   ├── button_component.rb           # Primary/secondary/danger buttons with heroicons
+│   ├── card_component.rb             # Rounded container with optional header slot
+│   ├── digest_component.rb           # Short sha256 digest with click-to-copy
+│   ├── input_component.rb            # Text/search inputs
+│   ├── select_component.rb           # Dropdown selects
+│   └── textarea_component.rb         # Multi-line text inputs
 ├── controllers/
 │   ├── repositories_controller.rb    # Web UI CRUD
 │   ├── tags_controller.rb            # Tag detail, history, delete
