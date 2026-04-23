@@ -1,4 +1,7 @@
 class Repository < ApplicationRecord
+  belongs_to :owner_identity, class_name: "Identity", optional: true
+  has_many :repository_members, dependent: :destroy
+  has_many :member_identities, through: :repository_members, source: :identity
   has_many :tags, dependent: :destroy
   has_many :manifests, dependent: :destroy
   has_many :tag_events, dependent: :destroy
@@ -15,6 +18,51 @@ class Repository < ApplicationRecord
   validate :tag_protection_pattern_is_valid_regex, if: :protection_custom_regex?
 
   before_save :clear_tag_protection_pattern_unless_custom_regex
+
+  # ---------------------------------------------------------------------------
+  # Authorization methods (Stage 2)
+  # ---------------------------------------------------------------------------
+
+  # @param identity [Identity, nil]
+  # @return [Boolean]
+  def writable_by?(identity)
+    return false if identity.nil?
+    return true if owner_identity_id == identity.id
+    repository_members.exists?(identity_id: identity.id, role: %w[writer admin])
+  end
+
+  # @param identity [Identity, nil]
+  # @return [Boolean]
+  def deletable_by?(identity)
+    return false if identity.nil?
+    return true if owner_identity_id == identity.id
+    repository_members.exists?(identity_id: identity.id, role: "admin")
+  end
+
+  # Atomically transfers ownership and records an audit TagEvent.
+  #
+  # @param new_owner_identity [Identity]
+  # @param by [User] the user performing the transfer (used for actor attribution)
+  def transfer_ownership_to!(new_owner_identity, by:)
+    transaction do
+      previous_owner_id = owner_identity_id
+      update!(owner_identity_id: new_owner_identity.id)
+      repository_members
+        .find_or_create_by!(identity_id: previous_owner_id) { |m| m.role = "admin" }
+      TagEvent.create!(
+        repository: self,
+        tag_name: "-",
+        action: "ownership_transfer",
+        actor: by.primary_identity.email,
+        actor_identity_id: by.primary_identity_id,
+        occurred_at: Time.current
+      )
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Tag protection
+  # ---------------------------------------------------------------------------
 
   def tag_protected?(tag_name)
     case tag_protection_policy

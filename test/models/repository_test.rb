@@ -224,4 +224,94 @@ class RepositoryTest < ActiveSupport::TestCase
       enforcement_repo.enforce_tag_protection!("v1.0.0", new_digest: "sha256:existing", existing_tag: tag)
     end
   end
+
+  # ---------------------------------------------------------------------------
+  # Stage 2: ownership associations + authorization methods
+  # ---------------------------------------------------------------------------
+
+  def owner_identity
+    identities(:tonny_google)
+  end
+
+  def other_identity
+    identities(:admin_google)
+  end
+
+  def owned_repo
+    @owned_repo ||= Repository.create!(
+      name: "owned-repo-#{SecureRandom.hex(4)}",
+      owner_identity: owner_identity
+    )
+  end
+
+  test "belongs_to :owner_identity" do
+    assert_equal :belongs_to, Repository.reflect_on_association(:owner_identity).macro
+  end
+
+  test "has_many :repository_members" do
+    assert_equal :has_many, Repository.reflect_on_association(:repository_members).macro
+  end
+
+  test "writable_by? returns true for owner" do
+    assert owned_repo.writable_by?(owner_identity)
+  end
+
+  test "writable_by? returns false for nil identity" do
+    refute owned_repo.writable_by?(nil)
+  end
+
+  test "writable_by? returns false for stranger with no membership" do
+    refute owned_repo.writable_by?(other_identity)
+  end
+
+  test "writable_by? returns true for writer member" do
+    RepositoryMember.create!(repository: owned_repo, identity: other_identity, role: "writer")
+    assert owned_repo.writable_by?(other_identity)
+  end
+
+  test "writable_by? returns true for admin member" do
+    RepositoryMember.create!(repository: owned_repo, identity: other_identity, role: "admin")
+    assert owned_repo.writable_by?(other_identity)
+  end
+
+  test "deletable_by? returns true for owner" do
+    assert owned_repo.deletable_by?(owner_identity)
+  end
+
+  test "deletable_by? returns false for nil identity" do
+    refute owned_repo.deletable_by?(nil)
+  end
+
+  test "deletable_by? returns false for writer member (not admin)" do
+    RepositoryMember.create!(repository: owned_repo, identity: other_identity, role: "writer")
+    refute owned_repo.deletable_by?(other_identity)
+  end
+
+  test "deletable_by? returns true for admin member" do
+    RepositoryMember.create!(repository: owned_repo, identity: other_identity, role: "admin")
+    assert owned_repo.deletable_by?(other_identity)
+  end
+
+  test "transfer_ownership_to! changes owner_identity_id" do
+    repo = owned_repo
+    repo.transfer_ownership_to!(other_identity, by: users(:tonny))
+    repo.reload
+    assert_equal other_identity.id, repo.owner_identity_id
+  end
+
+  test "transfer_ownership_to! adds previous owner as admin member" do
+    repo = owned_repo
+    repo.transfer_ownership_to!(other_identity, by: users(:tonny))
+    assert RepositoryMember.exists?(repository: repo, identity: owner_identity, role: "admin")
+  end
+
+  test "transfer_ownership_to! creates ownership_transfer TagEvent" do
+    repo = owned_repo
+    assert_difference -> { TagEvent.where(action: "ownership_transfer").count }, +1 do
+      repo.transfer_ownership_to!(other_identity, by: users(:tonny))
+    end
+    event = TagEvent.where(action: "ownership_transfer").last
+    assert_equal users(:tonny).primary_identity.email, event.actor
+    assert_equal users(:tonny).primary_identity_id, event.actor_identity_id
+  end
 end
