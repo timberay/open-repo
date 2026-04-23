@@ -39,7 +39,7 @@ class V2::BlobsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "DELETE /v2/:name/blobs/:digest deletes blob" do
-    delete "/v2/#{@repo_name}/blobs/#{@digest}"
+    delete "/v2/#{@repo_name}/blobs/#{@digest}", headers: basic_auth_for
     assert_response 202
   end
 end

@@ -12,7 +12,7 @@ class V2::BlobUploadsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "POST /v2/:name/blobs/uploads returns 202 with Location and upload UUID" do
-    post "/v2/#{@repo_name}/blobs/uploads"
+    post "/v2/#{@repo_name}/blobs/uploads", headers: basic_auth_for
 
     assert_response 202
     assert_match %r{/v2/#{@repo_name}/blobs/uploads/.+}, response.headers["Location"]
@@ -21,7 +21,7 @@ class V2::BlobUploadsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "POST /v2/:name/blobs/uploads creates repository if not exists" do
-    post "/v2/#{@repo_name}/blobs/uploads"
+    post "/v2/#{@repo_name}/blobs/uploads", headers: basic_auth_for
     assert Repository.find_by(name: @repo_name).present?
   end
 
@@ -31,19 +31,19 @@ class V2::BlobUploadsControllerTest < ActionDispatch::IntegrationTest
 
     post "/v2/#{@repo_name}/blobs/uploads?digest=#{digest}",
          params: content,
-         headers: { "CONTENT_TYPE" => "application/octet-stream" }
+         headers: { "CONTENT_TYPE" => "application/octet-stream" }.merge(basic_auth_for)
 
     assert_response 201
     assert_equal digest, response.headers["Docker-Content-Digest"]
   end
 
   test "PATCH /v2/:name/blobs/uploads/:uuid appends data and returns updated range" do
-    post "/v2/#{@repo_name}/blobs/uploads"
+    post "/v2/#{@repo_name}/blobs/uploads", headers: basic_auth_for
     uuid = response.headers["Docker-Upload-UUID"]
 
     patch "/v2/#{@repo_name}/blobs/uploads/#{uuid}",
           params: "chunk data",
-          headers: { "CONTENT_TYPE" => "application/octet-stream" }
+          headers: { "CONTENT_TYPE" => "application/octet-stream" }.merge(basic_auth_for)
 
     assert_response 202
     assert_equal "0-9", response.headers["Range"]
@@ -54,14 +54,14 @@ class V2::BlobUploadsControllerTest < ActionDispatch::IntegrationTest
     content = "final blob content"
     digest = DigestCalculator.compute(content)
 
-    post "/v2/#{@repo_name}/blobs/uploads"
+    post "/v2/#{@repo_name}/blobs/uploads", headers: basic_auth_for
     uuid = response.headers["Docker-Upload-UUID"]
 
     patch "/v2/#{@repo_name}/blobs/uploads/#{uuid}",
           params: content,
-          headers: { "CONTENT_TYPE" => "application/octet-stream" }
+          headers: { "CONTENT_TYPE" => "application/octet-stream" }.merge(basic_auth_for)
 
-    put "/v2/#{@repo_name}/blobs/uploads/#{uuid}?digest=#{digest}"
+    put "/v2/#{@repo_name}/blobs/uploads/#{uuid}?digest=#{digest}", headers: basic_auth_for
 
     assert_response 201
     assert_equal digest, response.headers["Docker-Content-Digest"]
@@ -69,14 +69,14 @@ class V2::BlobUploadsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "PUT /v2/:name/blobs/uploads/:uuid?digest= rejects wrong digest" do
-    post "/v2/#{@repo_name}/blobs/uploads"
+    post "/v2/#{@repo_name}/blobs/uploads", headers: basic_auth_for
     uuid = response.headers["Docker-Upload-UUID"]
 
     patch "/v2/#{@repo_name}/blobs/uploads/#{uuid}",
           params: "some data",
-          headers: { "CONTENT_TYPE" => "application/octet-stream" }
+          headers: { "CONTENT_TYPE" => "application/octet-stream" }.merge(basic_auth_for)
 
-    put "/v2/#{@repo_name}/blobs/uploads/#{uuid}?digest=sha256:wrong"
+    put "/v2/#{@repo_name}/blobs/uploads/#{uuid}?digest=sha256:wrong", headers: basic_auth_for
 
     assert_response 400
     assert_equal "DIGEST_INVALID", JSON.parse(response.body)["errors"][0]["code"]
@@ -89,24 +89,24 @@ class V2::BlobUploadsControllerTest < ActionDispatch::IntegrationTest
     Blob.create!(digest: digest, size: content.bytesize)
     BlobStore.new(@storage_dir).put(digest, StringIO.new(content))
 
-    post "/v2/#{@repo_name}/blobs/uploads?mount=#{digest}&from=source-repo"
+    post "/v2/#{@repo_name}/blobs/uploads?mount=#{digest}&from=source-repo", headers: basic_auth_for
 
     assert_response 201
     assert_equal digest, response.headers["Docker-Content-Digest"]
   end
 
   test "POST /v2/:name/blobs/uploads?mount=&from= falls back to regular upload if blob not found" do
-    post "/v2/#{@repo_name}/blobs/uploads?mount=sha256:nonexistent&from=other-repo"
+    post "/v2/#{@repo_name}/blobs/uploads?mount=sha256:nonexistent&from=other-repo", headers: basic_auth_for
 
     assert_response 202
     assert response.headers["Docker-Upload-UUID"].present?
   end
 
   test "DELETE /v2/:name/blobs/uploads/:uuid cancels upload" do
-    post "/v2/#{@repo_name}/blobs/uploads"
+    post "/v2/#{@repo_name}/blobs/uploads", headers: basic_auth_for
     uuid = response.headers["Docker-Upload-UUID"]
 
-    delete "/v2/#{@repo_name}/blobs/uploads/#{uuid}"
+    delete "/v2/#{@repo_name}/blobs/uploads/#{uuid}", headers: basic_auth_for
     assert_response 204
     assert_nil BlobUpload.find_by(uuid: uuid)
   end

@@ -17,3 +17,13 @@ class ActiveSupport::TestCase
     Rails.configuration.x.registry.anonymous_pull_enabled = true
   end
 end
+
+class ActionDispatch::IntegrationTest
+  include TokenFixtures
+
+  # Build PAT Basic auth headers for V2 protected endpoints.
+  # Default: tonny@timberay.com / tonny_cli_active PAT.
+  def basic_auth_for(pat_raw: TONNY_CLI_RAW, email: "tonny@timberay.com")
+    { "Authorization" => ActionController::HttpAuthentication::Basic.encode_credentials(email, pat_raw) }
+  end
+end
