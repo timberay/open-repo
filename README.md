@@ -105,12 +105,19 @@ bin/rails db:prepare
 | `RETENTION_DAYS_WITHOUT_PULL` | `90` | Days without a pull before a manifest is eligible for expiration |
 | `RETENTION_MIN_PULL_COUNT` | `5` | Manifests with fewer total pulls than this are eligible |
 | `RETENTION_PROTECT_LATEST` | `true` | Never auto-delete the `latest` tag |
+| `REGISTRY_ADMIN_EMAIL` | _(none)_ | Email granted `admin=true` on first Web UI sign-in |
+| `REGISTRY_ANONYMOUS_PULL` | `false` | Allow `docker pull` (GET/HEAD on `/v2/`) without a token |
 
 ---
 
 ## Authentication
 
-open-repo uses Google OAuth 2 for Web UI sign-in. To enable it:
+open-repo has two authentication surfaces:
+
+- **Web UI sign-in** — Google OAuth 2.
+- **Docker CLI push/pull** — Personal Access Tokens over HTTP Basic on the V2 API. Pull can be opened to anonymous traffic via a flag.
+
+### Web UI (Google OAuth 2)
 
 1. Create a Google Cloud OAuth Client (Web application type) at https://console.cloud.google.com/apis/credentials
 2. Set redirect URI: `https://<your-host>/auth/google_oauth2/callback`
@@ -120,9 +127,35 @@ open-repo uses Google OAuth 2 for Web UI sign-in. To enable it:
      client_id: "xxx.apps.googleusercontent.com"
      client_secret: "GOCSPX-..."
    ```
-4. Set `REGISTRY_ADMIN_EMAIL=<your-email>` (the first user to sign in with this email gets `admin=true`).
+4. Set `REGISTRY_ADMIN_EMAIL=<your-email>`. The first user to sign in with that email is flagged `admin=true`.
 
-Docker CLI / Registry V2 API authentication is part of Stage 1 (not yet shipped).
+### Docker CLI (Personal Access Tokens)
+
+V2 write endpoints (`PUT` / `POST` / `DELETE` under `/v2/`) require HTTP Basic auth with a Personal Access Token. Pull endpoints (`GET` / `HEAD`) are anonymous when `REGISTRY_ANONYMOUS_PULL=true`; otherwise they also require a token.
+
+**Issue a token:**
+
+1. Sign in to the Web UI.
+2. Click **Tokens** in the top nav (or visit `/settings/tokens`).
+3. Fill in a name (e.g. `laptop`), pick a kind (`cli` for rotation, `ci` for no expiration), and optionally set expires-in-days (blank = never).
+4. Click **Generate token**. The raw token (`oprk_...`) is shown exactly once via a one-shot flash banner — copy it now. It is stored as a SHA-256 digest and cannot be recovered.
+
+**Use a token:**
+
+```bash
+docker login <registry-host> -u <your-email> -p oprk_...
+docker push <registry-host>/myimage:v1
+```
+
+The challenge is Docker V2 Basic scheme: the server emits `WWW-Authenticate: Basic realm="Registry"` on an unauthenticated write, and `docker login` sends `Authorization: Basic base64(email:oprk_...)` on the retry.
+
+**Revoke a token:** on `/settings/tokens`, click **Revoke** on the row. Subsequent requests with that token immediately return 401.
+
+**`TagEvent.actor` records the real email** for every authenticated push / delete (V2 API and Web UI). Background imports without a session fall back to `"system:import"`. Retention-policy auto-deletions record `"retention-policy"`.
+
+### Rate Limiting
+
+`rack-attack` throttles write paths at **30 requests per minute per IP** on `/v2/*` `POST` / `PUT` / `PATCH` / `DELETE`. Pull paths (`GET` / `HEAD`) are not throttled. Exceeded requests return `429` with `Retry-After: 60` and a Docker-spec-compliant `TOO_MANY_REQUESTS` error body.
 
 ---
 
@@ -141,11 +174,14 @@ Starts the Rails server on http://localhost:3000 with the TailwindCSS watcher.
 ### Push and Pull Images
 
 ```bash
-# Tag and push
+# Authenticate once per host (see Authentication → Docker CLI for token issuance)
+docker login localhost:3000 -u <your-email> -p oprk_...
+
+# Tag and push (push requires auth)
 docker tag myimage:v1 localhost:3000/myimage:v1
 docker push localhost:3000/myimage:v1
 
-# Pull
+# Pull (anonymous when REGISTRY_ANONYMOUS_PULL=true, otherwise reuse the login)
 docker pull localhost:3000/myimage:v1
 ```
 
@@ -217,6 +253,15 @@ This registry accepts **single-platform Docker V2 Schema 2** manifests only. Mul
 - All `TagEvent` rows for this tag, ordered by `occurred_at DESC`.
 - Each row renders: color-coded action badge (create = green, update = amber, delete = red), timestamp, `previous_digest` and `new_digest` (short format), and the `actor` field.
 
+### Personal Access Tokens (`GET /settings/tokens`)
+
+- Scoped to the signed-in user's primary identity — never lists tokens belonging to other users.
+- **Create form**: name (required, unique per identity), kind (`cli` / `ci`), expires-in-days (blank for never).
+- On successful create, the raw `oprk_...` token is shown exactly once via a one-shot flash banner. Only the SHA-256 digest is persisted.
+- **Existing tokens table** with columns Name / Kind / Expires / Last used / Status. Status is `Active`, `Revoked` (red), or `Expired` (grey).
+- **Revoke** button (turbo-confirmed) on each active row — sets `revoked_at`, preserving the row for audit.
+- Visible via the **Tokens** link in the top nav when signed in; hidden when signed out.
+
 ### Help Page (`GET /help`)
 
 - Static guide covering Docker daemon `insecure-registries` config, push/pull examples, Kubernetes/containerd mirror configuration, and an Nginx TLS reverse-proxy snippet.
@@ -250,6 +295,8 @@ Error mapping in `V2::BaseController#rescue_from`:
 | `Registry::DigestMismatch` | 400 | `DIGEST_INVALID` |
 | `Registry::Unsupported` | 415 | `UNSUPPORTED` |
 | `Registry::TagProtected` | 409 | `DENIED` |
+| `Auth::Unauthenticated` / `Auth::PatInvalid` | 401 | `UNAUTHORIZED` + `WWW-Authenticate: Basic realm="Registry"` |
+| `Rack::Attack::Throttled` | 429 | `TOO_MANY_REQUESTS` + `Retry-After: 60` |
 
 ### Endpoints
 
@@ -331,7 +378,7 @@ All models live in `app/models/`.
 | `Layer` | Join table between `Manifest` and `Blob` with `position` (0-based). Unique on `(manifest_id, position)` and `(manifest_id, blob_id)`. |
 | `BlobUpload` | Tracks chunked upload sessions: `uuid`, `byte_offset`, `repository_id`. |
 | `PullEvent` | Immutable pull audit row: `manifest_id`, `tag_name` (nil for digest pulls), `user_agent`, `remote_ip`, `occurred_at`. Pruned after 90 days. |
-| `TagEvent` | Immutable tag audit row: `action` (`create` / `update` / `delete`), `previous_digest`, `new_digest`, `actor` (`"anonymous"` or `"retention-policy"`), `occurred_at`. Retained indefinitely. |
+| `TagEvent` | Immutable tag audit row: `action` (`create` / `update` / `delete`), `previous_digest`, `new_digest`, `actor`, `occurred_at`. `actor` holds the signed-in user's email for V2 API and Web UI changes, `"system:import"` for tar imports without a session, `"retention-policy"` for automatic expirations, and `"anonymous"` for legacy rows predating PAT auth. Retained indefinitely. |
 | `Import` | Async tar import state: `tar_path`, `repository_name`, `tag_name`, `status` (`pending` / `processing` / `completed` / `failed`), `progress`, `error_message`. |
 | `Export` | Async tar export state: `repository_id`, `tag_name`, `status`, `output_path`, `error_message`. |
 
@@ -387,7 +434,7 @@ Two independent event streams are recorded by the system:
 
 **`PullEvent` — per-pull observability.** Emitted on every `GET /v2/:name/manifests/:ref`. Captures `user_agent`, `remote_ip`, `tag_name` (nil if pulled by digest), `occurred_at`, plus the associated `manifest_id` and `repository_id`. Pruned after 90 days by `PruneOldEventsJob`.
 
-**`TagEvent` — immutable change log.** Emitted by `ManifestProcessor` (create/update), `V2::ManifestsController#destroy` (delete, one per attached tag), `TagsController#destroy` (Web UI delete), and `EnforceRetentionPolicyJob` (delete, actor `"retention-policy"`). Surfaced in the Web UI on the tag history page. Not auto-pruned.
+**`TagEvent` — immutable change log.** Emitted by `ManifestProcessor` (create/update), `V2::ManifestsController#destroy` (delete, one per attached tag), `TagsController#destroy` (Web UI delete), and `EnforceRetentionPolicyJob` (delete, actor `"retention-policy"`). The `actor` column records the signed-in user's email for authenticated V2 / Web UI changes, `"system:import"` for `ProcessTarImportJob` runs without a session, `"retention-policy"` for auto-expirations, and `"anonymous"` for legacy rows. Surfaced in the Web UI on the tag history page via the `TagEvent#display_actor` helper (which wraps system actors in angle brackets, e.g. `<system: retention-policy>`). Not auto-pruned.
 
 ---
 
