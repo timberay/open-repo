@@ -1,6 +1,6 @@
 require "test_helper"
 
-class SessionCreatorTest < ActiveSupport::TestCase
+class Auth::SessionCreatorTest < ActiveSupport::TestCase
   setup do
     @original_admin_email = Rails.configuration.x.registry.admin_email
   end
@@ -25,7 +25,7 @@ class SessionCreatorTest < ActiveSupport::TestCase
     existing = identities(:tonny_google)
     profile = profile_for(identity: existing)
 
-    user = SessionCreator.new.call(profile)
+    user = Auth::SessionCreator.new.call(profile)
 
     assert_equal existing.user, user
     existing.reload
@@ -46,7 +46,7 @@ class SessionCreatorTest < ActiveSupport::TestCase
     )
 
     assert_difference -> { user.identities.count }, +1 do
-      result = SessionCreator.new.call(profile)
+      result = Auth::SessionCreator.new.call(profile)
       assert_equal user, result
     end
 
@@ -65,7 +65,7 @@ class SessionCreatorTest < ActiveSupport::TestCase
       name: "X",
       avatar_url: nil
     )
-    assert_raises(Auth::EmailMismatch) { SessionCreator.new.call(profile) }
+    assert_raises(Auth::EmailMismatch) { Auth::SessionCreator.new.call(profile) }
   end
 
   test "Case B — email_verified=nil raises EmailMismatch (strict)" do
@@ -78,7 +78,7 @@ class SessionCreatorTest < ActiveSupport::TestCase
       name: "X",
       avatar_url: nil
     )
-    assert_raises(Auth::EmailMismatch) { SessionCreator.new.call(profile) }
+    assert_raises(Auth::EmailMismatch) { Auth::SessionCreator.new.call(profile) }
   end
 
   test "Case C — new email creates User + Identity" do
@@ -93,7 +93,7 @@ class SessionCreatorTest < ActiveSupport::TestCase
 
     assert_difference -> { User.count }, +1 do
       assert_difference -> { Identity.count }, +1 do
-        user = SessionCreator.new.call(profile)
+        user = Auth::SessionCreator.new.call(profile)
         assert_equal "newbie@timberay.com", user.email
         assert_equal user.identities.first.id, user.primary_identity_id
         refute user.admin?
@@ -112,7 +112,7 @@ class SessionCreatorTest < ActiveSupport::TestCase
       avatar_url: nil
     )
 
-    user = SessionCreator.new.call(profile)
+    user = Auth::SessionCreator.new.call(profile)
     assert user.admin?
   end
 
@@ -121,7 +121,7 @@ class SessionCreatorTest < ActiveSupport::TestCase
       provider: "google_oauth2", uid: "x", email: "",
       email_verified: true, name: nil, avatar_url: nil
     )
-    assert_raises(Auth::InvalidProfile) { SessionCreator.new.call(profile) }
+    assert_raises(Auth::InvalidProfile) { Auth::SessionCreator.new.call(profile) }
   end
 
   test "Case C — email_verified=false raises EmailMismatch (no User or Identity created)" do
@@ -136,7 +136,7 @@ class SessionCreatorTest < ActiveSupport::TestCase
 
     assert_no_difference -> { User.count } do
       assert_no_difference -> { Identity.count } do
-        assert_raises(Auth::EmailMismatch) { SessionCreator.new.call(profile) }
+        assert_raises(Auth::EmailMismatch) { Auth::SessionCreator.new.call(profile) }
       end
     end
   end
@@ -153,7 +153,7 @@ class SessionCreatorTest < ActiveSupport::TestCase
     )
 
     assert_no_difference -> { User.count } do
-      assert_raises(Auth::EmailMismatch) { SessionCreator.new.call(profile) }
+      assert_raises(Auth::EmailMismatch) { Auth::SessionCreator.new.call(profile) }
     end
   end
 end
