@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_23_132237) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_23_221945) do
   create_table "blob_uploads", force: :cascade do |t|
     t.bigint "byte_offset", default: 0
     t.datetime "created_at", null: false
@@ -133,22 +133,37 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_23_132237) do
     t.text "description"
     t.string "maintainer"
     t.string "name", null: false
+    t.integer "owner_identity_id"
     t.string "tag_protection_pattern"
     t.string "tag_protection_policy", default: "none", null: false
     t.integer "tags_count", default: 0
     t.bigint "total_size", default: 0
     t.datetime "updated_at", null: false
     t.index ["name"], name: "index_repositories_on_name", unique: true
+    t.index ["owner_identity_id"], name: "index_repositories_on_owner_identity_id"
+  end
+
+  create_table "repository_members", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "identity_id", null: false
+    t.integer "repository_id", null: false
+    t.string "role", null: false
+    t.index ["identity_id", "role"], name: "index_repository_members_on_identity_id_and_role"
+    t.index ["identity_id"], name: "index_repository_members_on_identity_id"
+    t.index ["repository_id", "identity_id"], name: "index_repository_members_on_repository_id_and_identity_id", unique: true
+    t.index ["repository_id"], name: "index_repository_members_on_repository_id"
   end
 
   create_table "tag_events", force: :cascade do |t|
     t.string "action", null: false
     t.string "actor"
+    t.integer "actor_identity_id"
     t.string "new_digest"
     t.datetime "occurred_at", null: false
     t.string "previous_digest"
     t.integer "repository_id", null: false
     t.string "tag_name", null: false
+    t.index ["actor_identity_id"], name: "index_tag_events_on_actor_identity_id"
     t.index ["occurred_at"], name: "index_tag_events_on_occurred_at"
     t.index ["repository_id", "tag_name"], name: "index_tag_events_on_repository_id_and_tag_name"
     t.index ["repository_id"], name: "index_tag_events_on_repository_id"
@@ -185,6 +200,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_23_132237) do
   add_foreign_key "personal_access_tokens", "identities", on_delete: :cascade
   add_foreign_key "pull_events", "manifests"
   add_foreign_key "pull_events", "repositories"
+  add_foreign_key "repositories", "identities", column: "owner_identity_id", on_delete: :restrict
+  add_foreign_key "repository_members", "identities", on_delete: :cascade
+  add_foreign_key "repository_members", "repositories", on_delete: :cascade
+  add_foreign_key "tag_events", "identities", column: "actor_identity_id", on_delete: :nullify
   add_foreign_key "tag_events", "repositories"
   add_foreign_key "tags", "manifests"
   add_foreign_key "tags", "repositories"
