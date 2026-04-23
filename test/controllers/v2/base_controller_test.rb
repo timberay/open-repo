@@ -19,7 +19,7 @@ class V2::BaseControllerTest < ActionDispatch::IntegrationTest
   # The RSpec suite used an anonymous controller; here we use the manifests
   # destroy action, which goes through V2::BaseController's rescue_from clause.
   setup do
-    @repo = Repository.create!(name: "example", tag_protection_policy: "semver")
+    @repo = Repository.create!(name: "example", tag_protection_policy: "semver", owner_identity: identities(:tonny_google))
     @manifest = @repo.manifests.create!(
       digest: "sha256:abc",
       media_type: "application/vnd.docker.distribution.manifest.v2+json",

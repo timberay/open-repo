@@ -11,6 +11,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
 
     @blob_store = BlobStore.new(@storage_dir)
     @repo_name = "test-repo"
+    @repo = Repository.create!(name: @repo_name, owner_identity: identities(:tonny_google))
 
     @config_digest = DigestCalculator.compute(config_content)
     @layer_content = SecureRandom.random_bytes(1024)
@@ -136,7 +137,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
   # Tag protection tests — protected_repo and its tag set up inline in each test
 
   test "DELETE /v2/:name/manifests/:digest when connected tag is protected returns 409 Conflict with DENIED envelope" do
-    repo = Repository.create!(name: "example", tag_protection_policy: "semver")
+    repo = Repository.create!(name: "example", tag_protection_policy: "semver", owner_identity: identities(:tonny_google))
     manifest = repo.manifests.create!(digest: "sha256:abc", media_type: "application/vnd.docker.distribution.manifest.v2+json", payload: "{}", size: 2)
     repo.tags.create!(name: "v1.0.0", manifest: manifest)
 
@@ -149,7 +150,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "DELETE /v2/:name/manifests/:reference returns 409 even when called with tag reference" do
-    repo = Repository.create!(name: "example", tag_protection_policy: "semver")
+    repo = Repository.create!(name: "example", tag_protection_policy: "semver", owner_identity: identities(:tonny_google))
     manifest = repo.manifests.create!(digest: "sha256:abc", media_type: "application/vnd.docker.distribution.manifest.v2+json", payload: "{}", size: 2)
     repo.tags.create!(name: "v1.0.0", manifest: manifest)
 
@@ -158,7 +159,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "DELETE /v2/:name/manifests/:digest when connected tag is protected does NOT destroy the manifest" do
-    repo = Repository.create!(name: "example", tag_protection_policy: "semver")
+    repo = Repository.create!(name: "example", tag_protection_policy: "semver", owner_identity: identities(:tonny_google))
     manifest = repo.manifests.create!(digest: "sha256:abc", media_type: "application/vnd.docker.distribution.manifest.v2+json", payload: "{}", size: 2)
     repo.tags.create!(name: "v1.0.0", manifest: manifest)
 
@@ -167,7 +168,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "DELETE /v2/:name/manifests/:digest when no connected tag is protected returns 202 Accepted" do
-    repo = Repository.create!(name: "open")
+    repo = Repository.create!(name: "open", owner_identity: identities(:tonny_google))
     manifest = repo.manifests.create!(
       digest: "sha256:def",
       media_type: "application/vnd.docker.distribution.manifest.v2+json",
@@ -181,6 +182,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
 
   test "authenticated PUT records TagEvent.actor = current_user.email" do
     repo_name = "actor-realname-put-repo"
+    Repository.create!(name: repo_name, owner_identity: identities(:tonny_google))
     headers = { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }.merge(basic_auth_for)
 
     assert_difference -> { TagEvent.where(actor: "tonny@timberay.com").count }, +1 do
@@ -190,7 +192,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "authenticated DELETE records TagEvent.actor = current_user.email for each tag" do
-    repo = Repository.create!(name: "actor-realname-delete-repo")
+    repo = Repository.create!(name: "actor-realname-delete-repo", owner_identity: identities(:tonny_google))
     manifest = repo.manifests.create!(
       digest: "sha256:actor-realname-delete-#{SecureRandom.hex(4)}",
       media_type: "application/vnd.docker.distribution.manifest.v2+json",
@@ -202,5 +204,70 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
     assert_difference -> { TagEvent.where(actor: "tonny@timberay.com", action: "delete").count }, +1 do
       delete "/v2/#{repo.name}/manifests/#{manifest.digest}", headers: basic_auth_for
     end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Stage 2: authorization
+  # ---------------------------------------------------------------------------
+
+  test "PUT /v2/:name/manifests/:ref by non-member returns 403" do
+    # admin user is not owner/member of tonny's repo
+    repo = Repository.create!(
+      name: "authz-mfst-#{SecureRandom.hex(4)}",
+      owner_identity: identities(:tonny_google)
+    )
+    put "/v2/#{repo.name}/manifests/v1",
+        params: @manifest_payload,
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }
+              .merge(basic_auth_for(pat_raw: ADMIN_CLI_RAW, email: "admin@timberay.com"))
+    assert_response 403
+    assert_equal "DENIED", JSON.parse(response.body)["errors"][0]["code"]
+  end
+
+  test "PUT /v2/:name/manifests/:ref by owner returns 201" do
+    repo = Repository.create!(
+      name: "authz-owner-push-#{SecureRandom.hex(4)}",
+      owner_identity: identities(:tonny_google)
+    )
+    put "/v2/#{repo.name}/manifests/v1",
+        params: @manifest_payload,
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }
+              .merge(basic_auth_for)
+    assert_response 201
+  end
+
+  test "DELETE /v2/:name/manifests/:ref by non-member returns 403" do
+    repo = Repository.create!(
+      name: "authz-del-#{SecureRandom.hex(4)}",
+      owner_identity: identities(:tonny_google)
+    )
+    # seed a manifest
+    put "/v2/#{repo.name}/manifests/v1",
+        params: @manifest_payload,
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }
+              .merge(basic_auth_for)
+    digest = response.headers["Docker-Content-Digest"]
+
+    delete "/v2/#{repo.name}/manifests/#{digest}",
+           headers: basic_auth_for(pat_raw: ADMIN_CLI_RAW, email: "admin@timberay.com")
+    assert_response 403
+  end
+
+  test "DELETE /v2/:name/manifests/:ref records actor_identity_id" do
+    repo = Repository.create!(
+      name: "authz-actid-#{SecureRandom.hex(4)}",
+      owner_identity: identities(:tonny_google)
+    )
+    put "/v2/#{repo.name}/manifests/v1",
+        params: @manifest_payload,
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }
+              .merge(basic_auth_for)
+    digest = response.headers["Docker-Content-Digest"]
+
+    delete "/v2/#{repo.name}/manifests/#{digest}", headers: basic_auth_for
+    assert_response 202
+
+    event = TagEvent.order(:occurred_at).last
+    assert_equal identities(:tonny_google).id, event.actor_identity_id
   end
 end
