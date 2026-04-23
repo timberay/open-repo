@@ -48,4 +48,38 @@ class TagsControllerTest < ActionDispatch::IntegrationTest
       delete "/repositories/#{@repo.name}/tags/#{@tag.name}"
     end
   end
+
+  # --- Task 2.6: Web UI actor 실명화 ---
+
+  test "authenticated destroy records TagEvent.actor = current_user.email" do
+    repo = Repository.create!(name: "web-actor-test-repo")
+    manifest = repo.manifests.create!(
+      digest: "sha256:web-actor-#{SecureRandom.hex(4)}",
+      media_type: "application/vnd.docker.distribution.manifest.v2+json",
+      payload: "{}",
+      size: 2
+    )
+    tag = repo.tags.create!(name: "web-v1", manifest: manifest)
+
+    post "/testing/sign_in", params: { user_id: users(:tonny).id }
+
+    assert_difference -> { TagEvent.where(actor: "tonny@timberay.com", action: "delete").count }, +1 do
+      delete "/repositories/#{repo.name}/tags/#{tag.name}"
+    end
+  end
+
+  test "unsigned destroy falls back to actor: 'anonymous'" do
+    repo = Repository.create!(name: "web-actor-anon-repo")
+    manifest = repo.manifests.create!(
+      digest: "sha256:web-actor-anon-#{SecureRandom.hex(4)}",
+      media_type: "application/vnd.docker.distribution.manifest.v2+json",
+      payload: "{}",
+      size: 2
+    )
+    tag = repo.tags.create!(name: "web-anon-v1", manifest: manifest)
+
+    assert_difference -> { TagEvent.where(actor: "anonymous", action: "delete").count }, +1 do
+      delete "/repositories/#{repo.name}/tags/#{tag.name}"
+    end
+  end
 end

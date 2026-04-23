@@ -15,7 +15,7 @@ class TagsController < ApplicationController
       tag_name: @tag.name,
       action: "delete",
       previous_digest: @tag.manifest.digest,
-      actor: "anonymous",
+      actor: current_user&.email || "anonymous",
       occurred_at: Time.current
     )
     @tag.destroy!
