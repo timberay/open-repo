@@ -42,7 +42,7 @@ class ImageImportService
     # Build and process V2 manifest
     v2_manifest = build_v2_manifest(config_digest, config_content.bytesize, layer_digests)
     processor = ManifestProcessor.new(@blob_store)
-    processor.call(repo_name, tag, "application/vnd.docker.distribution.manifest.v2+json", v2_manifest.to_json)
+    processor.call(repo_name, tag, "application/vnd.docker.distribution.manifest.v2+json", v2_manifest.to_json, actor: "anonymous")
   end
 
   private

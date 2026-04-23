@@ -3,7 +3,7 @@ class ManifestProcessor
     @blob_store = blob_store
   end
 
-  def call(repo_name, reference, content_type, payload)
+  def call(repo_name, reference, content_type, payload, actor:)
     parsed = JSON.parse(payload)
     validate_schema!(parsed)
 
@@ -46,7 +46,7 @@ class ManifestProcessor
 
       create_layers!(manifest, parsed["layers"])
 
-      assign_tag!(repository, tag_name, manifest) if tag_name
+      assign_tag!(repository, tag_name, manifest, actor: actor) if tag_name
 
       update_repository_size!(repository)
 
@@ -99,7 +99,7 @@ class ManifestProcessor
     end
   end
 
-  def assign_tag!(repository, tag_name, manifest)
+  def assign_tag!(repository, tag_name, manifest, actor:)
     existing_tag = repository.tags.find_by(name: tag_name)
 
     if existing_tag
@@ -112,7 +112,7 @@ class ManifestProcessor
           action: "update",
           previous_digest: old_digest,
           new_digest: manifest.digest,
-          actor: "anonymous",
+          actor: actor,
           occurred_at: Time.current
         )
       end
@@ -123,7 +123,7 @@ class ManifestProcessor
         tag_name: tag_name,
         action: "create",
         new_digest: manifest.digest,
-        actor: "anonymous",
+        actor: actor,
         occurred_at: Time.current
       )
     end

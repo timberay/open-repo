@@ -60,7 +60,7 @@ class ManifestProcessorTest < ActiveSupport::TestCase
   end
 
   test "call creates repository, manifest, tag, layers, and blobs" do
-    result = processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json)
+    result = processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
 
     assert_kind_of Manifest, result
     assert Repository.find_by(name: "test-repo").present?
@@ -72,7 +72,7 @@ class ManifestProcessorTest < ActiveSupport::TestCase
   end
 
   test "call creates a tag_event on new tag" do
-    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json)
+    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
 
     event = TagEvent.last
     assert_equal "create", event.action
@@ -81,7 +81,7 @@ class ManifestProcessorTest < ActiveSupport::TestCase
   end
 
   test "call creates an update tag_event when tag is reassigned" do
-    result1 = processor.call("test-repo", "latest", "application/vnd.docker.distribution.manifest.v2+json", manifest_json)
+    result1 = processor.call("test-repo", "latest", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
     old_digest = result1.digest
 
     # Push a different manifest to same tag
@@ -98,7 +98,7 @@ class ManifestProcessorTest < ActiveSupport::TestCase
       ]
     }.to_json
 
-    processor.call("test-repo", "latest", "application/vnd.docker.distribution.manifest.v2+json", new_manifest_json)
+    processor.call("test-repo", "latest", "application/vnd.docker.distribution.manifest.v2+json", new_manifest_json, actor: "anonymous")
 
     event = TagEvent.where(action: "update").last
     assert_equal old_digest, event.previous_digest
@@ -113,19 +113,19 @@ class ManifestProcessorTest < ActiveSupport::TestCase
     }.to_json
 
     err = assert_raises(Registry::ManifestInvalid) do
-      processor.call("test-repo", "v1", "application/vnd.docker.distribution.manifest.v2+json", bad_json)
+      processor.call("test-repo", "v1", "application/vnd.docker.distribution.manifest.v2+json", bad_json, actor: "anonymous")
     end
     assert_match(/config blob not found/, err.message)
   end
 
   test "call handles digest reference instead of tag name" do
-    result = processor.call("test-repo", nil, "application/vnd.docker.distribution.manifest.v2+json", manifest_json)
+    result = processor.call("test-repo", nil, "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
     assert_kind_of Manifest, result
     assert_equal 0, Tag.count
   end
 
   test "call increments blob references_count" do
-    processor.call("test-repo", "v1", "application/vnd.docker.distribution.manifest.v2+json", manifest_json)
+    processor.call("test-repo", "v1", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
 
     layer1_blob = Blob.find_by(digest: layer1_digest)
     assert_equal 1, layer1_blob.references_count
@@ -135,31 +135,31 @@ class ManifestProcessorTest < ActiveSupport::TestCase
 
   test "call with tag protection same digest re-push succeeds" do
     repo = Repository.create!(name: "test-repo")
-    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json)
+    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
     repo.update!(tag_protection_policy: "semver")
     repo.reload
 
     assert_nothing_raised do
-      processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json)
+      processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
     end
   end
 
   test "call with tag protection different digest push on protected tag raises Registry::TagProtected" do
     repo = Repository.create!(name: "test-repo")
-    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json)
+    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
     repo.update!(tag_protection_policy: "semver")
     repo.reload
 
     different_manifest_json = build_different_manifest_json
 
     assert_raises(Registry::TagProtected) do
-      processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", different_manifest_json)
+      processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", different_manifest_json, actor: "anonymous")
     end
   end
 
   test "call with tag protection different digest push does NOT create a new manifest row" do
     repo = Repository.create!(name: "test-repo")
-    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json)
+    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
     repo.update!(tag_protection_policy: "semver")
     repo.reload
 
@@ -167,7 +167,7 @@ class ManifestProcessorTest < ActiveSupport::TestCase
 
     assert_no_difference -> { Manifest.count } do
       begin
-        processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", different_manifest_json)
+        processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", different_manifest_json, actor: "anonymous")
       rescue Registry::TagProtected
       end
     end
@@ -175,7 +175,7 @@ class ManifestProcessorTest < ActiveSupport::TestCase
 
   test "call with tag protection different digest push does NOT increment layer blob references_count" do
     repo = Repository.create!(name: "test-repo")
-    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json)
+    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
     repo.update!(tag_protection_policy: "semver")
     repo.reload
 
@@ -185,7 +185,7 @@ class ManifestProcessorTest < ActiveSupport::TestCase
     different_manifest_json = build_different_manifest_json
 
     begin
-      processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", different_manifest_json)
+      processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", different_manifest_json, actor: "anonymous")
     rescue Registry::TagProtected
     end
     assert_equal before_refs, layer_blob.reload.references_count
@@ -193,18 +193,18 @@ class ManifestProcessorTest < ActiveSupport::TestCase
 
   test "call with tag protection unprotected tag (latest with semver policy) permits push" do
     repo = Repository.create!(name: "test-repo")
-    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json)
+    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
     repo.update!(tag_protection_policy: "semver")
     repo.reload
 
     assert_nothing_raised do
-      processor.call("test-repo", "latest", "application/vnd.docker.distribution.manifest.v2+json", manifest_json)
+      processor.call("test-repo", "latest", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
     end
   end
 
   test "call with tag protection digest reference bypasses protection check" do
     repo = Repository.create!(name: "test-repo")
-    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json)
+    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
     repo.update!(tag_protection_policy: "semver")
     repo.reload
 
@@ -212,7 +212,31 @@ class ManifestProcessorTest < ActiveSupport::TestCase
     r.update!(tag_protection_policy: "all_except_latest")
 
     assert_nothing_raised do
-      processor.call("test-repo", "sha256:dummy-ignored-anyway", "application/vnd.docker.distribution.manifest.v2+json", manifest_json)
+      processor.call("test-repo", "sha256:dummy-ignored-anyway", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
+    end
+  end
+
+  test "call without actor: raises ArgumentError" do
+    err = assert_raises(ArgumentError) do
+      ManifestProcessor.new.call(
+        "repo-no-actor",
+        "v1",
+        "application/vnd.docker.distribution.manifest.v2+json",
+        "{}"
+      )
+    end
+    assert_match(/missing keyword: :actor/, err.message)
+  end
+
+  test "call with actor: 'anonymous' writes TagEvent.actor = 'anonymous'" do
+    assert_difference -> { TagEvent.where(actor: "anonymous").count }, +1 do
+      processor.call(
+        "repo-actor-kwarg",
+        "v1",
+        "application/vnd.docker.distribution.manifest.v2+json",
+        manifest_json,
+        actor: "anonymous"
+      )
     end
   end
 
