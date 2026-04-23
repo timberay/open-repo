@@ -16,7 +16,7 @@
     <% unless token.revoked_at %>
       <%= button_to "Revoke", settings_token_path(token), method: :delete,
                     class: "text-sm text-red-600 hover:underline",
-                    data: { confirm: "Revoke '#{token.name}'? Docker logins using this token will fail." } %>
+                    data: { turbo_confirm: "Revoke '#{token.name}'? Docker logins using this token will fail." } %>
     <% end %>
   </td>
 </tr>
