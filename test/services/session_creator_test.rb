@@ -25,4 +25,51 @@ class SessionCreatorTest < ActiveSupport::TestCase
     user.reload
     assert_equal existing.id, user.primary_identity_id
   end
+
+  test "Case B — email matches existing user, verified → attaches new identity" do
+    user = users(:tonny)
+    profile = Auth::ProviderProfile.new(
+      provider: "google_oauth2",
+      uid: "different-google-uid",     # new identity for this user
+      email: user.email,
+      email_verified: true,
+      name: "Tonny Kim",
+      avatar_url: nil
+    )
+
+    assert_difference -> { user.identities.count }, +1 do
+      result = SessionCreator.new.call(profile)
+      assert_equal user, result
+    end
+
+    new_identity = user.identities.find_by!(uid: "different-google-uid")
+    user.reload
+    assert_equal new_identity.id, user.primary_identity_id
+  end
+
+  test "Case B — email_verified=false raises EmailMismatch" do
+    user = users(:tonny)
+    profile = Auth::ProviderProfile.new(
+      provider: "google_oauth2",
+      uid: "untrusted-uid",
+      email: user.email,
+      email_verified: false,
+      name: "X",
+      avatar_url: nil
+    )
+    assert_raises(Auth::EmailMismatch) { SessionCreator.new.call(profile) }
+  end
+
+  test "Case B — email_verified=nil raises EmailMismatch (strict)" do
+    user = users(:tonny)
+    profile = Auth::ProviderProfile.new(
+      provider: "google_oauth2",
+      uid: "untrusted-nil-uid",
+      email: user.email,
+      email_verified: nil,
+      name: "X",
+      avatar_url: nil
+    )
+    assert_raises(Auth::EmailMismatch) { SessionCreator.new.call(profile) }
+  end
 end
