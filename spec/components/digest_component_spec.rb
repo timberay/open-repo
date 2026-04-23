@@ -37,4 +37,18 @@ RSpec.describe DigestComponent, type: :component do
       expect(page).to have_css("button svg[data-clipboard-target='icon']")
     end
   end
+
+  describe "edge cases" do
+    it "renders an empty short and no copy button when digest is blank" do
+      render_inline(described_class.new(digest: ""))
+
+      expect(page).not_to have_css("button[data-action='click->clipboard#copy']")
+    end
+
+    it "renders an empty short and no copy button when digest is nil" do
+      render_inline(described_class.new(digest: nil))
+
+      expect(page).not_to have_css("button[data-action='click->clipboard#copy']")
+    end
+  end
 end
