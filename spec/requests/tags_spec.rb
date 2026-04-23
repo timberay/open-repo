@@ -19,9 +19,10 @@ RSpec.describe 'Tags', type: :request do
       get "/repositories/#{repo.name}/tags/#{tag.name}"
 
       expect(response).to be_successful
-      expect(response.body).to include("data-clipboard-text-value=\"#{blob.digest}\"")
-      expect(response.body).to match(%r{aria-label="Copy digest 1d1ddb624e47"})
-      expect(response.body).to include("1d1ddb624e47")
+      # Both the desktop grid cell and the mobile card render the component,
+      # so the clipboard wiring should appear twice for a single layer.
+      expect(response.body.scan("data-clipboard-text-value=\"#{blob.digest}\"").size).to eq(2)
+      expect(response.body.scan(%r{aria-label="Copy digest 1d1ddb624e47"}).size).to eq(2)
     end
   end
 
