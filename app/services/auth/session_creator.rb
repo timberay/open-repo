@@ -13,7 +13,7 @@ module Auth
             # Case B — email matches existing user
             unless profile.email_verified == true
               raise Auth::EmailMismatch,
-                    "provider did not verify email=#{profile.email}"
+                    "provider did not verify identity=#{profile.provider}:#{profile.uid}"
             end
             identity = matched.identities.create!(
               provider: profile.provider,
@@ -28,7 +28,7 @@ module Auth
             # Case C — brand-new user
             unless profile.email_verified == true
               raise Auth::EmailMismatch,
-                    "provider did not verify email=#{profile.email}"
+                    "provider did not verify identity=#{profile.provider}:#{profile.uid}"
             end
             new_user = User.create!(
               email: profile.email,
