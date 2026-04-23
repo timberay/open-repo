@@ -21,4 +21,22 @@ class UserTest < ActiveSupport::TestCase
     refute dup.valid?
     assert_includes dup.errors[:email], "has already been taken"
   end
+
+  test "primary_identity returns the associated identity" do
+    assert_equal identities(:tonny_google), users(:tonny).primary_identity
+  end
+
+  test "destroying primary_identity nullifies users.primary_identity_id" do
+    u = users(:tonny)
+    i = u.primary_identity
+    i.destroy!
+    assert_nil u.reload.primary_identity_id
+  end
+
+  test "user with primary_identity_id set can be destroyed" do
+    u = users(:tonny)
+    assert u.primary_identity_id
+    assert_nothing_raised { u.destroy! }
+    assert u.destroyed?
+  end
 end
