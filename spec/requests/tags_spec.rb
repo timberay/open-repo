@@ -11,6 +11,20 @@ RSpec.describe 'Tags', type: :request do
   end
   let!(:tag) { repo.tags.create!(name: 'v1.0.0', manifest: manifest) }
 
+  describe 'GET /repositories/:name/tags/:name' do
+    let!(:blob) { Blob.create!(digest: 'sha256:1d1ddb624e47aabbccddeeff0011223344556677', size: 4096) }
+    let!(:layer) { Layer.create!(manifest: manifest, blob: blob, position: 0) }
+
+    it 'renders each layer digest with a click-to-copy affordance carrying the full digest' do
+      get "/repositories/#{repo.name}/tags/#{tag.name}"
+
+      expect(response).to be_successful
+      expect(response.body).to include("data-clipboard-text-value=\"#{blob.digest}\"")
+      expect(response.body).to match(%r{aria-label="Copy digest 1d1ddb624e47"})
+      expect(response.body).to include("1d1ddb624e47")
+    end
+  end
+
   describe 'DELETE /repositories/:name/tags/:name' do
     context 'when tag is not protected' do
       it 'deletes the tag and redirects' do

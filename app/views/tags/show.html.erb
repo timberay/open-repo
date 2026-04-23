@@ -82,7 +82,7 @@
     <% @layers.each do |layer| %>
       <div class="grid border-t border-slate-100 dark:border-slate-700/50 hover:bg-slate-50/50 dark:hover:bg-slate-700/50 transition-colors" style="grid-template-columns: 60px 1fr 120px">
         <div class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 tabular-nums"><%= layer.position %></div>
-        <div class="px-4 py-3 text-sm font-mono text-slate-600 dark:text-slate-400 tabular-nums"><%= short_digest(layer.blob.digest) %></div>
+        <div class="px-4 py-3 text-sm"><%= render DigestComponent.new(digest: layer.blob.digest) %></div>
         <div class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 tabular-nums text-right"><%= human_size(layer.blob.size) %></div>
       </div>
     <% end %>
