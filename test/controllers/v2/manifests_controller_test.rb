@@ -176,4 +176,31 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
     delete "/v2/#{repo.name}/manifests/#{manifest.digest}", headers: basic_auth_for
     assert_response :accepted
   end
+
+  # --- Task 2.5: actor 실명화 (current_user.email) ---
+
+  test "authenticated PUT records TagEvent.actor = current_user.email" do
+    repo_name = "actor-realname-put-repo"
+    headers = { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }.merge(basic_auth_for)
+
+    assert_difference -> { TagEvent.where(actor: "tonny@timberay.com").count }, +1 do
+      put "/v2/#{repo_name}/manifests/v1", params: @manifest_payload, headers: headers
+    end
+    assert_response :created
+  end
+
+  test "authenticated DELETE records TagEvent.actor = current_user.email for each tag" do
+    repo = Repository.create!(name: "actor-realname-delete-repo")
+    manifest = repo.manifests.create!(
+      digest: "sha256:actor-realname-delete-#{SecureRandom.hex(4)}",
+      media_type: "application/vnd.docker.distribution.manifest.v2+json",
+      payload: "{}",
+      size: 2
+    )
+    repo.tags.create!(name: "v1-realname", manifest: manifest)
+
+    assert_difference -> { TagEvent.where(actor: "tonny@timberay.com", action: "delete").count }, +1 do
+      delete "/v2/#{repo.name}/manifests/#{manifest.digest}", headers: basic_auth_for
+    end
+  end
 end
