@@ -39,4 +39,15 @@ class UserTest < ActiveSupport::TestCase
     assert_nothing_raised { u.destroy! }
     assert u.destroyed?
   end
+
+  test "User.admin_email? returns true for REGISTRY_ADMIN_EMAIL" do
+    Rails.configuration.x.registry.admin_email = "admin@timberay.com"
+    assert User.admin_email?("admin@timberay.com")
+    refute User.admin_email?("someone-else@timberay.com")
+  end
+
+  test "User.admin_email? returns false when admin_email unset" do
+    Rails.configuration.x.registry.admin_email = nil
+    refute User.admin_email?("admin@timberay.com")
+  end
 end
