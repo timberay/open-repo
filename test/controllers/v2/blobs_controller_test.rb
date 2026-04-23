@@ -2,7 +2,10 @@ require "test_helper"
 
 class V2::BlobsControllerTest < ActionDispatch::IntegrationTest
   setup do
-    @blob_store = BlobStore.new
+    @storage_dir = Dir.mktmpdir
+    Rails.configuration.storage_path = @storage_dir
+
+    @blob_store = BlobStore.new(@storage_dir)
     @repo_name = "test-repo"
     @content = "blob content data"
     @digest = DigestCalculator.compute(@content)
@@ -10,6 +13,10 @@ class V2::BlobsControllerTest < ActionDispatch::IntegrationTest
     Repository.create!(name: @repo_name)
     Blob.create!(digest: @digest, size: @content.bytesize)
     @blob_store.put(@digest, StringIO.new(@content))
+  end
+
+  teardown do
+    FileUtils.rm_rf(@storage_dir)
   end
 
   test "GET /v2/:name/blobs/:digest returns blob content" do
