@@ -34,7 +34,7 @@
     <div class="mt-4 bg-slate-100 dark:bg-slate-900 rounded-md px-4 py-3 flex items-center justify-between gap-3"
          data-controller="clipboard"
          data-clipboard-text-value="<%= docker_pull_command(@repository.name, @tag.name) %>">
-      <code class="text-sm font-mono text-slate-800 dark:text-blue-300 break-all"><%= docker_pull_command(@repository.name, @tag.name) %></code>
+      <code class="flex-1 min-w-0 overflow-x-auto whitespace-nowrap text-sm font-mono text-slate-800 dark:text-blue-300"><%= docker_pull_command(@repository.name, @tag.name) %></code>
       <button data-action="click->clipboard#copy" class="flex-shrink-0 p-2 rounded-md text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors duration-150" aria-label="Copy command">
         <%= heroicon "clipboard", class: "w-5 h-5" %>
       </button>
@@ -42,23 +42,29 @@
   </div>
 <% end %>
 
-<%# Tag actions: delete (decision 1-D — add button to tag detail, disable if protected) %>
-<div class="flex items-center justify-end mb-6">
-  <% if @repository.tag_protected?(@tag.name) %>
-    <span class="inline-flex items-center gap-2 h-10 px-4 text-base font-medium text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 rounded-md cursor-not-allowed"
-          title="Change the repository's tag protection policy to delete this tag.">
-      <%= heroicon "trash", class: "w-5 h-5" %>
-      Delete tag (protected)
-    </span>
-  <% else %>
-    <%= button_to repository_tag_path(@repository.name, @tag), method: :delete,
-      data: { turbo_confirm: "Delete tag '#{@tag.name}'? This action cannot be undone." },
-      class: "inline-flex items-center justify-center font-medium rounded-md transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:ring-offset-2 dark:focus-visible:ring-blue-400/50 dark:focus-visible:ring-offset-slate-900 bg-red-600 hover:bg-red-700 text-white dark:bg-red-500 dark:hover:bg-red-400 h-10 px-4 text-base gap-2" do %>
-      <%= heroicon "trash", class: "w-5 h-5" %>
-      Delete tag
+<%# Danger Zone — tag-level destructive action (decision 1-D: disable when protected) %>
+<section aria-labelledby="tag-danger-zone" class="mt-6 mb-6 pt-6 border-t border-slate-200 dark:border-slate-700">
+  <h2 id="tag-danger-zone" class="text-sm font-semibold text-red-700 dark:text-red-400 mb-2">Danger Zone</h2>
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <p class="text-sm text-slate-600 dark:text-slate-400">
+      Deleting this tag removes the reference and decrements its manifest pull count. This cannot be undone.
+    </p>
+    <% if @repository.tag_protected?(@tag.name) %>
+      <span class="inline-flex items-center gap-2 h-10 px-4 text-base font-medium text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 rounded-md cursor-not-allowed shrink-0"
+            title="Change the repository's tag protection policy to delete this tag.">
+        <%= heroicon "trash", class: "w-5 h-5" %>
+        Delete tag (protected)
+      </span>
+    <% else %>
+      <%= button_to repository_tag_path(@repository.name, @tag), method: :delete,
+        data: { turbo_confirm: "Delete tag '#{@tag.name}'? This action cannot be undone." },
+        class: "inline-flex items-center justify-center font-medium rounded-md transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:ring-offset-2 dark:focus-visible:ring-blue-400/50 dark:focus-visible:ring-offset-slate-900 bg-red-600 hover:bg-red-700 text-white dark:bg-red-500 dark:hover:bg-red-400 h-10 px-4 text-base gap-2 shrink-0" do %>
+        <%= heroicon "trash", class: "w-5 h-5" %>
+        Delete tag
+      <% end %>
     <% end %>
-  <% end %>
-</div>
+  </div>
+</section>
 
 <%# Layers — desktop CSS Grid %>
 <%= render CardComponent.new(padding: :none, class: "mb-6 overflow-hidden") do |card| %>
