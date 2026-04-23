@@ -11,4 +11,14 @@ RSpec.describe DigestComponent, type: :component do
       expect(page).not_to have_text("sha256:")
     end
   end
+
+  describe "clipboard wiring" do
+    it "attaches the clipboard Stimulus controller with the full digest as the copy value" do
+      render_inline(described_class.new(digest: full))
+
+      expect(page).to have_css(
+        "[data-controller='clipboard'][data-clipboard-text-value='#{full}']"
+      )
+    end
+  end
 end
