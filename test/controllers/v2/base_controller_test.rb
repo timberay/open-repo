@@ -54,7 +54,7 @@ class V2::BaseControllerTest < ActionDispatch::IntegrationTest
     post "/v2/myimage/blobs/uploads"
     assert_response :unauthorized
     assert_equal %(Basic realm="Registry"), response.headers["WWW-Authenticate"]
-    assert_equal "registry/2.0", response.headers["Docker-Distribution-Api-Version"]
+    assert_equal "registry/2.0", response.headers["Docker-Distribution-API-Version"]
   end
 
   test "PUT /v2/<name>/manifests/<ref> with malformed Authorization → 401 + challenge" do
