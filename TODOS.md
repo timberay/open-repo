@@ -109,3 +109,21 @@ ship together.
 
 **Source:** `/plan-eng-review` on `docs/superpowers/specs/2026-04-22-tag-immutability-design.md`.
 
+---
+
+## [P3] Sign-out 시 Turbo cache preview 로 인한 화면 전환 지연
+
+**What:** `app/views/shared/_auth_nav.html.erb` 의 Sign-out `button_to` 에 `data: { turbo: false }` 추가. 현재 Sign-in 버튼은 `turbo: false` 인데 Sign-out 은 Turbo Drive 로 이동 → 직전에 캐시된 signed-in 상태의 home 이 "cached preview" 로 잠깐 노출된 뒤 signed-out 상태로 교체되어 어색한 UX.
+
+**Why:** 인증 경계(signed-in ↔ signed-out)는 Turbo 의 incremental body swap 보다 full reload 가 맞음. 캐시된 signed-in DOM 을 잠시라도 재사용하는 건 stale-state 노출이자 심리적 비일관성.
+
+**Pros:** 1줄 수정. Sign-in 버튼과 동작 대칭. 만료된 세션 인지 명확. 캐시 무효화 별도 meta tag 불필요.
+
+**Cons:** full page reload 라 약간 느려짐 (미미). 다른 곳에서 Turbo session caching 에 의존하는 케이스가 있다면 충돌 가능성 낮음 (auth nav 는 독립 partial).
+
+**Context:** 2026-04-23 Stage 0 PR-3b 머지 후 staging canary smoke 에서 발견. 핵심 auth 동작 (Case C 생성, Case A 재사용, admin bootstrap, session persist) 은 모두 정상. 로그아웃도 기능적으로 동작 (session reset + redirect). 단, Turbo cache preview 가 signed-in 화면을 찰나 보여준 뒤 전환. 브라우저에서 사용자가 "바로 안 바뀐다" 로 보고.
+
+**Depends on / blocked by:** 없음. 언제든 처리 가능.
+
+**Source:** Stage 0 PR-3b 머지 후 수동 canary smoke (2026-04-23).
+
