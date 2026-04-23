@@ -1,0 +1,35 @@
+tonny_cli_active:
+  identity: tonny_google
+  name: "laptop"
+  token_digest: <%= Digest::SHA256.hexdigest("oprk_test_tonny_cli_raw") %>
+  kind: cli
+  expires_at: <%= 89.days.from_now %>
+  created_at: <%= 1.day.ago %>
+  updated_at: <%= 1.day.ago %>
+
+tonny_ci_never_expires:
+  identity: tonny_google
+  name: "jenkins-prod"
+  token_digest: <%= Digest::SHA256.hexdigest("oprk_test_tonny_ci_raw") %>
+  kind: ci
+  expires_at:
+  created_at: <%= 1.day.ago %>
+  updated_at: <%= 1.day.ago %>
+
+tonny_revoked:
+  identity: tonny_google
+  name: "old-laptop"
+  token_digest: <%= Digest::SHA256.hexdigest("oprk_test_tonny_revoked_raw") %>
+  kind: cli
+  revoked_at: <%= 1.hour.ago %>
+  created_at: <%= 30.days.ago %>
+  updated_at: <%= 1.hour.ago %>
+
+tonny_expired:
+  identity: tonny_google
+  name: "ancient-laptop"
+  token_digest: <%= Digest::SHA256.hexdigest("oprk_test_tonny_expired_raw") %>
+  kind: cli
+  expires_at: <%= 1.day.ago %>
+  created_at: <%= 100.days.ago %>
+  updated_at: <%= 100.days.ago %>
