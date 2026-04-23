@@ -36,6 +36,7 @@ capybara-*.html
 
 # Ignore key files for decrypting credentials and more.
 /config/*.key
+/config/credentials/*.key
 
 # Compiled assets
 /app/assets/builds/*
