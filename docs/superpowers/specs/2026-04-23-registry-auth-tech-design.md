@@ -1,6 +1,6 @@
 # Technical Design: Registry Auth (Stage 0/1/2)
 
-**Status**: APPROVED (Phase 3 technical design) — ready for `/superpowers:writing-plans`
+**Status**: APPROVED (Phase 3 technical design) — Stage 1 auth scheme 변경 (2026-04-23): JWT Bearer → PAT Basic auth (D9 참조).
 **Generated**: 2026-04-23 via `/superpowers:brainstorming`
 **Upstream product design**: `~/.gstack/projects/timberay-open-repo/tonny-chore-design-review-polish-design-20260423-103952.md`
 **Upstream test plan**: `~/.gstack/projects/timberay-open-repo/tonny-main-eng-review-test-plan-20260423-111911.md`
@@ -14,9 +14,9 @@
 **포함**:
 1. Stage 별 마이그레이션 파일 정확한 컬럼/인덱스/제약 스펙
 2. 신규 서비스·concern 의 메서드 시그니처
-3. Docker Registry V2 challenge/exchange HTTP 예시
+3. Docker Registry V2 challenge/response HTTP 예시 (Basic auth)
 4. `ManifestProcessor.call(..., actor:)` 변경 전/후 diff
-5. JWT RSA 키쌍 + Rails credentials + ENV 처리
+5. PAT 검증 + ENV 설정
 6. Minitest 파일 레이아웃
 7. 크리티컬 갭 3건의 구체 테스트 셋업
 8. Stage 0→1→2 배포 순서 + rollback 절차
@@ -25,7 +25,8 @@
 - Approach A/B 재검토
 - Full RBAC 전개 (ownership 모델 확정)
 - 인증 프레임워크 선택 (OmniAuth 확정)
-- Multi-arch / Private visibility / JWT rotation (defer 확정)
+- Multi-arch / Private visibility (defer 확정)
+- JWT Bearer / RSA 키쌍 / `/v2/token` (D9: Basic auth 채택으로 폐기)
 
 ## Confirmed Decisions (Phase 3 brainstorming 에서 확정)
 
@@ -35,18 +36,19 @@
 | D2 | First-pusher-owner (GitHub 스타일): V2 push 가 repo 자동 생성, 생성자가 owner | `V2::BlobUploadsController#create` |
 | D3 | Stage 당 별도 long-lived feature branch + 순차 main 머지. RSpec→Minitest 는 선행 브랜치 | 브랜치 전략 |
 | D4 | Import job actor 는 enqueue 시점에 `actor_email` 을 job arg 로 직렬화, fallback `"system:import"` | `ProcessTarImportJob` + `ImageImportService` |
-| D5 | Anonymous pull gate: HTTP GET/HEAD + `{base#index, catalog#index, tags#index, manifests#show, blobs#show}` + `anonymous_pull_enabled` → token 스킵. 나머지 모두 인증 필수 | `V2::BaseController#authenticate_v2!` |
+| D5 | Anonymous pull gate: HTTP GET/HEAD + `{base#index, catalog#index, tags#index, manifests#show, blobs#show}` + `anonymous_pull_enabled` → 인증 스킵. 나머지 모두 인증 필수 | `V2::BaseController#authenticate_v2_basic!` |
 | D6 | `V2::BlobsController#destroy` 는 Stage 2 에서 admin-only (`authorize_for!(:delete)`) | admin-only 경로 |
 | D7 | `ManifestProcessor.call(..., actor:)` 는 **required keyword, default 없음** | TDD 에서 누락 즉시 ArgumentError |
 | D8 | `TagsController#destroy` 는 Stage 1 에서 actor 실명화, Stage 2 에서 `authorize_for!(:delete)` 추가 | 2-step 진화 |
+| **D9** | **Stage 1 auth scheme 은 PAT Basic auth (HTTP Basic, distribution spec 허용 포맷). JWT Bearer / `/v2/token` / RSA 키쌍 폐기. 이유: 사내 단일 registry 규모에서 JWT 의 stateless 검증 / scope 분리 / 외부 IdP federation 이점이 비용 대비 미미. 미래에 외부 노출 / federation 요구가 생기면 PAT 모델 위에 Bearer 레이어 추가 가능 (마이그레이션 비용 작음).** | **§2.4 PatAuthenticator, §3 Basic challenge/response, §5 PAT credentials only, §4.7 PR 분할 4 → 2** |
 
 ## Preceding Blockers (Stage 0 시작 전 완료 조건)
 
 1. **[P0] RSpec→Minitest 포팅** (TODOS.md). Stage 0 이전 별도 브랜치.
 2. **Google OAuth client** 발급 (사내 Workspace admin 협조). Redirect URI: `https://<host>/auth/google_oauth2/callback`.
 3. **`REGISTRY_ADMIN_EMAIL`** 확정 (최초 admin 사용자 지정).
-4. **JWT RSA 키쌍 생성** + `config/credentials/<env>.yml.enc` 주입 (dev/staging/prod 각각 별도 키쌍).
-5. **`REGISTRY_JWT_ISSUER`, `REGISTRY_JWT_AUDIENCE`** 값 dev/staging/prod 별 결정 후 ENV 등록.
+
+이전 Blocker 4 (JWT RSA 키쌍 생성) 와 5 (REGISTRY_JWT_ISSUER/AUDIENCE ENV) 는 D9 채택으로 **불필요**.
 
 ---
 
@@ -209,9 +211,8 @@ module Auth
   class ProviderOutage    < Error; end   # OAuth upstream 5xx / timeout
 
   # Stage 1+: request-time auth
-  class Unauthenticated   < Error; end   # no/invalid Bearer JWT on protected endpoint
-  class TokenInvalid      < Error; end   # JWT signature/exp/iss/aud failed
-  class PatInvalid        < Error; end   # /v2/token Basic auth failed
+  class Unauthenticated   < Error; end   # no/malformed Authorization on protected endpoint
+  class PatInvalid        < Error; end   # PAT not found / revoked / expired / email mismatch
 
   # Stage 2: authorization
   class ForbiddenAction < Error
@@ -291,52 +292,66 @@ class User < ApplicationRecord
 end
 ```
 
-### 2.4 Stage 1 — JWT 발급/검증
+### 2.4 Stage 1 — PAT Basic auth 검증
+
+JWT 발급/검증 레이어 없음. `V2::BaseController` 의 before_action 이 Authorization header 의 Basic credentials 를 PAT digest 와 직접 매칭한다.
 
 ```ruby
-# app/services/auth/token_issuer.rb
+# app/services/auth/pat_authenticator.rb
 module Auth
-  class TokenIssuer
-    EXPIRES_IN = 900  # 15 minutes
+  class PatAuthenticator
+    Result = Data.define(:user, :pat)
 
-    # Docker Registry V2 token (distribution spec, not RFC 6750).
-    #
-    # @param subject [String]        — user email, becomes `sub` claim
-    # @param service [String]        — from client's ?service= query, becomes `aud` claim
-    # @param access  [Array<Hash>]   — [{type:, name:, actions:}]
-    # @return [Hash]                 — {token:, access_token:, expires_in:, issued_at:}
-    def call(subject:, service:, access:); end
-
-    private
-
-    def payload(subject:, service:, access:)
-      now = Time.current.to_i
-      {
-        iss: Rails.configuration.x.registry.jwt_issuer,
-        sub: subject,
-        aud: service,
-        exp: now + EXPIRES_IN,
-        iat: now,
-        nbf: now - 5,
-        jti: SecureRandom.uuid,
-        access: access
-      }
-    end
-  end
-end
-
-# app/services/auth/token_verifier.rb
-module Auth
-  class TokenVerifier
-    VerifiedToken = Data.define(:subject, :access, :jti, :expires_at)
-
-    # @param token [String]
-    # @return [VerifiedToken]
-    # @raise [Auth::TokenInvalid] signature, exp, iss, aud mismatch, or malformed
-    def call(token); end
+    # @param email     [String]
+    # @param raw_token [String]
+    # @return [Result]
+    # @raise [Auth::PatInvalid]
+    #   - PAT not found / revoked / expired
+    #   - email does not match pat.identity.user.email (case-insensitive)
+    def call(email:, raw_token:); end
   end
 end
 ```
+
+`V2::BaseController` 측 호출:
+
+```ruby
+# app/controllers/v2/base_controller.rb (스케치)
+class V2::BaseController < ActionController::API
+  before_action :authenticate_v2_basic!, unless: :anonymous_pull_allowed?
+
+  attr_reader :current_user, :current_pat
+
+  private
+
+  def authenticate_v2_basic!
+    email, raw = ActionController::HttpAuthentication::Basic.user_name_and_password(request)
+    raise Auth::Unauthenticated if email.blank? || raw.blank?
+    result = Auth::PatAuthenticator.new.call(email: email, raw_token: raw)
+    @current_user = result.user
+    @current_pat  = result.pat
+    result.pat.update_column(:last_used_at, Time.current)
+  rescue Auth::Unauthenticated, Auth::PatInvalid
+    render_v2_challenge
+  end
+
+  def anonymous_pull_allowed?
+    Rails.configuration.x.registry.anonymous_pull_enabled &&
+      request.get? || request.head? &&
+      ANONYMOUS_PULL_ENDPOINTS.include?([controller_name, action_name])
+  end
+
+  ANONYMOUS_PULL_ENDPOINTS = [
+    %w[base    index],
+    %w[catalog index],
+    %w[tags    index],
+    %w[manifests show],
+    %w[blobs   show]
+  ].freeze
+end
+```
+
+JWT TokenIssuer/Verifier 가 사라지면서 등장 클래스는 `Auth::PatAuthenticator` 1개로 축소.
 
 ### 2.5 Stage 2 — Authorization concern (dual-context)
 
@@ -442,18 +457,20 @@ end
 
 ---
 
-## 3. Docker Registry V2 Challenge/Exchange HTTP 예시
+## 3. Docker Registry V2 Challenge/Response HTTP 예시 (Basic auth)
 
-`docker push localhost:3000/myimage:v1` 가 Stage 1 이후 거치는 4-step 시퀀스.
+`docker push localhost:3000/myimage:v1` 가 Stage 1 이후 거치는 시퀀스. distribution spec 은 challenge response scheme 으로 `Basic` 도 허용하므로 token exchange 단계 없이 단일 challenge–retry 쌍으로 끝난다.
 
 ### 3.1 Step 1 — 최초 요청 (인증 없이)
 
 ```http
-HEAD /v2/ HTTP/1.1
+PUT /v2/myimage/manifests/v1 HTTP/1.1
 Host: localhost:3000
 User-Agent: docker/24.0.7 go/go1.20.10 git-commit/...
-Accept: */*
+Content-Type: application/vnd.docker.distribution.manifest.v2+json
 ```
+
+`docker push` 의 manifest upload 단계. Docker CLI 는 보통 BLOB upload 시도부터 같은 흐름을 거치므로 첫 번째 protected request 에서 challenge 가 나옴.
 
 ### 3.2 Step 2 — 서버 challenge (401)
 
@@ -461,134 +478,97 @@ Accept: */*
 HTTP/1.1 401 Unauthorized
 Content-Type: application/json
 Docker-Distribution-API-Version: registry/2.0
-WWW-Authenticate: Bearer realm="http://localhost:3000/v2/token",service="registry.timberay.local",scope="registry:catalog:*"
+WWW-Authenticate: Basic realm="Registry"
 Content-Length: 83
 
 {"errors":[{"code":"UNAUTHORIZED","message":"authentication required","detail":null}]}
 ```
 
-**Header 주의사항** (구현 시 종종 틀리는 지점):
-- `realm` 은 절대 URL. `RAILS_RELATIVE_URL_ROOT` 설정 있으면 prefix 포함. `request.base_url + "/v2/token"` 사용.
-- `service` 값은 `Rails.configuration.x.registry.jwt_audience` 와 완전 일치해야 JWT aud 검증 통과.
-- `scope` 는 action 에 따라 다름 (아래 테이블).
+**Header 주의사항** (구현 시 틀리는 지점):
+- `WWW-Authenticate` 의 scheme 은 `Basic` (대문자 B, 소문자 가능하지만 표준은 `Basic`). Docker CLI 는 case-insensitive 파싱.
+- `realm` 은 단순 식별자 ("Registry" 면 충분). Bearer flow 와 달리 `service` / `scope` 파라미터 불필요.
+- 동일 challenge 가 모든 protected endpoint 에서 반환됨 (push / delete / Stage 2 의 admin scope).
 
-| Request | scope value |
-|---|---|
-| `GET /v2/` | `registry:catalog:*` (dummy, token flow 유도용) |
-| `PUT /v2/<name>/blobs/uploads` | `repository:<name>:push,pull` |
-| `GET /v2/<name>/manifests/<ref>` | `repository:<name>:pull` |
-| `DELETE /v2/<name>/manifests/<ref>` | `repository:<name>:delete` (Stage 2 확장 action) |
-
-여러 scope 는 공백 구분자 (distribution spec 허용 포맷 둘 중 하나).
-
-### 3.3 Step 3 — Docker CLI 의 token 교환 요청
+### 3.3 Step 3 — Docker CLI 의 재시도 (Basic auth 첨부)
 
 ```http
-GET /v2/token?service=registry.timberay.local&scope=repository%3Amyimage%3Apush%2Cpull HTTP/1.1
+PUT /v2/myimage/manifests/v1 HTTP/1.1
 Host: localhost:3000
 Authorization: Basic dG9ubnlAdGltYmVyYXkuY29tOm9wcmtfYWJjMTIz...
 User-Agent: docker/24.0.7 ...
-Accept: */*
+Content-Type: application/vnd.docker.distribution.manifest.v2+json
 ```
 
-**Server 가 수행할 처리** (`V2::TokensController#show`):
-1. `Authorization: Basic` 파싱 → `(email, pat_raw)`. 실패 → `401`.
+`Authorization: Basic <base64(email:pat_raw)>`. Docker CLI 는 `docker login` 시 저장한 자격을 자동으로 첨부. token exchange / 별도 endpoint 없이 같은 request 를 재시도.
+
+### 3.4 Step 4 — 서버의 검증 처리
+
+`V2::BaseController#authenticate_v2_basic!` (before_action):
+
+1. `Authorization: Basic` 파싱 → `(email, pat_raw)`. 실패 → `401 + Basic challenge`.
 2. `PersonalAccessToken.active.find_by(token_digest: Digest::SHA256.hexdigest(pat_raw))` 조회.
    - `.active` scope: `revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())`.
-3. `pat.identity.user.email == email` 이어야 승인 (email 불일치 → 401).
-4. `params[:service]` 가 `Rails.configuration.x.registry.jwt_audience` 와 동일한지 확인. 불일치 → 400.
-5. `params[:scope]` 파싱 → `Array<{type, name, actions}>`.
-   - 포맷: `repository:<name>:<action1>,<action2>` 또는 `registry:catalog:*`
-   - 빈 scope → `access: []` (empty token, discovery 용도)
-   - 형식 불량 → 400 BAD_REQUEST
-6. **Stage 1 범위**: 요청 action 그대로 허용 (owner 모델 없음).
-7. **Stage 2 범위**: 각 scope 에 대해 `Repository.find_by(name: ...)` → `writable_by?/deletable_by?(pat.identity)` 에 따라 action 필터.
-8. `Auth::TokenIssuer.new.call(...)` → JWT 서명.
-9. `pat.update!(last_used_at: Time.current)`.
+3. PAT 존재 안 함 → `401`.
+4. `pat.identity.user.email.downcase == email.downcase` 검증 (email 불일치 → `401`, 정보 누출 방지로 메시지 동일).
+5. 검증 성공:
+   - `current_user = pat.identity.user`
+   - `current_pat   = pat`
+   - `pat.update_column(:last_used_at, Time.current)` (validation skip — write 부하 최소화)
+6. **D5 anonymous pull gate** (push/delete 외):
+   - HTTP method GET/HEAD + endpoint 가 `{base#index, catalog#index, tags#index, manifests#show, blobs#show}` 중 하나 + `Rails.configuration.x.registry.anonymous_pull_enabled == true` → `Authorization` header 가 비어도 통과 (current_user = nil).
+   - 그 외 모든 경로는 인증 필수.
 
-### 3.4 Step 4 — 서버의 token 응답 (200)
-
-```http
-HTTP/1.1 200 OK
-Content-Type: application/json
-Cache-Control: no-store
-Pragma: no-cache
-
-{
-  "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6InYxIn0...",
-  "access_token": "eyJhbGciOi...",
-  "expires_in": 900,
-  "issued_at": "2026-04-23T11:30:00Z"
-}
-```
-
-**응답 body 키 주의**:
-- `token` + `access_token` 둘 다 **같은 값**으로 포함 (구버전 Docker CLI 는 `token`, 신버전 OCI 는 `access_token` — 둘 다 채워야 광범위한 클라이언트 호환).
-- `expires_in` 은 초 단위 정수, `issued_at` 은 ISO 8601 UTC.
-
-### 3.5 디코딩된 JWT payload (reference)
-
-```json
-{
-  "iss": "registry.timberay.local",
-  "sub": "tonny@timberay.com",
-  "aud": "registry.timberay.local",
-  "exp": 1700000900,
-  "iat": 1700000000,
-  "nbf": 1699999995,
-  "jti": "7e5c-...",
-  "access": [
-    { "type": "repository", "name": "myimage", "actions": ["push", "pull"] }
-  ]
-}
-```
-
-Header (kid 포함 — 향후 dual-key rotation 준비):
-```json
-{ "alg": "RS256", "typ": "JWT", "kid": "v1" }
-```
-
-### 3.6 Step 5 — Docker CLI 가 Bearer 로 재시도
+### 3.5 Step 5 — 서버의 200 응답 (push 정상 처리)
 
 ```http
-HEAD /v2/ HTTP/1.1
-Host: localhost:3000
-Authorization: Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InYxIn0...
-User-Agent: docker/24.0.7 ...
+HTTP/1.1 201 Created
+Docker-Content-Digest: sha256:abc...
+Location: /v2/myimage/manifests/sha256:abc...
 ```
 
-**Server 처리** (`V2::BaseController#authenticate_v2!`):
-1. `Authorization: Bearer` 있으면 `Auth::TokenVerifier.new.call(raw_token)` → `VerifiedToken`.
-2. `current_user = Identity.find_by(email: verified.subject)&.user` → 없으면 `Auth::Unauthenticated`.
-3. `@token_access = verified.access` (Stage 2 의 action-level 재검증 참조).
-4. `Bearer` 없고 anonymous pull 경로 (D5 조건) 면 skip.
-5. 그 외엔 `render_v2_challenge` 로 Step 2 반복.
+이후 `ManifestProcessor.new.call(..., actor: current_user.email)` 로 진행. `TagEvent.actor` 에 `tonny@timberay.com` 기록.
 
-### 3.7 스트레스 케이스 / 에러 응답
+### 3.6 스트레스 케이스 / 에러 응답
 
 | 상황 | HTTP | body |
 |---|---|---|
-| PAT 존재 안 함 | 401 | `{"errors":[{"code":"UNAUTHORIZED","message":"invalid credentials"}]}` |
-| PAT revoked | 401 | 위와 동일 (정보 누출 방지) |
-| service 불일치 | 400 | `{"errors":[{"code":"BAD_REQUEST","message":"unsupported service"}]}` |
-| scope 형식 불량 | 400 | `{"errors":[{"code":"BAD_REQUEST","message":"invalid scope"}]}` |
-| scope 빈 문자열 | 200 | `access: []` (empty token) |
-| JWT 만료 후 요청 | 401 + challenge | Step 2 포맷, Docker CLI 자동 재교환 |
-| JWT aud mismatch | 401 + challenge | 위와 동일 |
-| rack-attack 11th req/min/ip | 429 | `Retry-After: 60` |
+| Authorization header 누락 (push/delete 경로) | 401 + challenge | `{"errors":[{"code":"UNAUTHORIZED","message":"authentication required"}]}` |
+| Basic 파싱 실패 (malformed base64 등) | 401 + challenge | 위와 동일 (정보 누출 방지) |
+| PAT 존재 안 함 | 401 + challenge | 위와 동일 |
+| PAT revoked / expired (`.active` 제외) | 401 + challenge | 위와 동일 |
+| email 과 PAT 의 user 불일치 | 401 + challenge | 위와 동일 |
+| anonymous pull 경로 + Authorization 없음 | 200 (정상 응답) | — |
+| anonymous pull disabled (`REGISTRY_ANONYMOUS_PULL=false`) + 익명 pull | 401 + challenge | — |
+| rack-attack throttle (push 경로 분당 N회 초과) | 429 | `Retry-After: 60` |
 
-### 3.8 `render_v2_challenge` helper (구현 스케치)
+`/v2/token` endpoint 는 **존재하지 않음** (Bearer flow 폐기). rack-attack 는 일반 V2 endpoint 의 PAT 검증 부하만 throttle.
+
+### 3.7 `render_v2_challenge` helper (구현 스케치)
 
 ```ruby
-def render_v2_challenge(scope: nil)
-  realm = "#{request.base_url}/v2/token"
-  service = Rails.configuration.x.registry.jwt_audience
-  parts = [%(realm="#{realm}"), %(service="#{service}")]
-  parts << %(scope="#{scope}") if scope.present?
-  response.headers["WWW-Authenticate"] = "Bearer #{parts.join(',')}"
-  render_error("UNAUTHORIZED", "authentication required", 401)
+# app/controllers/v2/base_controller.rb
+def render_v2_challenge
+  response.headers["WWW-Authenticate"] = %(Basic realm="Registry")
+  response.headers["Docker-Distribution-Api-Version"] = "registry/2.0"
+  render json: {
+    errors: [{ code: "UNAUTHORIZED", message: "authentication required", detail: nil }]
+  }, status: :unauthorized
 end
 ```
+
+기존 §2.4 의 JWT TokenIssuer/Verifier / `kid` rotation / iss/aud 검증 로직은 모두 **제거**. `Authorization: Bearer ...` 흐름이 사라지므로 `service` / `scope` parameter 도 무관.
+
+### 3.8 Bearer 미사용 결정의 trade-off (참고)
+
+| 차원 | Basic (선택) | Bearer + JWT (포기) |
+|---|---|---|
+| 검증 비용 | 매 protected request 마다 PAT digest DB lookup | JWT 서명만 검증 (DB skip) |
+| 토큰 만료 | PAT 자체 만료 (default 90 days) | JWT exp claim (15 분 자동) |
+| 코드 양 | helper 1개 + PAT 검증 메서드 | TokenIssuer + Verifier + TokensController + RSA 키 관리 |
+| 외부 표준 호환 | Docker CLI 호환 ✅ (distribution spec 허용) | 추가로 OIDC federation 가능 |
+| 보안 표면 | base64 디코딩 + digest 비교 | JWT 라이브러리 취약점 (alg confusion 등) + 키 관리 |
+
+사내 사용 규모 (분당 수회 push) 에서는 검증 비용 차이 무관. JWT 의 자동 만료 이점은 PAT 의 `expires_at` 으로 대체. 외부 IdP federation 요구가 생기면 그 시점에 Bearer 레이어를 PAT 위에 추가 (기존 PAT 모델 재사용 가능).
 
 ---
 
@@ -783,169 +763,85 @@ grep 기준 실제 수정 포인트:
 
 **`app/jobs/enforce_retention_policy_job.rb:30`** 의 `actor: "retention-policy"` 는 그대로 유지 — 시스템 actor. `TagEvent#display_actor` 가 `<system: retention-policy>` 로 렌더.
 
-### 4.7 Stage 1 PR 분할 (structural/behavioral)
+### 4.7 Stage 1 PR 분할 (Basic auth 채택 후)
 
 | PR | 성격 | 내용 |
 |---|---|---|
-| Stage 1 PR-1 | structural | `actor:` required kwarg 추가만. 호출자 2곳 (`ManifestsController#update`, `ImageImportService#call`) 은 `actor: "anonymous"` 명시 전달 — 테스트 그린 |
-| Stage 1 PR-2 | behavioral | 호출자 `actor: current_user_email` 전환, `manifests_controller#destroy` + `tags_controller#destroy` 도 실명 전환. `display_actor` helper 도입. 테스트 갱신 |
-| Stage 1 PR-3 | behavioral | import job `actor_email:` 수용, 호출 경로 실명화 |
-| Stage 1 PR-4 | behavioral | `V2::TokensController` + `V2::BaseController#authenticate_v2!` + PAT 모델/UI |
+| Stage 1 PR-1 | structural | `actor:` required kwarg 추가. 호출자 모두 `actor: "anonymous"` 명시 (behavior 불변). config/initializer 변경 없음 |
+| Stage 1 PR-2 | behavioral | PAT 모델 + Settings UI (CRUD) + `V2::BaseController#authenticate_v2_basic!` + anonymous pull gate + `actor: current_user.email` 실명화 (V2 push/delete + Web UI delete) + import job `actor_email:` + `display_actor` helper + Critical Gap #3 regression |
+
+JWT TokenIssuer/Verifier / `V2::TokensController` / RSA 키쌍 / `/v2/token` route 는 모두 **제외**. 이전 4 PR 분할 (PR-2 PAT/JWT infra → PR-3 auth gate → PR-4 import + UI) 은 옵션 1 채택으로 단일 PR-2 에 통합.
 
 Stage 2 의 `actor_identity_id` 추가 + `ownership_transfer` 확장은 Stage 2 PR-3 에서.
 
 ---
 
-## 5. JWT RSA 키쌍 + Rails Credentials + ENV
+## 5. PAT 검증 + ENV 설정
 
-### 5.1 RSA 키쌍 생성 (로컬 dev + staging + prod 각각 분리)
+### 5.1 PAT 보안 모델
 
-RS256 (2048-bit 이상). 환경별 별도 키쌍.
+PAT 는 raw token 자체가 비밀. 서버는 SHA256 digest 만 저장 → 도난된 DB 로도 복원 불가.
 
-```bash
-openssl genrsa -out /tmp/jwt_private.pem 2048
-openssl rsa -in /tmp/jwt_private.pem -pubout -out /tmp/jwt_public.pem
+| 항목 | 처리 |
+|---|---|
+| Raw token 형식 | `oprk_` prefix + `SecureRandom.urlsafe_base64(32)` (43 chars) |
+| 발급 시 사용자 노출 | 한 번만 (생성 직후 화면). 재조회 불가 |
+| DB 저장 | `token_digest = Digest::SHA256.hexdigest(raw)` (unique) |
+| 검증 | request 의 raw token → SHA256 → digest column 매칭 |
+| 폐기 | `revoked_at = Time.current` (soft delete, audit 보존) |
+| 만료 | `expires_at` 컬럼. `kind = "cli"` 발급 시 default 90 days, `kind = "ci"` 는 NULL 허용 |
 
-cat /tmp/jwt_private.pem
-cat /tmp/jwt_public.pem
-
-# 저장 후 즉시 삭제
-shred -u /tmp/jwt_private.pem /tmp/jwt_public.pem
-```
-
-### 5.2 Rails credentials 구조 — 환경별 분리
-
-Rails 8 환경별 credentials (`config/credentials/<env>.yml.enc` + `config/credentials/<env>.key`) 사용.
-
-```bash
-bin/rails credentials:edit --environment development
-bin/rails credentials:edit --environment staging
-bin/rails credentials:edit --environment production
-```
-
-각 파일 동일 구조:
-
-```yaml
-jwt:
-  signing_key_private_pem: |
-    -----BEGIN RSA PRIVATE KEY-----
-    MIIEpAIBAAKCAQEA... (실제 PEM 전체)
-    -----END RSA PRIVATE KEY-----
-  signing_key_public_pem: |
-    -----BEGIN PUBLIC KEY-----
-    MIIBIjANBgkqhkiG9w0BAQEF...
-    -----END PUBLIC KEY-----
-  signing_key_id: "v1"        # JWT header.kid, 향후 rotation 시 v2
-
-google_oauth:
-  client_id: "xxxxx.apps.googleusercontent.com"
-  client_secret: "GOCSPX-..."
-```
-
-**`signing_key_id: "v1"` 근거**: dual-key rotation 은 defer (TODOS P2) 지만 JWT header 에 `kid` 를 처음부터 넣으면 추후 verifier 에 `kid` 분기 추가가 하위호환.
-
-### 5.3 ENV 변수 — 환경별 값
+### 5.2 ENV 변수 — 환경별 값
 
 ```bash
 # dev
-REGISTRY_JWT_ISSUER=registry.dev.localhost
-REGISTRY_JWT_AUDIENCE=registry.dev.localhost
 REGISTRY_ADMIN_EMAIL=tonny@timberay.com
 REGISTRY_ANONYMOUS_PULL=true
 
 # staging / prod
-REGISTRY_JWT_ISSUER=registry.staging.timberay.local       # prod 는 registry.timberay.local
-REGISTRY_JWT_AUDIENCE=registry.staging.timberay.local
 REGISTRY_ADMIN_EMAIL=devops@timberay.com
 REGISTRY_ANONYMOUS_PULL=true
 ```
 
-**`iss == aud == service_name`** 근거: 단일 서비스 = 자체 감사. 외부 서비스에 JWT 위임 계획 없음. 분화 필요해지면 audience 구분.
+JWT 관련 ENV (`REGISTRY_JWT_ISSUER`, `REGISTRY_JWT_AUDIENCE`) 는 Basic auth 채택으로 **불필요**. RSA 키쌍 / `config/credentials/<env>.yml.enc` 의 `jwt:` 블록도 **불필요**.
 
-**환경 간 키 격리**: dev 키로 서명된 JWT 가 prod 에서 검증 통과 = 심각. `iss`/`aud` 값 환경별 다름 + 키쌍 환경별 다름 = 이중 방어.
-
-### 5.4 `config/initializers/registry.rb` — 설정 로딩
+### 5.3 `config/initializers/registry.rb` — 설정 로딩
 
 ```ruby
 Rails.application.configure do
-  config.x.registry.jwt_issuer   = ENV.fetch("REGISTRY_JWT_ISSUER")
-  config.x.registry.jwt_audience = ENV.fetch("REGISTRY_JWT_AUDIENCE")
   config.x.registry.admin_email  = ENV.fetch("REGISTRY_ADMIN_EMAIL", nil)
   config.x.registry.anonymous_pull_enabled =
     ActiveModel::Type::Boolean.new.cast(ENV.fetch("REGISTRY_ANONYMOUS_PULL", "true"))
-
-  jwt_creds = Rails.application.credentials.jwt
-  if Rails.env.development? && jwt_creds.blank?
-    Rails.logger.warn("[registry] JWT credentials not configured; /v2/token will 503")
-    config.x.registry.jwt_keys = nil
-  else
-    config.x.registry.jwt_keys = {
-      private: OpenSSL::PKey::RSA.new(jwt_creds.fetch(:signing_key_private_pem)),
-      public:  OpenSSL::PKey::RSA.new(jwt_creds.fetch(:signing_key_public_pem)),
-      kid:     jwt_creds.fetch(:signing_key_id, "v1")
-    }
-  end
 end
 ```
 
-`Rails.env.test?` 에서는 `test_helper.rb` 가 fixture 키쌍을 inject (아래 §6.2).
+Stage 0 의 admin_email 로딩 외에는 추가 설정 없음. JWT 섹션이 사라지면서 initializer 가 단순해진다.
 
-### 5.5 TokenIssuer/Verifier 의 설정 사용
+### 5.4 `WWW-Authenticate` realm — Bearer → Basic
+
+challenge response 의 scheme 이 `Bearer` 가 아니라 `Basic` 이므로 helper 가 단순:
 
 ```ruby
-# 발급
-keys = Rails.configuration.x.registry.jwt_keys
-JWT.encode(payload, keys.fetch(:private), "RS256", { kid: keys.fetch(:kid), typ: "JWT" })
-
-# 검증
-keys = Rails.configuration.x.registry.jwt_keys
-JWT.decode(
-  token, keys.fetch(:public), true,
-  algorithm: "RS256",
-  iss: Rails.configuration.x.registry.jwt_issuer,   verify_iss: true,
-  aud: Rails.configuration.x.registry.jwt_audience, verify_aud: true,
-  verify_iat: true
-)
+def render_v2_challenge
+  response.headers["WWW-Authenticate"] = %(Basic realm="Registry")
+  render_error("UNAUTHORIZED", "authentication required", 401)
+end
 ```
 
-### 5.6 보안 운영 체크리스트 (Stage 1 배포 직전)
+`scope` / `service` 파라미터는 Bearer flow 의 token exchange 단계용이라 Basic 에서는 무관.
+
+### 5.5 보안 운영 체크리스트 (Stage 1 배포 직전)
 
 | 항목 | 확인 방법 |
 |---|---|
-| `config/credentials/production.key` 가 git 에 커밋 안 됨 | `grep -r "production.key" .gitignore` |
-| prod 키가 Kamal 의 `.kamal/secrets` 에 저장 | `kamal secrets` |
-| staging/prod 키쌍이 서로 다름 | 두 환경의 `/v2/token` 응답 JWT signature 비교 |
-| `REGISTRY_JWT_ISSUER`/`_AUDIENCE` 환경별 다름 | `kamal env list` |
-| dev 키는 개발자 로컬만 | `.gitignore` 에 `config/credentials/development.key` 포함 |
+| `personal_access_tokens.token_digest` 에 unique index 적용 | `bin/rails db:schema:dump | grep token_digest` |
+| Raw token 이 로그/오류 추적기에 안 새는지 | `lograge.custom_payload` 에 `Authorization` 마스킹 |
+| Rails default password log filter 에 PAT 추가 | `config/initializers/filter_parameter_logging.rb` 에 `:authorization` |
+| `kind = "ci"` 토큰 (만료 NULL) 발급 권한 — admin only? | Stage 2 의 권한 정책에서 결정 (현재는 모든 user 가 발급) |
 
-### 5.7 키 생성 자동화 bin script
+### 5.6 (의도적 공란)
 
-```bash
-#!/usr/bin/env bash
-# bin/generate-jwt-keys
-set -euo pipefail
-
-ENV_NAME="${1:?usage: bin/generate-jwt-keys <dev|staging|prod>}"
-TMPDIR=$(mktemp -d)
-trap "shred -u $TMPDIR/* 2>/dev/null; rmdir $TMPDIR" EXIT
-
-openssl genrsa -out "$TMPDIR/private.pem" 2048
-openssl rsa -in "$TMPDIR/private.pem" -pubout -out "$TMPDIR/public.pem" 2>/dev/null
-
-cat <<EOF
-=== Paste into 'bin/rails credentials:edit --environment $ENV_NAME' ===
-
-jwt:
-  signing_key_private_pem: |
-$(sed 's/^/    /' "$TMPDIR/private.pem")
-  signing_key_public_pem: |
-$(sed 's/^/    /' "$TMPDIR/public.pem")
-  signing_key_id: "v1"
-
-=== Press Enter when saved; keys will be shredded ===
-EOF
-read -r _
-```
+이 섹션은 이전에 "키 생성 자동화 bin script" 였으나 Basic auth 채택으로 삭제. RSA 키쌍 자체가 불필요.
 
 ---
 
@@ -1030,16 +926,8 @@ class ActiveSupport::TestCase
   fixtures :all
 
   setup do
-    test_private = OpenSSL::PKey::RSA.new(
-      file_fixture("keys/test_jwt_private.pem").read
-    )
-    Rails.configuration.x.registry.jwt_keys = {
-      private: test_private, public: test_private.public_key, kid: "test-v1"
-    }
-    Rails.configuration.x.registry.jwt_issuer   = "registry.test.local"
-    Rails.configuration.x.registry.jwt_audience = "registry.test.local"
-    Rails.configuration.x.registry.admin_email  = "admin@timberay.com"
-    Rails.configuration.x.registry.anonymous_pull_enabled = true
+    Rails.configuration.x.registry.admin_email             = "admin@timberay.com"
+    Rails.configuration.x.registry.anonymous_pull_enabled  = true
   end
 
   # Stage 0: mock OmniAuth callback
@@ -1064,21 +952,18 @@ class ActiveSupport::TestCase
 end
 
 class ActionDispatch::IntegrationTest
-  def bearer_headers_for(identity:, access: [])
-    token = Auth::TokenIssuer.new.call(
-      subject: identity.email,
-      service: Rails.configuration.x.registry.jwt_audience,
-      access: access
-    ).fetch(:token)
-    { "Authorization" => "Bearer #{token}" }
-  end
-
+  # Build PAT Basic auth headers for V2 protected endpoints.
+  # @param pat_raw [String] raw token (TokenFixtures::TONNY_CLI_RAW 등)
+  # @param email   [String] user email matching pat.identity.user.email
   def basic_auth_for(pat_raw:, email:)
-    credentials = Base64.strict_encode64("#{email}:#{pat_raw}")
-    { "Authorization" => "Basic #{credentials}" }
+    {
+      "Authorization" => ActionController::HttpAuthentication::Basic.encode_credentials(email, pat_raw)
+    }
   end
 end
 ```
+
+`bearer_headers_for` helper 는 JWT 폐기로 삭제 (D9). Stage 1 의 모든 V2 통합 테스트는 `basic_auth_for` 만 사용.
 
 ### 6.3 `/testing/sign_in` 전용 route (Rails.env.test? 가드)
 
@@ -1186,39 +1071,52 @@ end
 Stage 1 의 대표:
 
 ```ruby
-# test/integration/docker_token_exchange_test.rb
+# test/integration/docker_basic_auth_test.rb
 require "test_helper"
 
-class DockerTokenExchangeTest < ActionDispatch::IntegrationTest
+class DockerBasicAuthTest < ActionDispatch::IntegrationTest
   include TokenFixtures
 
-  test "challenge then exchange: PAT → JWT → Bearer retry → 200" do
-    tonny = identities(:tonny_google)
-    pat_raw = TONNY_CLI_RAW
-
-    head "/v2/"
+  test "push without Authorization → 401 + Basic challenge" do
+    put "/v2/myimage/manifests/v1",
+        params: minimal_manifest_payload,
+        headers: { "Content-Type" => "application/vnd.docker.distribution.manifest.v2+json" }
     assert_response :unauthorized
-    auth_hdr = response.headers["WWW-Authenticate"]
-    assert_match %r{\ABearer realm="}, auth_hdr
-    assert_match %r{service="registry\.test\.local"}, auth_hdr
+    assert_equal %(Basic realm="Registry"), response.headers["WWW-Authenticate"]
+  end
 
-    get "/v2/token",
-        params: { service: "registry.test.local", scope: "repository:myimage:push,pull" },
-        headers: basic_auth_for(pat_raw: pat_raw, email: "tonny@timberay.com")
-    assert_response :ok
-    body = JSON.parse(response.body)
-    assert body["token"].present?
-    assert_equal body["token"], body["access_token"]
-    assert_equal 900, body["expires_in"]
+  test "push with valid PAT Basic auth → 201 + TagEvent.actor 실명 기록" do
+    pat_raw = TONNY_CLI_RAW
+    headers = {
+      "Authorization" => ActionController::HttpAuthentication::Basic.encode_credentials("tonny@timberay.com", pat_raw),
+      "Content-Type"  => "application/vnd.docker.distribution.manifest.v2+json"
+    }
 
-    head "/v2/", headers: { "Authorization" => "Bearer #{body['token']}" }
-    assert_response :ok
+    assert_difference -> { TagEvent.where(actor: "tonny@timberay.com").count }, +1 do
+      put "/v2/myimage/manifests/v1", params: minimal_manifest_payload, headers: headers
+    end
+    assert_response :created
 
     pat = PersonalAccessToken.find_by!(token_digest: Digest::SHA256.hexdigest(pat_raw))
     assert_in_delta Time.current, pat.last_used_at, 5.seconds
   end
+
+  test "push with revoked PAT → 401" do
+    pat_raw = TONNY_REVOKED_RAW
+    headers = { "Authorization" => ActionController::HttpAuthentication::Basic.encode_credentials("tonny@timberay.com", pat_raw) }
+    put "/v2/myimage/manifests/v1", params: "{}", headers: headers
+    assert_response :unauthorized
+  end
+
+  test "anonymous pull (REGISTRY_ANONYMOUS_PULL=true) → 200 without Authorization" do
+    seed_image_for("myimage", "v1")
+    get "/v2/myimage/manifests/v1"
+    assert_response :ok
+  end
 end
 ```
+
+Bearer flow 의 token exchange 단계가 사라지면서 setup/assertion 이 1/3 수준으로 축소.
 
 ### 6.6 Docker CLI E2E — 별도 bin script
 
@@ -1265,9 +1163,7 @@ bin/rails test test/integration/docker_cli_flow_test.rb
 | 0 | PR-1 structural | users/identities 모델 (비정규화 FK 제약, presence) |
 | 0 | PR-2 behavioral | session_creator Case A/B/C → 구현 → google_oauth_flow integration |
 | 1 | PR-1 structural | ManifestProcessor `actor:` required kwarg (ArgumentError) |
-| 1 | PR-2 behavioral | token_issuer/verifier 단위 → /v2/token 통합 → anonymous_pull_regression |
-| 1 | PR-3 | import job `actor_email:` |
-| 1 | PR-4 | Tokens UI + V2::BaseController auth gate |
+| 1 | PR-2 behavioral | PAT 모델 (.active scope, authenticate_raw) → PatAuthenticator 단위 → V2::BaseController#authenticate_v2_basic! 통합 → anonymous_pull_regression → Settings::Tokens UI |
 | 2 | PR-1 structural | repository_member 모델 + Repository 권한 메서드 |
 | 2 | PR-2 behavioral | RepositoryAuthorization concern (V2 + Web UI) |
 | 2 | PR-3 | ownership_transfer + first_pusher_race + retention_ownership_interaction |
@@ -1566,17 +1462,16 @@ end
 ```
 [T-1 week]   ├─ Blocker A: RSpec→Minitest 포팅 (P0)
              ├─ Blocker B: Google OAuth client 발급
-             ├─ Blocker C: REGISTRY_ADMIN_EMAIL + JWT 키쌍 (staging/prod)
-             └─ Blocker D: REGISTRY_JWT_ISSUER / AUDIENCE ENV
+             └─ Blocker C: REGISTRY_ADMIN_EMAIL ENV (staging/prod)
 
 [T0]         Stage 0 배포 (OmniAuth 인프라)
              · feature/registry-auth-stage0 → main
              · 3 PR 머지 + CI green + staging 1일 soak
              · prod 효과: anonymous push/pull 유지, /auth/google 로그인 가능
 
-[T+3~7d]     Stage 1 배포 (PAT + JWT + attribution)
+[T+3~7d]     Stage 1 배포 (PAT Basic auth + attribution)
              · feature/registry-auth-stage1 → main
-             · 4 PR 머지
+             · 2 PR 머지 (PR-1 structural + PR-2 behavioral)
              · ⚠️ 배포 순간부터 docker push/delete 는 PAT 필수. pull 은 anonymous.
              · 사전 공지: 모든 CI/K8s credential 을 PAT 로 사전 교체 완료 상태
 
@@ -1604,12 +1499,10 @@ end
 ```
 □ Stage 0 main 머지 + 1일+ staging soak
 □ PR-1 (structural: actor: required kwarg) 머지
-□ PR-2 (behavioral: 호출자 실명화 + display_actor) 머지
-□ PR-3 (import job actor_email:) 머지
-□ PR-4 (V2::TokensController + BaseController auth + PAT UI) 머지
+□ PR-2 (behavioral: PAT 모델 + V2 Basic auth gate + 실명화 + import job actor_email + Settings UI) 머지
 □ staging: docker login → push → pull 전체 사이클 성공
 □ TagEvent.actor 가 실명 email 로 기록 (DB 직접 확인)
-□ /v2/token rack-attack 스로틀 반영
+□ V2 push 경로 rack-attack 스로틀 반영 (PAT digest lookup 부하 보호)
 □ CI / K8s ImagePullSecrets PAT 교체 완료
 □ 크리티컬 갭 테스트 3건 GREEN
 □ 배포 2일 전 Slack 공지: "Stage 1 배포 순간 모든 push/delete 가 PAT 필수"
@@ -1641,8 +1534,8 @@ end
 
 #### Stage 1 rollback 시나리오
 
-- **C. docker push 실패 — JWT 서명/키 불일치**: `kamal rollback` → Stage 0 상태. V2 가 다시 anonymous push 허용(기능 복구, audit 갭 발생 가능). Schema 유지. 다음 재배포 시 마이그레이션 skip.
-- **D. 인증은 되나 `ManifestProcessor.call` actor kwarg 누락 배포**: PR-1/PR-2 분리되어 있으므로 **PR-2 만 revert** → `current_user_email` 대신 `"anonymous"` 로 복귀. TagEvent.actor 일시적 anonymous, 기능 복구.
+- **C. docker push 401 — PAT 검증 버그 (digest 비교 / email 매칭)**: `kamal rollback` → Stage 0 상태. V2 가 다시 anonymous push 허용 (기능 복구, audit 갭 발생 가능). Schema 유지 (PAT 테이블은 비어있어도 무해). 다음 재배포 시 마이그레이션 skip.
+- **D. 인증은 되나 `ManifestProcessor.call` actor kwarg 누락 배포**: PR-1/PR-2 분리되어 있으므로 **PR-2 만 revert** → `current_user.email` 대신 `"anonymous"` 로 복귀. TagEvent.actor 일시적 anonymous, 기능 복구.
 - **E. `REGISTRY_ANONYMOUS_PULL` 조건 분기 버그로 모든 pull 이 401**: 앱 rollback 또는 긴급 hotfix PR. K8s ImagePullBackOff 즉각 영향 → canary 에서 20분 내 탐지 필수.
 
 #### Stage 2 rollback 시나리오
