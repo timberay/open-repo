@@ -19,24 +19,6 @@ re-reading the original review.
 
 ---
 
-## [P0] Migrate RSpec specs to Minitest (Stage 0 blocker)
-
-**What:** 기존 `spec/` 디렉터리의 RSpec 기반 테스트를 Rails 기본 Minitest 로 마이그레이션. `rspec-rails` gem 제거, `spec/rails_helper.rb`/`spec_helper.rb` 를 `test/test_helper.rb` 로 통합.
-
-**Why:** open-repo 에 인증/소유권 도입(Stage 0+1+2) 을 시작하려면 새 테스트를 어떤 프레임워크로 쓸지 결정해야 함. 사용자 방향은 Minitest 일원화. 기존 RSpec 유지 시 프레임워크 2개 공존 → 빌드 설정·CI·개발자 onboarding 복잡도 증가. Stage 0 어떻게 시작하든 이 결정이 선행.
-
-**Pros:** Rails 8 기본값 정합, 학습 곡선 제거, CLAUDE.md 의 "Minitest" 명시와 일치(현재 불일치 상태). CI 설정 단순화.
-
-**Cons:** 기존 spec 을 test 로 포팅하는 일회성 비용 (파일 수 × 변환 시간). RSpec 의 `let`/`subject` 문법 → Minitest 의 setup+메서드 스타일로 재작성 필요. factory_bot 을 쓰면 그대로 유지 가능.
-
-**Context:** 2026-04-23 `/plan-eng-review` 에서 발견. 현재 `spec/` 에 rails_helper + models/controllers/components/errors/helpers/jobs/requests/services/integration 디렉터리 존재. `Gemfile` 에 `rspec-rails` 확인됨. prior learning `rspec-vs-claudemd` (confidence 10, 2026-04-22) 가 이 불일치를 이미 지적. CLAUDE.md/STANDARDS.md 도 동시 수정 필요.
-
-**Depends on / blocked by:** 없음. Stage 0 auth 작업을 차단하므로 먼저 착수 권장.
-
-**Source:** `/plan-eng-review` on `~/.gstack/projects/timberay-open-repo/tonny-chore-design-review-polish-design-20260423-103952.md`.
-
----
-
 ## [P2] JWT signing key rotation procedure
 
 **What:** Stage 1 의 RS256 JWT 서명 키 (config/credentials.yml.enc 에 저장) 를 유출 시 무중단 교체하는 절차 문서화 + 선택적으로 dual-key window 지원 구현.
