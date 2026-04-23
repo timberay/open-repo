@@ -1,0 +1,12 @@
+<% if signed_in? %>
+  <span class="text-sm text-slate-300" aria-label="signed-in user">
+    <%= current_user.email %>
+  </span>
+  <%= button_to "Sign out", sign_out_path, method: :delete,
+               class: "text-sm px-3 py-1.5 min-h-11 rounded-md bg-slate-700 text-slate-100 hover:bg-slate-600 transition-colors duration-150",
+               data: { turbo_confirm: "Sign out?" } %>
+<% else %>
+  <%= button_to "Sign in with Google", "/auth/google_oauth2", method: :post,
+               class: "text-sm px-3 py-1.5 min-h-11 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors duration-150",
+               data: { turbo: false } %>
+<% end %>
