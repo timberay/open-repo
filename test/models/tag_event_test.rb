@@ -37,4 +37,33 @@ class TagEventTest < ActiveSupport::TestCase
     event = TagEvent.new(actor: nil)
     assert_equal "<system: >", event.display_actor
   end
+
+  test "action inclusion allows ownership_transfer" do
+    event = TagEvent.new(
+      repository: repository,
+      tag_name: "-",
+      action: "ownership_transfer",
+      actor: "tonny@timberay.com",
+      occurred_at: Time.current
+    )
+    assert event.valid?, event.errors.full_messages.inspect
+  end
+
+  test "belongs_to :actor_identity is optional" do
+    event = TagEvent.new(
+      repository: repository,
+      tag_name: "v1",
+      action: "delete",
+      actor: "retention-policy",
+      occurred_at: Time.current
+    )
+    # actor_identity_id = nil — should still be valid
+    assert event.valid?, event.errors.full_messages.inspect
+  end
+
+  test "display_actor prefers actor_identity email when present" do
+    identity = identities(:tonny_google)
+    event = TagEvent.new(actor: "some-old-string", actor_identity: identity)
+    assert_equal identity.email, event.display_actor
+  end
 end
