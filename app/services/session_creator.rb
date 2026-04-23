@@ -25,6 +25,10 @@ class SessionCreator
           matched
         else
           # Case C — brand-new user
+          unless profile.email_verified == true
+            raise Auth::EmailMismatch,
+                  "provider did not verify email=#{profile.email}"
+          end
           new_user = User.create!(
             email: profile.email,
             admin: User.admin_email?(profile.email)
