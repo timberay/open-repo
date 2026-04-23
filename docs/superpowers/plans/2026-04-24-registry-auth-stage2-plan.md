@@ -23,6 +23,32 @@
 
 ---
 
+## Completion Status (PR-1, 2026-04-24)
+
+**PR-1:** 6 commits on `feature/registry-auth-stage2-pr1`, full suite 438 runs / 0 failures. Awaiting CI green + merge.
+**PR-2:** not started.
+
+**Scope deviations actually shipped vs. original plan text:**
+
+1. **Task 1.2 — `owner_identity_id` NOT NULL deferred to PR-2.** The original migration ended with `change_column_null :repositories, :owner_identity_id, false`, which would break existing callers (`ManifestProcessor`, `V2::BlobUploadsController`, 23 tests) that create repositories without an owner — forcing behavioral patches into PR-1 and violating Tidy First. The column stays `null: true` in PR-1; a new migration will flip it to NOT NULL in PR-2 **after** Task 2.5 wires first-pusher-owner so every new repo gets an owner at creation. The backfill block is guarded by `Repository.where(owner_identity_id: nil).exists?` so empty DBs (fresh test schema load, CI) do not need `REGISTRY_ADMIN_EMAIL`.
+2. **Task 1.2 — migration `down` fixed.** The plan's `remove_reference :repositories, :owner_identity, foreign_key: true` fails because Rails infers the FK target from the column name (`owner_identities`) but the real target is `identities`. Down method uses `foreign_key: { to_table: :identities }` so rollback actually works.
+3. **Task 1.4 — `belongs_to :owner_identity, optional: true`.** Direct consequence of (1). With the column nullable and existing tests creating repos without owners (`repo_for_protection`, `enforcement_repo` in `test/models/repository_test.rb`), the association must accept nil to keep the PR-1 suite green without touching existing tests. PR-2 will tighten this alongside the NOT NULL constraint.
+4. **Task execution order — 1.5 before 1.4 (swapped).** Task 1.4's `transfer_ownership_to!` creates a `TagEvent` with `action: "ownership_transfer"` + `actor_identity_id:`, both of which are enabled by Task 1.5. Running 1.5 first avoided writing tests that could not be red-to-green inside a single task commit.
+
+**Commits on branch (oldest → newest):**
+- `fad4faf` feat(registry): Auth::ForbiddenAction — Stage 2 authz error class
+- `fb750c0` feat(registry): Stage 2 migrations — owner_identity (nullable), repository_members, actor_identity
+- `11bba93` feat(registry): RepositoryMember model — role validation + uniqueness
+- `de609aa` feat(registry): TagEvent — belongs_to actor_identity (optional) + ownership_transfer action
+- `afa20ab` feat(registry): Repository — owner_identity + writable_by?/deletable_by?/transfer_ownership_to!
+- `ba084ed` feat(registry): RepositoryAuthorization concern — authorize_for!(action)
+
+**PR-2 action items surfaced by these deviations:**
+- Add a new migration after Task 2.5: `ChangeOwnerIdentityToNotNullOnRepositories` (`change_column_null :repositories, :owner_identity_id, false`).
+- Drop `optional: true` from `Repository.belongs_to :owner_identity` in the same commit as that migration.
+
+---
+
 ## PR 분할 근거
 
 | PR | 성격 | 내용 |

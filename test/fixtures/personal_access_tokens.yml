@@ -33,3 +33,12 @@ tonny_expired:
   expires_at: <%= 1.day.ago %>
   created_at: <%= 100.days.ago %>
   updated_at: <%= 100.days.ago %>
+
+admin_cli_active:
+  identity: admin_google
+  name: "admin-laptop"
+  token_digest: <%= Digest::SHA256.hexdigest("oprk_test_admin_cli_raw") %>
+  kind: cli
+  expires_at: <%= 89.days.from_now %>
+  created_at: <%= 1.day.ago %>
+  updated_at: <%= 1.day.ago %>
