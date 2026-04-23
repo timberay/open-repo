@@ -1,6 +1,20 @@
 require "test_helper"
 
 class ProcessTarImportJobTest < ActiveSupport::TestCase
+  # Lightweight DI-compatible fake — captures every call for assertions.
+  class RecordingService
+    attr_reader :calls
+
+    def initialize
+      @calls = []
+    end
+
+    def call(*args, **kwargs)
+      @calls << { args: args, kwargs: kwargs }
+      nil
+    end
+  end
+
   setup do
     @tar_path = Rails.root.join("tmp/test-import-#{SecureRandom.hex(4)}.tar").to_s
     File.write(@tar_path, "dummy-tar-content")
@@ -14,49 +28,47 @@ class ProcessTarImportJobTest < ActiveSupport::TestCase
   end
 
   teardown do
-    FileUtils.rm_f(@tar_path)
+    FileUtils.rm_f(@tar_path) if @tar_path
   end
 
-  # Temporarily redefine ImageImportService.new to return a fake for the block.
-  def with_stubbed_service(fake_service)
-    original_method = ImageImportService.singleton_class.instance_method(:new)
-    ImageImportService.define_singleton_method(:new) { |*_args| fake_service }
-    yield
-  ensure
-    ImageImportService.singleton_class.define_method(:new, original_method)
+  test "perform with actor_email: forwards email to service as actor" do
+    svc = RecordingService.new
+    ProcessTarImportJob.new.perform(@import.id, actor_email: "tonny@timberay.com", service: svc)
+
+    assert_equal 1, svc.calls.size
+    call = svc.calls.first
+    assert_equal [ @import.tar_path ], call[:args]
+    assert_equal "tonny@timberay.com", call[:kwargs][:actor]
+    assert_equal @import.repository_name, call[:kwargs][:repository_name]
+    assert_equal @import.tag_name, call[:kwargs][:tag_name]
   end
 
-  test "perform forwards actor: 'anonymous' to ImageImportService" do
-    recorder = Struct.new(:args, :kwargs).new(nil, nil)
-    fake_service = Class.new do
-      define_method(:initialize) { |r| @recorder = r }
-      define_method(:call) do |*args, **kwargs|
-        @recorder.args = args
-        @recorder.kwargs = kwargs
-        nil
-      end
-    end.new(recorder)
+  test "perform with nil actor_email falls back to 'system:import'" do
+    svc = RecordingService.new
+    ProcessTarImportJob.new.perform(@import.id, actor_email: nil, service: svc)
 
-    with_stubbed_service(fake_service) do
-      ProcessTarImportJob.new.perform(@import.id)
-    end
-
-    assert_equal [ @import.tar_path ], recorder.args
-    assert_equal "anonymous", recorder.kwargs[:actor]
-    assert_equal @import.repository_name, recorder.kwargs[:repository_name]
-    assert_equal @import.tag_name, recorder.kwargs[:tag_name]
+    assert_equal 1, svc.calls.size
+    assert_equal "system:import", svc.calls.first[:kwargs][:actor]
   end
 
   test "perform marks import completed on success" do
-    fake_service = Class.new do
-      def call(*, **); end
-    end.new
+    svc = RecordingService.new
+    ProcessTarImportJob.new.perform(@import.id, service: svc)
 
-    with_stubbed_service(fake_service) do
-      ProcessTarImportJob.new.perform(@import.id)
-    end
     @import.reload
     assert_equal "completed", @import.status
     assert_equal 100, @import.progress
+  end
+
+  test "perform marks import failed and re-raises on service exception" do
+    raising_svc = Class.new { def call(*, **); raise StandardError, "boom"; end }.new
+
+    assert_raises(StandardError) do
+      ProcessTarImportJob.new.perform(@import.id, service: raising_svc)
+    end
+
+    @import.reload
+    assert_equal "failed", @import.status
+    assert_equal "boom", @import.error_message
   end
 end

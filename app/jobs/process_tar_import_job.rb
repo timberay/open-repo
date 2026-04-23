@@ -1,14 +1,14 @@
 class ProcessTarImportJob < ApplicationJob
   queue_as :default
 
-  def perform(import_id)
+  def perform(import_id, actor_email: nil, service: ImageImportService.new)
     import = Import.find(import_id)
     import.update!(status: "processing", progress: 10)
 
     begin
-      ImageImportService.new.call(
+      service.call(
         import.tar_path,
-        actor: "anonymous",
+        actor: actor_email.presence || "system:import",
         repository_name: import.repository_name,
         tag_name: import.tag_name
       )
