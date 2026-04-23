@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_23_045455) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_23_050024) do
   create_table "blob_uploads", force: :cascade do |t|
     t.bigint "byte_offset", default: 0
     t.datetime "created_at", null: false
@@ -40,6 +40,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_23_045455) do
     t.string "tag_name", null: false
     t.datetime "updated_at", null: false
     t.index ["repository_id"], name: "index_exports_on_repository_id"
+  end
+
+  create_table "identities", force: :cascade do |t|
+    t.string "avatar_url"
+    t.datetime "created_at", null: false
+    t.string "email", null: false
+    t.boolean "email_verified"
+    t.datetime "last_login_at"
+    t.string "name"
+    t.string "provider", null: false
+    t.string "uid", null: false
+    t.datetime "updated_at", null: false
+    t.integer "user_id", null: false
+    t.index ["provider", "uid"], name: "index_identities_on_provider_and_uid", unique: true
+    t.index ["user_id"], name: "index_identities_on_user_id"
   end
 
   create_table "imports", force: :cascade do |t|
@@ -146,6 +161,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_23_045455) do
 
   add_foreign_key "blob_uploads", "repositories"
   add_foreign_key "exports", "repositories"
+  add_foreign_key "identities", "users", on_delete: :restrict
   add_foreign_key "layers", "blobs"
   add_foreign_key "layers", "manifests"
   add_foreign_key "manifests", "repositories"
