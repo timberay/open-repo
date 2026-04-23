@@ -9,6 +9,10 @@ Rails.application.routes.draw do
     post "/testing/sign_in", to: "testing#sign_in"
   end
 
+  namespace :settings do
+    resources :tokens, only: [ :index, :create, :destroy ]
+  end
+
   root "repositories#index"
 
   resources :repositories, only: [ :index, :show, :update, :destroy ], param: :name,
