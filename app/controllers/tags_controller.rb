@@ -1,6 +1,7 @@
 class TagsController < ApplicationController
   before_action :set_repository
   before_action :set_tag, only: [ :show, :destroy, :history ]
+  before_action :authorize_delete!, only: [ :destroy ]
 
   def show
     @manifest = @tag.manifest
@@ -15,7 +16,8 @@ class TagsController < ApplicationController
       tag_name: @tag.name,
       action: "delete",
       previous_digest: @tag.manifest.digest,
-      actor: current_user&.email || "anonymous",
+      actor: current_user.primary_identity.email,
+      actor_identity_id: current_user.primary_identity_id,
       occurred_at: Time.current
     )
     @tag.destroy!
@@ -37,5 +39,9 @@ class TagsController < ApplicationController
 
   def set_tag
     @tag = @repository.tags.find_by!(name: params[:name])
+  end
+
+  def authorize_delete!
+    authorize_for!(:delete)
   end
 end
