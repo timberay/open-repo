@@ -122,4 +122,15 @@ class V2::BaseControllerTest < ActionDispatch::IntegrationTest
     assert_response :unauthorized
     assert_match %r{\ABasic realm=}, response.headers["WWW-Authenticate"]
   end
+
+  test "Auth::ForbiddenAction renders 403 JSON with DENIED code" do
+    # 직접 raise 를 시뮬레이션 — 아직 실제 before_action 없으나 rescue_from 동작 확인
+    repo = Repository.create!(
+      name: "v2-base-forbidden-#{SecureRandom.hex(4)}",
+      owner_identity: identities(:tonny_google)
+    )
+    # anonymous (no auth) → 401 은 이미 있음. 403 은 별도 케이스
+    # 이 테스트는 concern + rescue_from 이 연결되면 통과
+    skip "rescue_from wired in this task — tested via ManifestsController in Task 2.2"
+  end
 end
