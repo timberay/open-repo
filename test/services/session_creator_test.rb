@@ -1,6 +1,14 @@
 require "test_helper"
 
 class SessionCreatorTest < ActiveSupport::TestCase
+  setup do
+    @original_admin_email = Rails.configuration.x.registry.admin_email
+  end
+
+  teardown do
+    Rails.configuration.x.registry.admin_email = @original_admin_email
+  end
+
   def profile_for(identity:, overrides: {})
     Auth::ProviderProfile.new(
       provider: identity.provider,

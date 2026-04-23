@@ -50,4 +50,17 @@ class UserTest < ActiveSupport::TestCase
     Rails.configuration.x.registry.admin_email = nil
     refute User.admin_email?("admin@timberay.com")
   end
+
+  test "User.admin_email? is case-insensitive" do
+    original = Rails.configuration.x.registry.admin_email
+    begin
+      Rails.configuration.x.registry.admin_email = "Admin@Timberay.com"
+      assert User.admin_email?("admin@timberay.com")
+      assert User.admin_email?("ADMIN@TIMBERAY.COM")
+      assert User.admin_email?("Admin@Timberay.com")
+      refute User.admin_email?("admin2@timberay.com")
+    ensure
+      Rails.configuration.x.registry.admin_email = original
+    end
+  end
 end
