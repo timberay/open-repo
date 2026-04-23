@@ -11,6 +11,7 @@ A self-hosted Docker Registry V2 server with a web management UI, built with Rub
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Configuration](#configuration)
+- [Authentication](#authentication)
 - [Development](#development)
 - [Usage](#usage)
 - [Web UI Features](#web-ui-features)
@@ -104,6 +105,24 @@ bin/rails db:prepare
 | `RETENTION_DAYS_WITHOUT_PULL` | `90` | Days without a pull before a manifest is eligible for expiration |
 | `RETENTION_MIN_PULL_COUNT` | `5` | Manifests with fewer total pulls than this are eligible |
 | `RETENTION_PROTECT_LATEST` | `true` | Never auto-delete the `latest` tag |
+
+---
+
+## Authentication
+
+open-repo uses Google OAuth 2 for Web UI sign-in. To enable it:
+
+1. Create a Google Cloud OAuth Client (Web application type) at https://console.cloud.google.com/apis/credentials
+2. Set redirect URI: `https://<your-host>/auth/google_oauth2/callback`
+3. Store client id/secret: `bin/rails credentials:edit --environment <env>`
+   ```yaml
+   google_oauth:
+     client_id: "xxx.apps.googleusercontent.com"
+     client_secret: "GOCSPX-..."
+   ```
+4. Set `REGISTRY_ADMIN_EMAIL=<your-email>` (the first user to sign in with this email gets `admin=true`).
+
+Docker CLI / Registry V2 API authentication is part of Stage 1 (not yet shipped).
 
 ---
 
