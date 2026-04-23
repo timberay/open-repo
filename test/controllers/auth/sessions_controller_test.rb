@@ -62,4 +62,10 @@ class Auth::SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to root_path
     assert_equal "Sign-in failed (google_oauth2: email_mismatch).", flash[:alert]
   end
+
+  test "failure with no params → coerced to fallbacks" do
+    get "/auth/failure"
+    assert_redirected_to root_path
+    assert_equal "Sign-in failed (unknown: failed).", flash[:alert]
+  end
 end
