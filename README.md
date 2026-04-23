@@ -66,7 +66,7 @@ Everything runs on a single Rails monolith with SQLite (Solid Cache/Queue/Cable)
 | Background Jobs | Solid Queue |
 | Action Cable | Solid Cable |
 | Blob Storage | Local filesystem (content-addressable) |
-| Backend Tests | RSpec |
+| Backend Tests | Minitest (Rails default) |
 | E2E Tests | Playwright |
 | Proxy (production) | Thruster in front of Puma |
 | Deployment | Kamal 2 or Docker Compose |
@@ -375,8 +375,8 @@ Two independent event streams are recorded by the system:
 ## Testing
 
 ```bash
-# RSpec (backend + integration)
-bundle exec rspec
+# Minitest (backend + integration)
+bin/rails test
 
 # Playwright E2E
 npx playwright test
