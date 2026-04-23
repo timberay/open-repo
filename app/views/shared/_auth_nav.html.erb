@@ -1,6 +1,6 @@
 <% if signed_in? %>
-  <span class="text-sm text-slate-300" aria-label="signed-in user">
-    <%= current_user.email %>
+  <span class="text-sm text-slate-300">
+    <span class="sr-only">Signed in as </span><%= current_user.email %>
   </span>
   <%= button_to "Sign out", sign_out_path, method: :delete,
                class: "text-sm px-3 py-1.5 min-h-11 rounded-md bg-slate-700 text-slate-100 hover:bg-slate-600 transition-colors duration-150",
