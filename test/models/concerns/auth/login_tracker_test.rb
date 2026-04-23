@@ -33,4 +33,21 @@ class Auth::LoginTrackerTest < ActiveSupport::TestCase
     user.reload
     assert_equal original_primary, user.primary_identity_id
   end
+
+  test "track_login! is atomic — rollback on user update failure (identity already saved)" do
+    user = users(:tonny)
+    identity = user.primary_identity
+    original_last_login = identity.last_login_at
+
+    def user.update!(*)
+      raise ActiveRecord::RecordInvalid.new(self)
+    end
+
+    assert_raises(ActiveRecord::RecordInvalid) do
+      user.track_login!(identity)
+    end
+
+    identity.reload
+    assert_equal original_last_login.to_i, identity.last_login_at.to_i
+  end
 end
