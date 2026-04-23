@@ -1,4 +1,14 @@
 Rails.application.routes.draw do
+  # OmniAuth (Stage 0 — Google only)
+  get    "/auth/:provider/callback", to: "auth/sessions#create",  as: :auth_callback
+  get    "/auth/failure",            to: "auth/sessions#failure", as: :auth_failure
+  delete "/auth/sign_out",           to: "auth/sessions#destroy", as: :sign_out
+
+  # Test-only signin helper
+  if Rails.env.test?
+    post "/testing/sign_in", to: "testing#sign_in"
+  end
+
   root "repositories#index"
 
   resources :repositories, only: [ :index, :show, :update, :destroy ], param: :name,
