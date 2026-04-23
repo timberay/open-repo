@@ -53,8 +53,20 @@ class V2::BlobUploadsController < V2::BaseController
 
   private
 
+  # First-pusher-owner pattern (tech design D2).
+  # If the repository does not exist, the authenticated user becomes owner.
+  # If it exists, write permission is checked.
+  # Handles SQLite unique-constraint race with a single retry.
   def ensure_repository!
-    @repository = Repository.find_or_create_by!(name: repo_name)
+    identity_id = current_user.primary_identity_id
+    @repository = Repository.find_or_create_by!(name: repo_name) do |r|
+      r.owner_identity_id = identity_id
+    end
+    # Existing repo: verify write access
+    authorize_for!(:write) unless @repository.owner_identity_id == identity_id
+  rescue ActiveRecord::RecordNotUnique
+    @repository = Repository.find_by!(name: repo_name)
+    authorize_for!(:write)
   end
 
   def find_upload!
