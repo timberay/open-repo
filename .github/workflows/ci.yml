@@ -87,3 +87,10 @@ jobs:
           RAILS_ENV: test
         run: bin/rails test
 
+      - name: Critical gap tests (hard gate)
+        env:
+          RAILS_ENV: test
+        run: |
+          bin/rails test \
+            test/integration/anonymous_pull_regression_test.rb \
+            test/integration/docker_basic_auth_test.rb
