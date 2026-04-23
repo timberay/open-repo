@@ -47,7 +47,7 @@ class V2::BaseController < ActionController::API
 
   def render_v2_challenge
     response.headers["WWW-Authenticate"]                = %(Basic realm="Registry")
-    response.headers["Docker-Distribution-Api-Version"] = "registry/2.0"
+    response.headers["Docker-Distribution-API-Version"] = "registry/2.0"
     render json: {
       errors: [ { code: "UNAUTHORIZED", message: "authentication required", detail: nil } ]
     }, status: :unauthorized
