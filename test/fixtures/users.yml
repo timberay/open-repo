@@ -1,0 +1,15 @@
+admin:
+  email: admin@timberay.com
+  admin: true
+  primary_identity: admin_google
+  last_seen_at: <%= 1.minute.ago %>
+  created_at: <%= 2.days.ago %>
+  updated_at: <%= 1.minute.ago %>
+
+tonny:
+  email: tonny@timberay.com
+  admin: false
+  primary_identity: tonny_google
+  last_seen_at: <%= 5.minutes.ago %>
+  created_at: <%= 1.day.ago %>
+  updated_at: <%= 5.minutes.ago %>
