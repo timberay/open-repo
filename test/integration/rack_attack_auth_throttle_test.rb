@@ -1,15 +1,21 @@
 require "test_helper"
 
 class RackAttackAuthThrottleTest < ActionDispatch::IntegrationTest
+  # rack-attack mutates class-level state (cache.store, enabled); pin to a
+  # single worker so we don't race with other parallel test processes.
+  parallelize(workers: 1)
+
   setup do
+    @original_enabled = Rack::Attack.enabled
+    @original_store   = Rack::Attack.cache.store
     Rack::Attack.cache.store = ActiveSupport::Cache::MemoryStore.new
-    Rack::Attack.reset!
     Rack::Attack.enabled = true
+    Rack::Attack.reset!
   end
 
   teardown do
-    Rack::Attack.enabled = false
-    Rack::Attack.cache.store = Rails.cache
+    Rack::Attack.cache.store = @original_store
+    Rack::Attack.enabled = @original_enabled
   end
 
   test "POST /auth/google_oauth2 is throttled at 10/min/IP (11th returns 429 + Retry-After)" do
