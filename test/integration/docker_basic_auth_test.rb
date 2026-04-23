@@ -17,6 +17,7 @@ class DockerBasicAuthTest < ActionDispatch::IntegrationTest
     @repo_name = "basic-auth-test-#{@suffix}"
 
     @storage_dir = Dir.mktmpdir
+    @original_storage_path = Rails.configuration.storage_path
     Rails.configuration.storage_path = @storage_dir
 
     @blob_store = BlobStore.new(@storage_dir)
@@ -50,6 +51,7 @@ class DockerBasicAuthTest < ActionDispatch::IntegrationTest
 
   teardown do
     FileUtils.rm_rf(@storage_dir)
+    Rails.configuration.storage_path = @original_storage_path
   end
 
   # Scenario 1: no Authorization header → 401 + exact Basic challenge
