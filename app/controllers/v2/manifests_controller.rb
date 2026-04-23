@@ -33,7 +33,7 @@ class V2::ManifestsController < V2::BaseController
       params[:reference],
       request.content_type,
       payload,
-      actor: "anonymous"
+      actor: current_user.email
     )
 
     response.headers["Docker-Content-Digest"] = manifest.digest
@@ -55,7 +55,7 @@ class V2::ManifestsController < V2::BaseController
         tag_name: tag.name,
         action: "delete",
         previous_digest: manifest.digest,
-        actor: "anonymous",
+        actor: current_user.email,
         occurred_at: Time.current
       )
     end
