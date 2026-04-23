@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_23_050654) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_23_132237) do
   create_table "blob_uploads", force: :cascade do |t|
     t.bigint "byte_offset", default: 0
     t.datetime "created_at", null: false
@@ -98,6 +98,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_23_050654) do
     t.index ["repository_id"], name: "index_manifests_on_repository_id"
   end
 
+  create_table "personal_access_tokens", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "expires_at"
+    t.integer "identity_id", null: false
+    t.string "kind", default: "cli", null: false
+    t.datetime "last_used_at"
+    t.string "name", null: false
+    t.datetime "revoked_at"
+    t.string "token_digest", null: false
+    t.datetime "updated_at", null: false
+    t.index ["identity_id", "name"], name: "index_personal_access_tokens_on_identity_id_and_name", unique: true
+    t.index ["identity_id"], name: "index_personal_access_tokens_on_identity_id"
+    t.index ["revoked_at"], name: "index_personal_access_tokens_on_revoked_at"
+    t.index ["token_digest"], name: "index_personal_access_tokens_on_token_digest", unique: true
+  end
+
   create_table "pull_events", force: :cascade do |t|
     t.integer "manifest_id", null: false
     t.datetime "occurred_at", null: false
@@ -166,6 +182,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_23_050654) do
   add_foreign_key "layers", "blobs"
   add_foreign_key "layers", "manifests"
   add_foreign_key "manifests", "repositories"
+  add_foreign_key "personal_access_tokens", "identities", on_delete: :cascade
   add_foreign_key "pull_events", "manifests"
   add_foreign_key "pull_events", "repositories"
   add_foreign_key "tag_events", "repositories"
