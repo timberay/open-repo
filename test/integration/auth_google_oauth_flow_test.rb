@@ -44,6 +44,9 @@ class AuthGoogleOauthFlowTest < ActionDispatch::IntegrationTest
     end
     existing.reload
     assert_in_delta Time.current, existing.last_login_at, 5.seconds
+
+    user = existing.user.reload
+    assert_equal existing.id, user.primary_identity_id
   end
 
   test "admin bootstrap: REGISTRY_ADMIN_EMAIL gets admin=true on first login" do
