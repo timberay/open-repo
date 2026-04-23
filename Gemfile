@@ -56,11 +56,10 @@ group :development, :test do
    # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
    gem "rubocop-rails-omakase", require: false
 
-   gem "rspec-rails"
    gem "webmock"
 
-   # Capybara powers ViewComponent::TestHelpers `page`/`have_css` matchers used
-   # in component specs (spec/components/**/*_spec.rb).
+   # Capybara powers ViewComponent::TestCase `page`/`have_css` matchers used
+   # in component tests (test/components/**/*_test.rb).
    gem "capybara"
 end
 
