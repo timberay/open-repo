@@ -15,4 +15,17 @@ class LoginButtonVisibilityTest < ActionDispatch::IntegrationTest
     assert_match users(:tonny).email, response.body
     assert_select "form[action='/auth/sign_out'][method='post']"
   end
+
+  test "signed-in home shows 'Tokens' link to /settings/tokens" do
+    post "/testing/sign_in", params: { user_id: users(:tonny).id }
+    get "/"
+    assert_response :ok
+    assert_select "a[href='/settings/tokens']", text: "Tokens"
+  end
+
+  test "unauthenticated home does not show 'Tokens' link" do
+    get "/"
+    assert_response :ok
+    assert_select "a[href='/settings/tokens']", count: 0
+  end
 end
