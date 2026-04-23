@@ -21,4 +21,20 @@ RSpec.describe DigestComponent, type: :component do
       )
     end
   end
+
+  describe "copy button" do
+    before { render_inline(described_class.new(digest: full)) }
+
+    it "renders a button that triggers clipboard#copy" do
+      expect(page).to have_css("button[data-action='click->clipboard#copy']")
+    end
+
+    it "gives the button an accessible label naming the digest" do
+      expect(page).to have_css("button[aria-label='Copy digest 1d1ddb624e47']")
+    end
+
+    it "marks the inner svg as the clipboard icon target for success-state swapping" do
+      expect(page).to have_css("button svg[data-clipboard-target='icon']")
+    end
+  end
 end
