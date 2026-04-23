@@ -1,0 +1,179 @@
+require "test_helper"
+
+class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
+  def config_content
+    @config_content ||= File.read(Rails.root.join("test/fixtures/configs/image_config.json"))
+  end
+
+  setup do
+    @storage_dir = Dir.mktmpdir
+    Rails.configuration.storage_path = @storage_dir
+
+    @blob_store = BlobStore.new(@storage_dir)
+    @repo_name = "test-repo"
+
+    @config_digest = DigestCalculator.compute(config_content)
+    @layer_content = SecureRandom.random_bytes(1024)
+    @layer_digest = DigestCalculator.compute(@layer_content)
+
+    @manifest_payload = {
+      schemaVersion: 2,
+      mediaType: "application/vnd.docker.distribution.manifest.v2+json",
+      config: { mediaType: "application/vnd.docker.container.image.v1+json", size: config_content.bytesize, digest: @config_digest },
+      layers: [ { mediaType: "application/vnd.docker.image.rootfs.diff.tar.gzip", size: @layer_content.bytesize, digest: @layer_digest } ]
+    }.to_json
+
+    @blob_store.put(@config_digest, StringIO.new(config_content))
+    @blob_store.put(@layer_digest, StringIO.new(@layer_content))
+    Blob.create!(digest: @config_digest, size: config_content.bytesize)
+    Blob.create!(digest: @layer_digest, size: @layer_content.bytesize)
+  end
+
+  teardown do
+    FileUtils.rm_rf(@storage_dir)
+  end
+
+  test "PUT /v2/:name/manifests/:reference creates manifest and tag" do
+    put "/v2/#{@repo_name}/manifests/v1.0.0",
+        params: @manifest_payload,
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }
+
+    assert_response 201
+    assert_match(/\Asha256:/, response.headers["Docker-Content-Digest"])
+  end
+
+  test "PUT /v2/:name/manifests/:reference rejects unsupported media type" do
+    put "/v2/#{@repo_name}/manifests/v1",
+        params: "{}",
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.list.v2+json" }
+
+    assert_response 415
+    assert_equal "UNSUPPORTED", JSON.parse(response.body)["errors"][0]["code"]
+  end
+
+  test "GET /v2/:name/manifests/:reference returns manifest by tag" do
+    put "/v2/#{@repo_name}/manifests/v1.0.0",
+        params: @manifest_payload,
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }
+
+    get "/v2/#{@repo_name}/manifests/v1.0.0"
+
+    assert_response 200
+    assert_match(/\Asha256:/, response.headers["Docker-Content-Digest"])
+    assert_equal "application/vnd.docker.distribution.manifest.v2+json", response.headers["Content-Type"]
+    assert_equal 2, JSON.parse(response.body)["schemaVersion"]
+  end
+
+  test "GET /v2/:name/manifests/:reference returns manifest by digest" do
+    put "/v2/#{@repo_name}/manifests/v1.0.0",
+        params: @manifest_payload,
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }
+    digest = response.headers["Docker-Content-Digest"]
+
+    get "/v2/#{@repo_name}/manifests/#{digest}"
+    assert_response 200
+  end
+
+  test "GET /v2/:name/manifests/:reference increments pull_count on GET" do
+    put "/v2/#{@repo_name}/manifests/v1.0.0",
+        params: @manifest_payload,
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }
+
+    get "/v2/#{@repo_name}/manifests/v1.0.0"
+    assert_equal 1, Manifest.last.pull_count
+  end
+
+  test "GET /v2/:name/manifests/:reference creates a PullEvent on GET" do
+    put "/v2/#{@repo_name}/manifests/v1.0.0",
+        params: @manifest_payload,
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }
+
+    get "/v2/#{@repo_name}/manifests/v1.0.0"
+    assert_equal 1, PullEvent.count
+    assert_equal "v1.0.0", PullEvent.last.tag_name
+  end
+
+  test "GET /v2/:name/manifests/:reference returns 404 for unknown tag" do
+    get "/v2/#{@repo_name}/manifests/nonexistent"
+    assert_response 404
+  end
+
+  test "HEAD /v2/:name/manifests/:reference returns headers without body" do
+    put "/v2/#{@repo_name}/manifests/v1.0.0",
+        params: @manifest_payload,
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }
+
+    head "/v2/#{@repo_name}/manifests/v1.0.0"
+
+    assert_response 200
+    assert_match(/\Asha256:/, response.headers["Docker-Content-Digest"])
+    assert_empty response.body
+  end
+
+  test "HEAD /v2/:name/manifests/:reference does NOT increment pull_count" do
+    put "/v2/#{@repo_name}/manifests/v1.0.0",
+        params: @manifest_payload,
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }
+
+    head "/v2/#{@repo_name}/manifests/v1.0.0"
+    assert_equal 0, Manifest.last.pull_count
+  end
+
+  test "DELETE /v2/:name/manifests/:digest deletes manifest and associated tags" do
+    put "/v2/#{@repo_name}/manifests/v1.0.0",
+        params: @manifest_payload,
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }
+
+    digest = Manifest.last.digest
+    repo = Repository.find_by!(name: @repo_name)
+    delete "/v2/#{@repo_name}/manifests/#{digest}"
+
+    assert_response 202
+    assert_nil Manifest.find_by(digest: digest)
+    assert_equal 0, repo.tags.count
+  end
+
+  # Tag protection tests — protected_repo and its tag set up inline in each test
+
+  test "DELETE /v2/:name/manifests/:digest when connected tag is protected returns 409 Conflict with DENIED envelope" do
+    repo = Repository.create!(name: "example", tag_protection_policy: "semver")
+    manifest = repo.manifests.create!(digest: "sha256:abc", media_type: "application/vnd.docker.distribution.manifest.v2+json", payload: "{}", size: 2)
+    repo.tags.create!(name: "v1.0.0", manifest: manifest)
+
+    delete "/v2/#{repo.name}/manifests/#{manifest.digest}"
+    assert_response :conflict
+    body = JSON.parse(response.body)
+    assert_includes body["errors"].first["code"], "DENIED"
+    assert_equal "v1.0.0", body["errors"].first["detail"]["tag"]
+    assert_equal "semver", body["errors"].first["detail"]["policy"]
+  end
+
+  test "DELETE /v2/:name/manifests/:reference returns 409 even when called with tag reference" do
+    repo = Repository.create!(name: "example", tag_protection_policy: "semver")
+    manifest = repo.manifests.create!(digest: "sha256:abc", media_type: "application/vnd.docker.distribution.manifest.v2+json", payload: "{}", size: 2)
+    repo.tags.create!(name: "v1.0.0", manifest: manifest)
+
+    delete "/v2/#{repo.name}/manifests/v1.0.0"
+    assert_response :conflict
+  end
+
+  test "DELETE /v2/:name/manifests/:digest when connected tag is protected does NOT destroy the manifest" do
+    repo = Repository.create!(name: "example", tag_protection_policy: "semver")
+    manifest = repo.manifests.create!(digest: "sha256:abc", media_type: "application/vnd.docker.distribution.manifest.v2+json", payload: "{}", size: 2)
+    repo.tags.create!(name: "v1.0.0", manifest: manifest)
+
+    delete "/v2/#{repo.name}/manifests/#{manifest.digest}"
+    assert Manifest.find_by(id: manifest.id).present?
+  end
+
+  test "DELETE /v2/:name/manifests/:digest when no connected tag is protected returns 202 Accepted" do
+    repo = Repository.create!(name: "open")
+    manifest = repo.manifests.create!(
+      digest: "sha256:def",
+      media_type: "application/vnd.docker.distribution.manifest.v2+json",
+      payload: "{}", size: 2
+    )
+    delete "/v2/#{repo.name}/manifests/#{manifest.digest}"
+    assert_response :accepted
+  end
+end
