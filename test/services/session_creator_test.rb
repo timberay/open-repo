@@ -123,4 +123,37 @@ class SessionCreatorTest < ActiveSupport::TestCase
     )
     assert_raises(Auth::InvalidProfile) { SessionCreator.new.call(profile) }
   end
+
+  test "Case C — email_verified=false raises EmailMismatch (no User or Identity created)" do
+    profile = Auth::ProviderProfile.new(
+      provider: "google_oauth2",
+      uid: "unverified-new-uid",
+      email: "stranger@example.com",
+      email_verified: false,
+      name: "Stranger",
+      avatar_url: nil
+    )
+
+    assert_no_difference -> { User.count } do
+      assert_no_difference -> { Identity.count } do
+        assert_raises(Auth::EmailMismatch) { SessionCreator.new.call(profile) }
+      end
+    end
+  end
+
+  test "Case C — email_verified=nil raises EmailMismatch (admin candidate denied)" do
+    Rails.configuration.x.registry.admin_email = "boss@timberay.com"
+    profile = Auth::ProviderProfile.new(
+      provider: "google_oauth2",
+      uid: "boss-unverified-uid",
+      email: "boss@timberay.com",
+      email_verified: nil,
+      name: "Not The Boss",
+      avatar_url: nil
+    )
+
+    assert_no_difference -> { User.count } do
+      assert_raises(Auth::EmailMismatch) { SessionCreator.new.call(profile) }
+    end
+  end
 end
