@@ -70,19 +70,19 @@ class AnonymousPullRegressionTest < ActionDispatch::IntegrationTest
         params: "{}",
         headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }
     assert_response :unauthorized
-    assert_match %r{\ABasic realm=}, response.headers["WWW-Authenticate"]
+    assert_match %r{\ABasic realm="[^"]+"}, response.headers["WWW-Authenticate"]
   end
 
   test "POST /v2/:name/blobs/uploads without token 401 + Basic challenge" do
     post "/v2/#{@repo.name}/blobs/uploads"
     assert_response :unauthorized
-    assert_match %r{\ABasic realm=}, response.headers["WWW-Authenticate"]
+    assert_match %r{\ABasic realm="[^"]+"}, response.headers["WWW-Authenticate"]
   end
 
   test "DELETE /v2/:name/manifests/:ref without token 401" do
     delete "/v2/#{@repo.name}/manifests/#{@manifest.digest}"
     assert_response :unauthorized
-    assert_match %r{\ABasic realm=}, response.headers["WWW-Authenticate"]
+    assert_match %r{\ABasic realm="[^"]+"}, response.headers["WWW-Authenticate"]
   end
 
   # --- Flag gating ---
@@ -91,7 +91,7 @@ class AnonymousPullRegressionTest < ActionDispatch::IntegrationTest
     Rails.configuration.x.registry.anonymous_pull_enabled = false
     get "/v2/#{@repo.name}/manifests/#{@tag.name}"
     assert_response :unauthorized
-    assert_match %r{\ABasic realm=}, response.headers["WWW-Authenticate"]
+    assert_match %r{\ABasic realm="[^"]+"}, response.headers["WWW-Authenticate"]
   end
 
   # --- Pull event attribution (remote_ip column confirmed in schema) ---
