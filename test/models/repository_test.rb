@@ -154,13 +154,13 @@ class RepositoryTest < ActiveSupport::TestCase
   # ---------------------------------------------------------------------------
 
   test "before_save clears pattern when policy is not custom_regex nullifies pattern when policy transitions to semver" do
-    repo = Repository.create!(name: "x", tag_protection_policy: "custom_regex", tag_protection_pattern: '^v.+$')
+    repo = Repository.create!(name: "x", tag_protection_policy: "custom_regex", tag_protection_pattern: "^v.+$")
     repo.update!(tag_protection_policy: "semver")
     assert_nil repo.reload.tag_protection_pattern
   end
 
   test "before_save clears pattern when policy is not custom_regex keeps pattern when policy stays custom_regex" do
-    repo = Repository.create!(name: "y", tag_protection_policy: "custom_regex", tag_protection_pattern: '^v.+$')
+    repo = Repository.create!(name: "y", tag_protection_policy: "custom_regex", tag_protection_pattern: "^v.+$")
     repo.update!(tag_protection_pattern: '^release-\d+$')
     assert_equal '^release-\d+$', repo.reload.tag_protection_pattern
   end
