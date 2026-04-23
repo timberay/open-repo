@@ -21,11 +21,19 @@ class ImageImportServiceTest < ActiveSupport::TestCase
   test "call imports a docker save tar file" do
     tar_path = create_test_docker_tar(store_dir)
 
-    result = service.call(tar_path, repository_name: "imported-image", tag_name: "v1")
+    result = service.call(tar_path, actor: "anonymous", repository_name: "imported-image", tag_name: "v1")
 
     assert_kind_of Manifest, result
     assert Repository.find_by(name: "imported-image").present?
     assert Tag.find_by(name: "v1").present?
+  end
+
+  test "call without actor: raises ArgumentError" do
+    tar_path = create_test_docker_tar(store_dir)
+    err = assert_raises(ArgumentError) do
+      service.call(tar_path, repository_name: "r", tag_name: "v1")
+    end
+    assert_match(/missing keyword: :actor/, err.message)
   end
 
   private

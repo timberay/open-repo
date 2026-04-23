@@ -32,7 +32,8 @@ class V2::ManifestsController < V2::BaseController
       repo_name,
       params[:reference],
       request.content_type,
-      payload
+      payload,
+      actor: "anonymous"
     )
 
     response.headers["Docker-Content-Digest"] = manifest.digest

@@ -5,7 +5,7 @@ class ImageImportService
     @blob_store = blob_store
   end
 
-  def call(tar_path, repository_name: nil, tag_name: nil)
+  def call(tar_path, actor:, repository_name: nil, tag_name: nil)
     entries = {}
 
     File.open(tar_path, "rb") do |tar_io|
@@ -42,7 +42,7 @@ class ImageImportService
     # Build and process V2 manifest
     v2_manifest = build_v2_manifest(config_digest, config_content.bytesize, layer_digests)
     processor = ManifestProcessor.new(@blob_store)
-    processor.call(repo_name, tag, "application/vnd.docker.distribution.manifest.v2+json", v2_manifest.to_json)
+    processor.call(repo_name, tag, "application/vnd.docker.distribution.manifest.v2+json", v2_manifest.to_json, actor: actor)
   end
 
   private

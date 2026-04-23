@@ -36,6 +36,7 @@ capybara-*.html
 
 # Ignore key files for decrypting credentials and more.
 /config/*.key
+/config/credentials/*.key
 
 # Compiled assets
 /app/assets/builds/*
@@ -100,3 +101,8 @@ Thumbs.db
 /.worktrees/
 /tmp/ui-baseline/
 .gstack/
+
+# ============================================================
+# Claude Code runtime artifacts
+# ============================================================
+/.claude/scheduled_tasks.lock
