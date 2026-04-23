@@ -1,0 +1,36 @@
+<% content_for(:title, "Personal Access Tokens") %>
+
+<section class="px-4 md:px-6 py-6 max-w-2xl mx-auto">
+  <h1 class="text-xl font-semibold mb-4">Personal Access Tokens</h1>
+  <p class="text-slate-500 text-sm mb-6">
+    Used by Docker CLI: <code>docker login &lt;registry-host&gt; -u &lt;your email&gt; -p &lt;token&gt;</code>.
+  </p>
+
+  <% if flash[:raw_token].present? %>
+    <div class="mb-6 rounded bg-amber-50 border border-amber-200 p-4">
+      <p class="font-medium text-amber-900">Copy this token now — you will not see it again:</p>
+      <pre class="mt-2 p-2 bg-white border font-mono text-sm break-all"><%= flash[:raw_token] %></pre>
+    </div>
+  <% end %>
+
+  <%= render "form" %>
+
+  <h2 class="mt-8 mb-2 text-lg font-semibold">Existing tokens</h2>
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="text-left border-b">
+        <th class="py-2">Name</th>
+        <th>Kind</th>
+        <th>Expires</th>
+        <th>Last used</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @tokens.each do |token| %>
+        <%= render "token_row", token: token %>
+      <% end %>
+    </tbody>
+  </table>
+</section>

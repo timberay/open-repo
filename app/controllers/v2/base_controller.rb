@@ -1,5 +1,8 @@
 class V2::BaseController < ActionController::API
   before_action :set_registry_headers
+  before_action :authenticate_v2_basic!, unless: :anonymous_pull_allowed?
+
+  attr_reader :current_user, :current_pat
 
   rescue_from Registry::BlobUnknown, with: ->(e) { render_error("BLOB_UNKNOWN", e.message, 404) }
   rescue_from Registry::BlobUploadUnknown, with: ->(e) { render_error("BLOB_UPLOAD_UNKNOWN", e.message, 404) }
@@ -15,6 +18,40 @@ class V2::BaseController < ActionController::API
   end
 
   private
+
+  ANONYMOUS_PULL_ENDPOINTS = [
+    %w[base index],
+    %w[catalog index],
+    %w[tags index],
+    %w[manifests show],
+    %w[blobs show]
+  ].freeze
+
+  def anonymous_pull_allowed?
+    return false unless Rails.configuration.x.registry.anonymous_pull_enabled
+    return false unless request.get? || request.head?
+    ANONYMOUS_PULL_ENDPOINTS.include?([ controller_name, action_name ])
+  end
+
+  def authenticate_v2_basic!
+    email, raw = ActionController::HttpAuthentication::Basic.user_name_and_password(request)
+    raise Auth::Unauthenticated if email.blank? || raw.blank?
+
+    result = Auth::PatAuthenticator.new.call(email: email, raw_token: raw)
+    @current_user = result.user
+    @current_pat  = result.pat
+    result.pat.update_column(:last_used_at, Time.current)
+  rescue Auth::Unauthenticated, Auth::PatInvalid
+    render_v2_challenge
+  end
+
+  def render_v2_challenge
+    response.headers["WWW-Authenticate"]                = %(Basic realm="Registry")
+    response.headers["Docker-Distribution-API-Version"] = "registry/2.0"
+    render json: {
+      errors: [ { code: "UNAUTHORIZED", message: "authentication required", detail: nil } ]
+    }, status: :unauthorized
+  end
 
   def set_registry_headers
     response.headers["Docker-Distribution-API-Version"] = "registry/2.0"

@@ -1,0 +1,26 @@
+<%= form_with url: settings_tokens_path, method: :post, local: true, data: { turbo: false } do |f| %>
+  <div class="flex flex-wrap gap-3 items-end">
+    <div class="flex-1 min-w-[160px]">
+      <label class="block text-sm font-medium mb-1">Name</label>
+      <%= f.text_field "personal_access_token[name]", required: true,
+                       class: "w-full border rounded px-2 py-1 text-sm" %>
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Kind</label>
+      <%= f.select "personal_access_token[kind]",
+                   [ [ "CLI (default, 90-day)", "cli" ], [ "CI (may never expire)", "ci" ] ],
+                   {}, class: "border rounded px-2 py-1 text-sm" %>
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Expires in days</label>
+      <%= f.number_field "personal_access_token[expires_in_days]", value: 90, min: 0,
+                         class: "w-24 border rounded px-2 py-1 text-sm" %>
+    </div>
+    <div>
+      <%= f.submit "Generate token", class: "bg-slate-900 text-white rounded px-3 py-1.5 text-sm" %>
+    </div>
+  </div>
+  <% if @error.present? %>
+    <p class="mt-2 text-sm text-red-600"><%= @error %></p>
+  <% end %>
+<% end %>

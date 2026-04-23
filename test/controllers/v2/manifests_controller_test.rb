@@ -36,7 +36,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
   test "PUT /v2/:name/manifests/:reference creates manifest and tag" do
     put "/v2/#{@repo_name}/manifests/v1.0.0",
         params: @manifest_payload,
-        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }.merge(basic_auth_for)
 
     assert_response 201
     assert_match(/\Asha256:/, response.headers["Docker-Content-Digest"])
@@ -45,7 +45,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
   test "PUT /v2/:name/manifests/:reference rejects unsupported media type" do
     put "/v2/#{@repo_name}/manifests/v1",
         params: "{}",
-        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.list.v2+json" }
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.list.v2+json" }.merge(basic_auth_for)
 
     assert_response 415
     assert_equal "UNSUPPORTED", JSON.parse(response.body)["errors"][0]["code"]
@@ -54,7 +54,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
   test "GET /v2/:name/manifests/:reference returns manifest by tag" do
     put "/v2/#{@repo_name}/manifests/v1.0.0",
         params: @manifest_payload,
-        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }.merge(basic_auth_for)
 
     get "/v2/#{@repo_name}/manifests/v1.0.0"
 
@@ -67,7 +67,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
   test "GET /v2/:name/manifests/:reference returns manifest by digest" do
     put "/v2/#{@repo_name}/manifests/v1.0.0",
         params: @manifest_payload,
-        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }.merge(basic_auth_for)
     digest = response.headers["Docker-Content-Digest"]
 
     get "/v2/#{@repo_name}/manifests/#{digest}"
@@ -77,7 +77,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
   test "GET /v2/:name/manifests/:reference increments pull_count on GET" do
     put "/v2/#{@repo_name}/manifests/v1.0.0",
         params: @manifest_payload,
-        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }.merge(basic_auth_for)
 
     get "/v2/#{@repo_name}/manifests/v1.0.0"
     assert_equal 1, Manifest.last.pull_count
@@ -86,7 +86,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
   test "GET /v2/:name/manifests/:reference creates a PullEvent on GET" do
     put "/v2/#{@repo_name}/manifests/v1.0.0",
         params: @manifest_payload,
-        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }.merge(basic_auth_for)
 
     get "/v2/#{@repo_name}/manifests/v1.0.0"
     assert_equal 1, PullEvent.count
@@ -101,7 +101,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
   test "HEAD /v2/:name/manifests/:reference returns headers without body" do
     put "/v2/#{@repo_name}/manifests/v1.0.0",
         params: @manifest_payload,
-        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }.merge(basic_auth_for)
 
     head "/v2/#{@repo_name}/manifests/v1.0.0"
 
@@ -113,7 +113,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
   test "HEAD /v2/:name/manifests/:reference does NOT increment pull_count" do
     put "/v2/#{@repo_name}/manifests/v1.0.0",
         params: @manifest_payload,
-        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }.merge(basic_auth_for)
 
     head "/v2/#{@repo_name}/manifests/v1.0.0"
     assert_equal 0, Manifest.last.pull_count
@@ -122,11 +122,11 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
   test "DELETE /v2/:name/manifests/:digest deletes manifest and associated tags" do
     put "/v2/#{@repo_name}/manifests/v1.0.0",
         params: @manifest_payload,
-        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }.merge(basic_auth_for)
 
     digest = Manifest.last.digest
     repo = Repository.find_by!(name: @repo_name)
-    delete "/v2/#{@repo_name}/manifests/#{digest}"
+    delete "/v2/#{@repo_name}/manifests/#{digest}", headers: basic_auth_for
 
     assert_response 202
     assert_nil Manifest.find_by(digest: digest)
@@ -140,7 +140,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
     manifest = repo.manifests.create!(digest: "sha256:abc", media_type: "application/vnd.docker.distribution.manifest.v2+json", payload: "{}", size: 2)
     repo.tags.create!(name: "v1.0.0", manifest: manifest)
 
-    delete "/v2/#{repo.name}/manifests/#{manifest.digest}"
+    delete "/v2/#{repo.name}/manifests/#{manifest.digest}", headers: basic_auth_for
     assert_response :conflict
     body = JSON.parse(response.body)
     assert_includes body["errors"].first["code"], "DENIED"
@@ -153,7 +153,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
     manifest = repo.manifests.create!(digest: "sha256:abc", media_type: "application/vnd.docker.distribution.manifest.v2+json", payload: "{}", size: 2)
     repo.tags.create!(name: "v1.0.0", manifest: manifest)
 
-    delete "/v2/#{repo.name}/manifests/v1.0.0"
+    delete "/v2/#{repo.name}/manifests/v1.0.0", headers: basic_auth_for
     assert_response :conflict
   end
 
@@ -162,7 +162,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
     manifest = repo.manifests.create!(digest: "sha256:abc", media_type: "application/vnd.docker.distribution.manifest.v2+json", payload: "{}", size: 2)
     repo.tags.create!(name: "v1.0.0", manifest: manifest)
 
-    delete "/v2/#{repo.name}/manifests/#{manifest.digest}"
+    delete "/v2/#{repo.name}/manifests/#{manifest.digest}", headers: basic_auth_for
     assert Manifest.find_by(id: manifest.id).present?
   end
 
@@ -173,7 +173,34 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
       media_type: "application/vnd.docker.distribution.manifest.v2+json",
       payload: "{}", size: 2
     )
-    delete "/v2/#{repo.name}/manifests/#{manifest.digest}"
+    delete "/v2/#{repo.name}/manifests/#{manifest.digest}", headers: basic_auth_for
     assert_response :accepted
+  end
+
+  # --- Task 2.5: actor 실명화 (current_user.email) ---
+
+  test "authenticated PUT records TagEvent.actor = current_user.email" do
+    repo_name = "actor-realname-put-repo"
+    headers = { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }.merge(basic_auth_for)
+
+    assert_difference -> { TagEvent.where(actor: "tonny@timberay.com").count }, +1 do
+      put "/v2/#{repo_name}/manifests/v1", params: @manifest_payload, headers: headers
+    end
+    assert_response :created
+  end
+
+  test "authenticated DELETE records TagEvent.actor = current_user.email for each tag" do
+    repo = Repository.create!(name: "actor-realname-delete-repo")
+    manifest = repo.manifests.create!(
+      digest: "sha256:actor-realname-delete-#{SecureRandom.hex(4)}",
+      media_type: "application/vnd.docker.distribution.manifest.v2+json",
+      payload: "{}",
+      size: 2
+    )
+    repo.tags.create!(name: "v1-realname", manifest: manifest)
+
+    assert_difference -> { TagEvent.where(actor: "tonny@timberay.com", action: "delete").count }, +1 do
+      delete "/v2/#{repo.name}/manifests/#{manifest.digest}", headers: basic_auth_for
+    end
   end
 end
