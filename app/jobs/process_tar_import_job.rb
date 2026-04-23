@@ -8,6 +8,7 @@ class ProcessTarImportJob < ApplicationJob
     begin
       ImageImportService.new.call(
         import.tar_path,
+        actor: "anonymous",
         repository_name: import.repository_name,
         tag_name: import.tag_name
       )
