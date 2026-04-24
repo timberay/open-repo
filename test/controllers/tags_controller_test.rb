@@ -118,4 +118,99 @@ class TagsControllerTest < ActionDispatch::IntegrationTest
     event = TagEvent.order(:occurred_at).last
     assert_equal identities(:tonny_google).id, event.actor_identity_id
   end
+
+  # ---------------------------------------------------------------------------
+  # UC-UI-008: GET /repositories/:repository_name/tags/:name/history
+  # ---------------------------------------------------------------------------
+
+  test "GET tag history returns 200 and lists all events (happy path)" do
+    TagEvent.create!(
+      repository: @repo, tag_name: @tag.name, action: "create",
+      actor: "alice@example.com", new_digest: "sha256:abc",
+      occurred_at: 2.hours.ago
+    )
+    TagEvent.create!(
+      repository: @repo, tag_name: @tag.name, action: "update",
+      actor: "bob@example.com", previous_digest: "sha256:abc",
+      new_digest: "sha256:def", occurred_at: 1.hour.ago
+    )
+
+    get "/repositories/#{@repo.name}/tags/#{@tag.name}/history"
+
+    assert_response :success
+    assert_includes response.body, "create"
+    assert_includes response.body, "update"
+  end
+
+  test "GET tag history orders events by occurred_at DESC" do
+    # Use distinct 12-hex-char prefixes per event because the view truncates
+    # digests via short_digest (first 12 chars after stripping "sha256:").
+    # Each event uses a unique marker as its `new_digest` so we can locate
+    # exactly one render position per event in the response body.
+    older_marker  = "aaaaaaaaaaaa"
+    middle_marker = "bbbbbbbbbbbb"
+    newest_marker = "cccccccccccc"
+
+    TagEvent.create!(
+      repository: @repo, tag_name: @tag.name, action: "create",
+      actor: "first@example.com",
+      new_digest: "sha256:#{older_marker}1111",
+      occurred_at: 3.days.ago
+    )
+    TagEvent.create!(
+      repository: @repo, tag_name: @tag.name, action: "update",
+      actor: "third@example.com",
+      new_digest: "sha256:#{newest_marker}3333",
+      occurred_at: 1.hour.ago
+    )
+    TagEvent.create!(
+      repository: @repo, tag_name: @tag.name, action: "update",
+      actor: "second@example.com",
+      new_digest: "sha256:#{middle_marker}2222",
+      occurred_at: 1.day.ago
+    )
+
+    get "/repositories/#{@repo.name}/tags/#{@tag.name}/history"
+
+    assert_response :success
+    positions = [ newest_marker, middle_marker, older_marker ].map { |m| response.body.index(m) }
+    assert positions.all?, "expected all digest markers to appear: #{positions.inspect}"
+    assert_equal positions.sort, positions,
+      "events should render in occurred_at DESC (newest first); got positions #{positions.inspect}"
+  end
+
+  test "GET tag history with no events renders empty state gracefully" do
+    assert_equal 0, TagEvent.where(repository: @repo, tag_name: @tag.name).count
+
+    get "/repositories/#{@repo.name}/tags/#{@tag.name}/history"
+
+    assert_response :success
+    assert_includes response.body, "No history events"
+  end
+
+  test "GET tag history for unknown repository returns 404" do
+    get "/repositories/no-such-repo/tags/#{@tag.name}/history"
+    assert_response :not_found
+  end
+
+  test "GET tag history for unknown tag returns 404" do
+    get "/repositories/#{@repo.name}/tags/no-such-tag/history"
+    assert_response :not_found
+  end
+
+  test "GET tag history is accessible when signed out (no auth filter on :history)" do
+    TagEvent.create!(
+      repository: @repo, tag_name: @tag.name, action: "create",
+      actor: "alice@example.com", new_digest: "sha256:abc",
+      occurred_at: 1.hour.ago
+    )
+
+    # Drop the cookies/session set up by the setup block's sign-in.
+    reset!
+
+    get "/repositories/#{@repo.name}/tags/#{@tag.name}/history"
+
+    assert_response :success
+    assert_includes response.body, "create"
+  end
 end
