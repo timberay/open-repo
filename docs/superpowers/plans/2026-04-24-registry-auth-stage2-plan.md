@@ -2563,19 +2563,6 @@ PR-2 main 머지 후.
 
 ---
 
-## Deferred (Not in Stage 2 Scope)
-
-tech design §9.2 에 따른 deferred 목록:
-
-- **Member add/remove + ownership transfer UI**: Stage 2 는 console 전용. Web UI (admin panel) 는 Stage 3.
-- **Private repository visibility**: `repositories.visibility` enum — Stage 3.
-- **Multi-arch / OCI image index**: Stage 3.
-- **JWT dual-key rotation**: TODOS P2.
-- **NAT-aware throttling**: TODOS P2.
-- **Tag protection policy change audit**: TODOS P2.
-
----
-
 ## Spec Coverage Map
 
 | Tech design 절 | 구현 task |
