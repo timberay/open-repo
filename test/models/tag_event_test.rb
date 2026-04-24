@@ -2,7 +2,7 @@ require "test_helper"
 
 class TagEventTest < ActiveSupport::TestCase
   def repository
-    @repository ||= Repository.create!(name: "test-repo")
+    @repository ||= Repository.create!(name: "test-repo", owner_identity: identities(:tonny_google))
   end
 
   test "validations requires tag_name, action, occurred_at" do

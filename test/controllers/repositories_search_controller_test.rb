@@ -2,7 +2,7 @@ require "test_helper"
 
 class RepositoriesSearchControllerTest < ActionDispatch::IntegrationTest
   setup do
-    repo = Repository.create!(name: "searchable-repo", description: "findable")
+    repo = Repository.create!(name: "searchable-repo", description: "findable", owner_identity: identities(:tonny_google))
     manifest = Manifest.create!(repository: repo, digest: "sha256:xyz", media_type: "application/vnd.docker.distribution.manifest.v2+json", payload: "{}", size: 100)
     Tag.create!(repository: repo, manifest: manifest, name: "v1.0.0")
   end

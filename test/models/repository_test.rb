@@ -145,7 +145,7 @@ class RepositoryTest < ActiveSupport::TestCase
   end
 
   test "tag_protection_pattern validation does NOT require pattern when policy is not custom_regex" do
-    repo = Repository.new(name: "x", tag_protection_policy: "semver", tag_protection_pattern: nil)
+    repo = Repository.new(name: "x", tag_protection_policy: "semver", tag_protection_pattern: nil, owner_identity: identities(:tonny_google))
     assert repo.valid?
   end
 

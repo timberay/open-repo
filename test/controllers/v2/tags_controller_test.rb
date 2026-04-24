@@ -2,7 +2,7 @@ require "test_helper"
 
 class V2::TagsControllerTest < ActionDispatch::IntegrationTest
   setup do
-    @repo = Repository.create!(name: "test-repo")
+    @repo = Repository.create!(name: "test-repo", owner_identity: identities(:tonny_google))
     @manifest = Manifest.create!(repository: @repo, digest: "sha256:abc", media_type: "application/vnd.docker.distribution.manifest.v2+json", payload: "{}", size: 100)
     %w[v1.0.0 v2.0.0 latest].each { |t| Tag.create!(repository: @repo, manifest: @manifest, name: t) }
   end

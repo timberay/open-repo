@@ -10,11 +10,11 @@ class DependencyAnalyzerTest < ActiveSupport::TestCase
   end
 
   def repo_a
-    @repo_a ||= Repository.create!(name: "repo-a")
+    @repo_a ||= Repository.create!(name: "repo-a", owner_identity: identities(:tonny_google))
   end
 
   def repo_b
-    @repo_b ||= Repository.create!(name: "repo-b")
+    @repo_b ||= Repository.create!(name: "repo-b", owner_identity: identities(:tonny_google))
   end
 
   setup do
