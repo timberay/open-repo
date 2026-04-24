@@ -12,7 +12,7 @@ class RepositoryTest < ActiveSupport::TestCase
   end
 
   test "validations requires unique name" do
-    Repository.create!(name: "myapp")
+    Repository.create!(name: "myapp", owner_identity: identities(:tonny_google))
     repo = Repository.new(name: "myapp")
     refute repo.valid?
     assert_includes repo.errors[:name], "has already been taken"
@@ -39,7 +39,7 @@ class RepositoryTest < ActiveSupport::TestCase
   # ---------------------------------------------------------------------------
 
   def repo_for_protection
-    @repo_for_protection ||= Repository.create!(name: "example")
+    @repo_for_protection ||= Repository.create!(name: "example", owner_identity: identities(:tonny_google))
   end
 
   test "#tag_protected? when policy is none (default) returns false for any tag name" do
@@ -154,13 +154,13 @@ class RepositoryTest < ActiveSupport::TestCase
   # ---------------------------------------------------------------------------
 
   test "before_save clears pattern when policy is not custom_regex nullifies pattern when policy transitions to semver" do
-    repo = Repository.create!(name: "x", tag_protection_policy: "custom_regex", tag_protection_pattern: "^v.+$")
+    repo = Repository.create!(name: "x", tag_protection_policy: "custom_regex", tag_protection_pattern: "^v.+$", owner_identity: identities(:tonny_google))
     repo.update!(tag_protection_policy: "semver")
     assert_nil repo.reload.tag_protection_pattern
   end
 
   test "before_save clears pattern when policy is not custom_regex keeps pattern when policy stays custom_regex" do
-    repo = Repository.create!(name: "y", tag_protection_policy: "custom_regex", tag_protection_pattern: "^v.+$")
+    repo = Repository.create!(name: "y", tag_protection_policy: "custom_regex", tag_protection_pattern: "^v.+$", owner_identity: identities(:tonny_google))
     repo.update!(tag_protection_pattern: '^release-\d+$')
     assert_equal '^release-\d+$', repo.reload.tag_protection_pattern
   end
@@ -170,7 +170,7 @@ class RepositoryTest < ActiveSupport::TestCase
   # ---------------------------------------------------------------------------
 
   def enforcement_repo
-    @enforcement_repo ||= Repository.create!(name: "example", tag_protection_policy: "semver")
+    @enforcement_repo ||= Repository.create!(name: "example", tag_protection_policy: "semver", owner_identity: identities(:tonny_google))
   end
 
   def enforcement_manifest
