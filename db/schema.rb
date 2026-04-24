@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_23_221945) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_24_003303) do
   create_table "blob_uploads", force: :cascade do |t|
     t.bigint "byte_offset", default: 0
     t.datetime "created_at", null: false
@@ -133,7 +133,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_23_221945) do
     t.text "description"
     t.string "maintainer"
     t.string "name", null: false
-    t.integer "owner_identity_id"
+    t.integer "owner_identity_id", null: false
     t.string "tag_protection_pattern"
     t.string "tag_protection_policy", default: "none", null: false
     t.integer "tags_count", default: 0
