@@ -96,7 +96,13 @@ class BlobStore
       startedat_path = File.join(dir, "startedat")
       next unless File.exist?(startedat_path)
 
-      started_at = Time.parse(File.read(startedat_path))
+      started_at = begin
+        Time.parse(File.read(startedat_path))
+      rescue ArgumentError, TypeError
+        # Corrupt startedat — leave the dir alone rather than crashing the
+        # daily cron job. Operators can clean it up manually.
+        next
+      end
       FileUtils.rm_rf(dir) if started_at < max_age.ago
     end
   end
