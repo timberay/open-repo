@@ -66,4 +66,40 @@ class TagEventTest < ActiveSupport::TestCase
     event = TagEvent.new(actor: "some-old-string", actor_identity: identity)
     assert_equal identity.email, event.display_actor
   end
+
+  # ---------------------------------------------------------------------------
+  # UC-MODEL-005 .e3: tag history ordering
+  #
+  # `occurred_at` is the source-of-truth for tag history ordering, NOT
+  # `created_at`. The migration backfilled historical rows with synthetic
+  # occurred_at values; ordering must respect those values even when rows are
+  # inserted out-of-sequence (later-created row carrying an earlier occurred_at).
+  # ---------------------------------------------------------------------------
+
+  test "order(occurred_at: :desc) honours occurred_at, not insertion / created_at order" do
+    repo = Repository.create!(
+      name: "tag-event-order-#{SecureRandom.hex(4)}",
+      owner_identity: identities(:tonny_google)
+    )
+    base = Time.current.change(usec: 0)
+
+    # Insert oldest occurred_at FIRST, then a row with the newest occurred_at,
+    # then a middle one — so created_at order is NOT the same as occurred_at order.
+    oldest = TagEvent.create!(
+      repository: repo, tag_name: "v1", action: "create",
+      actor: "tonny@timberay.com", occurred_at: base - 2.days
+    )
+    newest = TagEvent.create!(
+      repository: repo, tag_name: "v1", action: "update",
+      actor: "tonny@timberay.com", occurred_at: base
+    )
+    middle = TagEvent.create!(
+      repository: repo, tag_name: "v1", action: "update",
+      actor: "tonny@timberay.com", occurred_at: base - 1.day
+    )
+
+    ordered_ids = repo.tag_events.order(occurred_at: :desc).pluck(:id)
+    assert_equal [ newest.id, middle.id, oldest.id ], ordered_ids,
+                 "TagEvent.order(occurred_at: :desc) must rely on occurred_at, not insertion / created_at order"
+  end
 end
