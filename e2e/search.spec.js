@@ -53,9 +53,17 @@ test.describe('Repository Search', () => {
     const cards = page.locator('[href*="/repositories/"]');
     await expect(cards.first()).toBeVisible();
 
-    // Verify sort applied: with seed data (backend-api, frontend-web,
-    // worker-jobs), backend-api must render first under name ASC.
-    const firstHref = await cards.first().getAttribute('href');
-    expect(firstHref).toContain('backend-api');
+    // Assert relative order among seed rows. The dev DB may contain
+    // unrelated repositories (dogfood fixtures) that would otherwise
+    // make an "is first" assertion brittle; checking that backend-api
+    // precedes frontend-web is sufficient to prove ASC-name sorting.
+    const hrefs = await cards.evaluateAll((nodes) =>
+      nodes.map((n) => n.getAttribute('href'))
+    );
+    const backendIdx = hrefs.findIndex((h) => h && h.includes('backend-api'));
+    const frontendIdx = hrefs.findIndex((h) => h && h.includes('frontend-web'));
+    expect(backendIdx).toBeGreaterThanOrEqual(0);
+    expect(frontendIdx).toBeGreaterThanOrEqual(0);
+    expect(backendIdx).toBeLessThan(frontendIdx);
   });
 });
