@@ -1,0 +1,349 @@
+
+Running 21 tests using 4 workers
+
+[1A[2K[1/21] [chromium] › e2e/dark-mode.spec.js:8:3 › Dark Mode › should toggle dark mode
+[1A[2K[2/21] [chromium] › e2e/dark-mode.spec.js:45:3 › Dark Mode › should apply dark mode styles
+[1A[2K[3/21] [chromium] › e2e/dark-mode.spec.js:25:3 › Dark Mode › should persist dark mode preference
+[1A[2K[4/21] [chromium] › e2e/example.spec.js:3:1 › homepage loads
+[1A[2K[5/21] [chromium] › e2e/repository-list.spec.js:8:3 › Repository List › should display repository list page
+[1A[2K[6/21] [chromium] › e2e/repository-list.spec.js:13:3 › Repository List › should display repository cards
+[1A[2K[7/21] [chromium] › e2e/repository-list.spec.js:18:3 › Repository List › should navigate to repository details
+[1A[2K[8/21] [chromium] › e2e/repository-list.spec.js:26:3 › Repository List › should display no results message when search returns empty
+[1A[2K[9/21] [chromium] › e2e/search.spec.js:8:3 › Repository Search › should filter repositories by search query
+[1A[2K  1) [chromium] › e2e/repository-list.spec.js:8:3 › Repository List › should display repository list page 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoContainText[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator: locator('h1')
+    Expected substring: [32m"Docker Registry"[39m
+    Received string:    [31m"Repositories"[39m
+    Timeout: 5000ms
+
+    Call log:
+    [2m  - Expect "toContainText" with timeout 5000ms[22m
+    [2m  - waiting for locator('h1')[22m
+    [2m    9 × locator resolved to <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100 break-keep">Repositories</h1>[22m
+    [2m      - unexpected value "Repositories"[22m
+
+
+       7 |
+       8 |   test('should display repository list page', async ({ page }) => {
+    >  9 |     await expect(page.locator('h1')).toContainText('Docker Registry');
+         |                                      ^
+      10 |     await expect(page.locator('text=Browse and search Docker images')).toBeVisible();
+      11 |   });
+      12 |
+        at /home/tonny/projects/open-repo/e2e/repository-list.spec.js:9:38
+
+    Error Context: test-results/repository-list-Repository-8ce56-isplay-repository-list-page-chromium/error-context.md
+
+
+[1A[2K[10/21] [chromium] › e2e/search.spec.js:22:3 › Repository Search › should debounce search input
+[1A[2K  2) [chromium] › e2e/dark-mode.spec.js:8:3 › Dark Mode › should toggle dark mode ──────────────────
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('button[aria-label="Toggle dark mode"]')[22m
+
+
+      13 |     
+      14 |     const toggleButton = page.locator('button[aria-label="Toggle dark mode"]');
+    > 15 |     await toggleButton.click();
+         |                        ^
+      16 |     
+      17 |     await page.waitForTimeout(200);
+      18 |     
+        at /home/tonny/projects/open-repo/e2e/dark-mode.spec.js:15:24
+
+    Error Context: test-results/dark-mode-Dark-Mode-should-toggle-dark-mode-chromium/error-context.md
+
+
+[1A[2K[11/21] [chromium] › e2e/search.spec.js:37:3 › Repository Search › should sort repositories
+[1A[2K  3) [chromium] › e2e/repository-list.spec.js:26:3 › Repository List › should display no results message when search returns empty 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.fill: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('input[placeholder="Search repositories..."]')[22m
+
+
+      25 |
+      26 |   test('should display no results message when search returns empty', async ({ page }) => {
+    > 27 |     await page.fill('input[placeholder="Search repositories..."]', 'nonexistentrepo12345');
+         |                ^
+      28 |     await page.waitForTimeout(500);
+      29 |     
+      30 |     await expect(page.locator('text=No repositories found')).toBeVisible();
+        at /home/tonny/projects/open-repo/e2e/repository-list.spec.js:27:16
+
+    Error Context: test-results/repository-list-Repository-af1f8-e-when-search-returns-empty-chromium/error-context.md
+
+
+[1A[2K  4) [chromium] › e2e/search.spec.js:8:3 › Repository Search › should filter repositories by search query 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.fill: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('input[placeholder="Search repositories..."]')[22m
+
+
+       8 |   test('should filter repositories by search query', async ({ page }) => {
+       9 |     const searchInput = page.locator('input[placeholder="Search repositories..."]');
+    > 10 |     await searchInput.fill('backend');
+         |                       ^
+      11 |     
+      12 |     await page.waitForTimeout(1000);
+      13 |     
+        at /home/tonny/projects/open-repo/e2e/search.spec.js:10:23
+
+    Error Context: test-results/search-Repository-Search-s-dc902-epositories-by-search-query-chromium/error-context.md
+
+
+[1A[2K[12/21] [chromium] › e2e/tag-details.spec.js:11:3 › Tag Details › should display repository details page
+[1A[2K[13/21] [chromium] › e2e/tag-details.spec.js:16:3 › Tag Details › should display tags table
+[1A[2K[14/21] [chromium] › e2e/tag-details.spec.js:23:3 › Tag Details › should display tag rows
+[1A[2K  5) [chromium] › e2e/tag-details.spec.js:23:3 › Tag Details › should display tag rows ─────────────
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeGreaterThan[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: > [32m0[39m
+    Received:   [31m0[39m
+
+      24 |     const tagRows = page.locator('tbody tr');
+      25 |     const count = await tagRows.count();
+    > 26 |     expect(count).toBeGreaterThan(0);
+         |                   ^
+      27 |   });
+      28 |
+      29 |   test('should display copy button for each tag', async ({ page }) => {
+        at /home/tonny/projects/open-repo/e2e/tag-details.spec.js:26:19
+
+    Error Context: test-results/tag-details-Tag-Details-should-display-tag-rows-chromium/error-context.md
+
+
+[1A[2K[15/21] [chromium] › e2e/tag-details.spec.js:29:3 › Tag Details › should display copy button for each tag
+[1A[2K  6) [chromium] › e2e/tag-details.spec.js:29:3 › Tag Details › should display copy button for each tag 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeGreaterThan[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: > [32m0[39m
+    Received:   [31m0[39m
+
+      30 |     const copyButtons = page.locator('button:has-text("Copy")');
+      31 |     const count = await copyButtons.count();
+    > 32 |     expect(count).toBeGreaterThan(0);
+         |                   ^
+      33 |   });
+      34 |
+      35 |   test('should navigate back to repository list', async ({ page }) => {
+        at /home/tonny/projects/open-repo/e2e/tag-details.spec.js:32:19
+
+    Error Context: test-results/tag-details-Tag-Details-sh-34027-ay-copy-button-for-each-tag-chromium/error-context.md
+
+
+[1A[2K  7) [chromium] › e2e/search.spec.js:22:3 › Repository Search › should debounce search input ───────
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.fill: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('input[placeholder="Search repositories..."]')[22m
+
+
+      23 |     const searchInput = page.locator('input[placeholder="Search repositories..."]');
+      24 |     
+    > 25 |     await searchInput.fill('a');
+         |                       ^
+      26 |     await page.waitForTimeout(100);
+      27 |     await searchInput.fill('ap');
+      28 |     await page.waitForTimeout(100);
+        at /home/tonny/projects/open-repo/e2e/search.spec.js:25:23
+
+    Error Context: test-results/search-Repository-Search-should-debounce-search-input-chromium/error-context.md
+
+
+[1A[2K[16/21] [chromium] › e2e/tag-details.spec.js:35:3 › Tag Details › should navigate back to repository list
+[1A[2K[17/21] [chromium] › e2e/tag-protection.spec.js:29:3 › Tag Protection › policy save reflects 🔒 badge and disabled delete button
+[1A[2K  8) [chromium] › e2e/tag-details.spec.js:16:3 › Tag Details › should display tags table ───────────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('th:has-text("Tag")')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('th:has-text("Tag")')[22m
+
+
+      15 |
+      16 |   test('should display tags table', async ({ page }) => {
+    > 17 |     await expect(page.locator('th:has-text("Tag")')).toBeVisible();
+         |                                                      ^
+      18 |     await expect(page.locator('th:has-text("Digest")')).toBeVisible();
+      19 |     await expect(page.locator('th:has-text("Size")')).toBeVisible();
+      20 |     await expect(page.locator('th:has-text("Created")')).toBeVisible();
+        at /home/tonny/projects/open-repo/e2e/tag-details.spec.js:17:54
+
+    Error Context: test-results/tag-details-Tag-Details-should-display-tags-table-chromium/error-context.md
+
+
+[1A[2K[chromium] › e2e/tag-protection.spec.js:29:3 › Tag Protection › policy save reflects 🔒 badge and disabled delete button
+/home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/validations.rb:87:in 'ActiveRecord::Validations#raise_validation_error': Validation failed: Owner identity must exist (ActiveRecord::RecordInvalid)
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/validations.rb:54:in 'ActiveRecord::Validations#save!'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/transactions.rb:385:in 'block in ActiveRecord::Transactions#save!'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/transactions.rb:438:in 'block (3 levels) in ActiveRecord::Transactions#with_transaction_returning_status'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/connection_adapters/abstract/database_statements.rb:376:in 'ActiveRecord::ConnectionAdapters::DatabaseStatements#transaction'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/transactions.rb:434:in 'block (2 levels) in ActiveRecord::Transactions#with_transaction_returning_status'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/connection_adapters/abstract/connection_pool.rb:485:in 'ActiveRecord::ConnectionAdapters::ConnectionPool#with_pool_transaction_isolation_level'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/transactions.rb:430:in 'block in ActiveRecord::Transactions#with_transaction_returning_status'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/connection_adapters/abstract/connection_pool.rb:457:in 'ActiveRecord::ConnectionAdapters::ConnectionPool#with_connection'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/connection_handling.rb:313:in 'ActiveRecord::ConnectionHandling#with_connection'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/transactions.rb:429:in 'ActiveRecord::Transactions#with_transaction_returning_status'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/transactions.rb:385:in 'ActiveRecord::Transactions#save!'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/suppressor.rb:56:in 'ActiveRecord::Suppressor#save!'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/persistence.rb:55:in 'ActiveRecord::Persistence::ClassMethods#create!'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/relation.rb:1382:in 'ActiveRecord::Relation#_create!'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/relation.rb:174:in 'block in ActiveRecord::Relation#create!'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/relation.rb:1393:in 'ActiveRecord::Relation#_scoping'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/relation.rb:558:in 'ActiveRecord::Relation#scoping'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/relation.rb:174:in 'ActiveRecord::Relation#create!'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/relation.rb:297:in 'block (2 levels) in ActiveRecord::Relation#create_or_find_by!'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/connection_adapters/abstract/transaction.rb:648:in 'block in ActiveRecord::ConnectionAdapters::TransactionManager#within_new_transaction'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activesupport-8.1.3/lib/active_support/concurrency/null_lock.rb:9:in 'ActiveSupport::Concurrency::NullLock#synchronize'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/connection_adapters/abstract/transaction.rb:645:in 'ActiveRecord::ConnectionAdapters::TransactionManager#within_new_transaction'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/connection_adapters/abstract/database_statements.rb:386:in 'ActiveRecord::ConnectionAdapters::DatabaseStatements#within_new_transaction'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/connection_adapters/abstract/database_statements.rb:378:in 'ActiveRecord::ConnectionAdapters::DatabaseStatements#transaction'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/transactions.rb:234:in 'block (2 levels) in ActiveRecord::Transactions::ClassMethods#transaction'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/connection_adapters/abstract/connection_pool.rb:485:in 'ActiveRecord::ConnectionAdapters::ConnectionPool#with_pool_transaction_isolation_level'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/transactions.rb:233:in 'block in ActiveRecord::Transactions::ClassMethods#transaction'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/connection_adapters/abstract/connection_pool.rb:457:in 'ActiveRecord::ConnectionAdapters::ConnectionPool#with_connection'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/connection_handling.rb:313:in 'ActiveRecord::ConnectionHandling#with_connection'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/transactions.rb:232:in 'ActiveRecord::Transactions::ClassMethods#transaction'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/relation/delegation.rb:105:in 'ActiveRecord::Delegation#transaction'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/relation.rb:296:in 'block in ActiveRecord::Relation#create_or_find_by!'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/connection_adapters/abstract/connection_pool.rb:463:in 'ActiveRecord::ConnectionAdapters::ConnectionPool#with_connection'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/connection_handling.rb:313:in 'ActiveRecord::ConnectionHandling#with_connection'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/relation/delegation.rb:105:in 'ActiveRecord::Delegation#with_connection'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/relation.rb:294:in 'ActiveRecord::Relation#create_or_find_by!'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/relation.rb:239:in 'ActiveRecord::Relation#find_or_create_by!'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activerecord-8.1.3/lib/active_record/querying.rb:24:in 'ActiveRecord::Querying#find_or_create_by!'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/railties-8.1.3/lib/rails/commands/runner/runner_command.rb:50:in '<main>'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/railties-8.1.3/lib/rails/commands/runner/runner_command.rb:49:in 'Kernel#eval'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/railties-8.1.3/lib/rails/commands/runner/runner_command.rb:49:in 'block in Rails::Command::RunnerCommand#perform'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/activesupport-8.1.3/lib/active_support/execution_wrapper.rb:91:in 'ActiveSupport::ExecutionWrapper.wrap'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/railties-8.1.3/lib/rails/commands/runner/runner_command.rb:70:in 'Rails::Command::RunnerCommand#conditional_executor'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/railties-8.1.3/lib/rails/commands/runner/runner_command.rb:48:in 'Rails::Command::RunnerCommand#perform'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/thor-1.5.0/lib/thor/command.rb:28:in 'Thor::Command#run'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/thor-1.5.0/lib/thor/invocation.rb:127:in 'Thor::Invocation#invoke_command'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/railties-8.1.3/lib/rails/command/base.rb:176:in 'Rails::Command::Base#invoke_command'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/thor-1.5.0/lib/thor.rb:538:in 'Thor.dispatch'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/railties-8.1.3/lib/rails/command/base.rb:71:in 'Rails::Command::Base.perform'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/railties-8.1.3/lib/rails/command.rb:65:in 'block in Rails::Command.invoke'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/railties-8.1.3/lib/rails/command.rb:143:in 'Rails::Command.with_argv'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/railties-8.1.3/lib/rails/command.rb:63:in 'Rails::Command.invoke'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/railties-8.1.3/lib/rails/commands.rb:18:in '<main>'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/3.4.0/bundled_gems.rb:82:in 'Kernel.require'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/3.4.0/bundled_gems.rb:82:in 'block (2 levels) in Kernel#replace_require'
+	from /home/tonny/.rbenv/versions/3.4.8/lib/ruby/gems/3.4.0/gems/bootsnap-1.22.0/lib/bootsnap/load_path_cache/core_ext/kernel_require.rb:33:in 'Kernel#require'
+	from bin/rails:4:in '<main>'
+
+
+[1A[2K  9) [chromium] › e2e/tag-protection.spec.js:29:3 › Tag Protection › policy save reflects 🔒 badge and disabled delete button 
+
+    Error: Command failed: bin/rails runner '
+          repo = Repository.find_or_create_by!(name: "e2e-tag-protection-repo")
+          m = repo.manifests.find_or_create_by!(digest: "sha256:e2e-seed") do |x|
+            x.media_type = "application/vnd.docker.distribution.manifest.v2+json"
+            x.payload = "{}"
+            x.size = 2
+          end
+          repo.tags.find_or_create_by!(name: "v1.0.0") { |t| t.manifest = m }
+          repo.tags.find_or_create_by!(name: "latest") { |t| t.manifest = m }
+          repo.update!(tag_protection_policy: "semver")
+        '
+
+      10 |
+      11 |   test.beforeAll(() => {
+    > 12 |     execSync(`bin/rails runner '
+         |     ^
+      13 |       repo = Repository.find_or_create_by!(name: "${repoName}")
+      14 |       m = repo.manifests.find_or_create_by!(digest: "sha256:e2e-seed") do |x|
+      15 |         x.media_type = "application/vnd.docker.distribution.manifest.v2+json"
+        at /home/tonny/projects/open-repo/e2e/tag-protection.spec.js:12:5
+
+
+[1A[2K[18/21] [chromium] › e2e/tag-protection.spec.js:42:3 › Tag Protection › protected tag delete button on repo show is disabled with tooltip
+[1A[2K[19/21] [chromium] › e2e/tag-protection.spec.js:49:3 › Tag Protection › protected tag detail page shows disabled delete button
+[1A[2K[20/21] [chromium] › e2e/tag-protection.spec.js:56:3 › Tag Protection › custom_regex shows regex input, non-custom hides it
+[1A[2K[21/21] [chromium] › e2e/tag-protection.spec.js:69:3 › Tag Protection › invalid regex surfaces validation error
+[1A[2K  10) [chromium] › e2e/tag-details.spec.js:35:3 › Tag Details › should navigate back to repository list 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoContainText[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator: locator('h1')
+    Expected substring: [32m"Docker Registry"[39m
+    Received string:    [31m"Repositories"[39m
+    Timeout: 5000ms
+
+    Call log:
+    [2m  - Expect "toContainText" with timeout 5000ms[22m
+    [2m  - waiting for locator('h1')[22m
+    [2m    9 × locator resolved to <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100 break-keep">Repositories</h1>[22m
+    [2m      - unexpected value "Repositories"[22m
+
+
+      36 |     await page.click('text=Back to Repositories');
+      37 |     await expect(page).toHaveURL(/\/(repositories)?$/);
+    > 38 |     await expect(page.locator('h1')).toContainText('Docker Registry');
+         |                                      ^
+      39 |   });
+      40 | });
+      41 |
+        at /home/tonny/projects/open-repo/e2e/tag-details.spec.js:38:38
+
+    Error Context: test-results/tag-details-Tag-Details-sh-cb4fe-ate-back-to-repository-list-chromium/error-context.md
+
+
+[1A[2K  11) [chromium] › e2e/search.spec.js:37:3 › Repository Search › should sort repositories ──────────
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.selectOption: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('select[name="sort_by"]')[22m
+
+
+      38 |     const sortSelect = page.locator('select[name="sort_by"]');
+      39 |     
+    > 40 |     await sortSelect.selectOption('name_desc');
+         |                      ^
+      41 |     await page.waitForTimeout(500);
+      42 |     
+      43 |     const cards = page.locator('[href*="/repositories/"]');
+        at /home/tonny/projects/open-repo/e2e/search.spec.js:40:22
+
+    Error Context: test-results/search-Repository-Search-should-sort-repositories-chromium/error-context.md
+
+
+[1A[2K  11 failed
+    [chromium] › e2e/dark-mode.spec.js:8:3 › Dark Mode › should toggle dark mode ───────────────────
+    [chromium] › e2e/repository-list.spec.js:8:3 › Repository List › should display repository list page 
+    [chromium] › e2e/repository-list.spec.js:26:3 › Repository List › should display no results message when search returns empty 
+    [chromium] › e2e/search.spec.js:8:3 › Repository Search › should filter repositories by search query 
+    [chromium] › e2e/search.spec.js:22:3 › Repository Search › should debounce search input ────────
+    [chromium] › e2e/search.spec.js:37:3 › Repository Search › should sort repositories ────────────
+    [chromium] › e2e/tag-details.spec.js:16:3 › Tag Details › should display tags table ────────────
+    [chromium] › e2e/tag-details.spec.js:23:3 › Tag Details › should display tag rows ──────────────
+    [chromium] › e2e/tag-details.spec.js:29:3 › Tag Details › should display copy button for each tag 
+    [chromium] › e2e/tag-details.spec.js:35:3 › Tag Details › should navigate back to repository list 
+    [chromium] › e2e/tag-protection.spec.js:29:3 › Tag Protection › policy save reflects 🔒 badge and disabled delete button 
+  4 did not run
+  6 passed (1.1m)
+---EXIT: 1

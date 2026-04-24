@@ -1,0 +1,76 @@
+[1;32mContinuous Integration[0m
+[1;90mRunning tests, style checks, and security audits[0m
+[1;35m
+
+Setup[0m
+[1;90mbin/setup --skip-server
+[0m
+== Installing dependencies ==
+The Gemfile's dependencies are satisfied
+
+== Preparing database ==
+
+== Removing old logs and tempfiles ==
+[1;32m
+✅ Setup passed in 3.22s[0m
+[1;35m
+
+Style: Ruby[0m
+[1;90mbin/rubocop
+[0m
+Inspecting 146 files
+..................................................................................................................................................
+
+146 files inspected, no offenses detected
+[1;32m
+✅ Style: Ruby passed in 3.23s[0m
+[1;35m
+
+Security: Gem audit[0m
+[1;90mbin/bundler-audit
+[0m
+No vulnerabilities found
+[1;32m
+✅ Security: Gem audit passed in 0.46s[0m
+[1;35m
+
+Security: Importmap vulnerability audit[0m
+[1;90mbin/importmap audit
+[0m
+No vulnerable packages found
+[1;32m
+✅ Security: Importmap vulnerability audit passed in 0.83s[0m
+[1;35m
+
+Security: Brakeman code analysis[0m
+[1;90mbin/brakeman --quiet --no-pager --exit-on-warn --exit-on-error
+[0m
+
+== Brakeman Report ==
+
+Application Path: /home/tonny/projects/open-repo
+Rails Version: 8.1.3
+Brakeman Version: 8.0.4
+Scan Date: 2026-04-24 10:57:49 +0900
+Duration: 0.638672831 seconds
+Checks Run: BasicAuth, BasicAuthTimingAttack, CSRFTokenForgeryCVE, ContentTag, CookieSerialization, CreateWith, CrossSiteScripting, DefaultRoutes, Deserialize, DetailedExceptions, DigestDoS, DynamicFinders, EOLRails, EOLRuby, EscapeFunction, Evaluation, Execute, FileAccess, FileDisclosure, FilterSkipping, ForgerySetting, HeaderDoS, I18nXSS, JRubyXML, JSONEncoding, JSONEntityEscape, JSONParsing, LinkTo, LinkToHref, MailTo, MassAssignment, MimeTypeDoS, ModelAttrAccessible, ModelAttributes, ModelSerialize, NestedAttributes, NestedAttributesBypass, NumberToCurrency, PageCachingCVE, Pathname, PermitAttributes, QuoteTableName, Ransack, Redirect, RegexDoS, Render, RenderDoS, RenderInline, RenderRCE, ResponseSplitting, RouteDoS, SQL, SQLCVEs, SSLVerify, SafeBufferManipulation, SanitizeConfigCve, SanitizeMethods, SelectTag, SelectVulnerability, Send, SendFile, SessionManipulation, SessionSettings, SimpleFormat, SingleQuotes, SkipBeforeFilter, SprocketsPathTraversal, StripTags, SymbolDoSCVE, TemplateInjection, TranslateBug, UnsafeReflection, UnsafeReflectionMethods, ValidationRegex, VerbConfusion, WeakRSAKey, WithoutProtection, XMLDoS, YAMLParsing
+
+== Overview ==
+
+Controllers: 13
+Models: 13
+Templates: 20
+Errors: 0
+Security Warnings: 0
+Ignored Warnings: 1
+
+== Warning Types ==
+
+
+No warnings found
+
+[1;32m
+✅ Security: Brakeman code analysis passed in 1.39s[0m
+[1;32m
+✅ Continuous Integration passed in 9.13s[0m
+---EXIT: 0
