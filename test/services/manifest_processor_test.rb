@@ -240,6 +240,91 @@ class ManifestProcessorTest < ActiveSupport::TestCase
     end
   end
 
+  # ---------------------------------------------------------------------------
+  # UC-MODEL-009 .e7 — malformed config JSON in the config blob.
+  # ManifestProcessor#extract_config rescues JSON::ParserError and returns
+  # {architecture: nil, os: nil, config_json: nil}; the call still succeeds
+  # and the resulting Manifest row records the nil fallbacks.
+  # ---------------------------------------------------------------------------
+  test "call with malformed config JSON falls back to nil arch/os/docker_config and still succeeds" do
+    bad_config = "this-is-not-json"
+    bad_config_digest = DigestCalculator.compute(bad_config)
+    blob_store.put(bad_config_digest, StringIO.new(bad_config))
+
+    bad_layer = SecureRandom.random_bytes(256)
+    bad_layer_digest = DigestCalculator.compute(bad_layer)
+    blob_store.put(bad_layer_digest, StringIO.new(bad_layer))
+
+    payload = {
+      schemaVersion: 2,
+      mediaType: "application/vnd.docker.distribution.manifest.v2+json",
+      config: { mediaType: "application/vnd.docker.container.image.v1+json", size: bad_config.bytesize, digest: bad_config_digest },
+      layers: [
+        { mediaType: "application/vnd.docker.image.rootfs.diff.tar.gzip", size: bad_layer.bytesize, digest: bad_layer_digest }
+      ]
+    }.to_json
+
+    result = processor.call("repo-bad-config", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", payload, actor: "anonymous")
+
+    assert_kind_of Manifest, result
+    assert_nil result.architecture
+    assert_nil result.os
+    assert_nil result.docker_config
+  end
+
+  # ---------------------------------------------------------------------------
+  # UC-MODEL-009 .e10 — admin email user missing on repo creation.
+  # The processor delegates owner_identity to User.find_by!(email: admin_email).
+  # When that user does not exist, find_by! raises ActiveRecord::RecordNotFound
+  # and the error is intentionally NOT rescued (deployment misconfiguration
+  # surface). Pin the current behavior so a silent rescue regression is caught.
+  # ---------------------------------------------------------------------------
+  test "call raises ActiveRecord::RecordNotFound when admin email user is missing" do
+    Rails.configuration.x.registry.admin_email = "no-such-admin-#{SecureRandom.hex(4)}@example.invalid"
+
+    assert_raises(ActiveRecord::RecordNotFound) do
+      processor.call(
+        "repo-no-admin-#{SecureRandom.hex(4)}",
+        "v1.0.0",
+        "application/vnd.docker.distribution.manifest.v2+json",
+        manifest_json,
+        actor: "anonymous"
+      )
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # UC-MODEL-009 .e12 — payload bytesize stored as Manifest#size.
+  # ---------------------------------------------------------------------------
+  test "call stores payload bytesize as manifest.size" do
+    result = processor.call("repo-size-check", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
+
+    assert_equal manifest_json.bytesize, result.size
+  end
+
+  # ---------------------------------------------------------------------------
+  # UC-MODEL-009 .e13 — tag retry idempotency.
+  # CI re-pushes the SAME (manifest, tag) pair after a network glitch. The
+  # second call must NOT create a duplicate Manifest row and must NOT emit a
+  # spurious TagEvent (no digest change ⇒ no "update" event). Since the
+  # repository starts without a protection policy and the push is idempotent
+  # at the tag level (existing_tag.manifest.digest == new_digest), the second
+  # call's assign_tag! short-circuits without creating a TagEvent.
+  # ---------------------------------------------------------------------------
+  test "call is idempotent on retry and does not emit a spurious TagEvent" do
+    processor.call("repo-retry-idemp", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
+
+    manifest_count_before = Manifest.count
+    tag_event_count_before = TagEvent.count
+
+    processor.call("repo-retry-idemp", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
+
+    assert_equal manifest_count_before, Manifest.count,
+      "second push of identical (tag, digest) should not create a new Manifest row"
+    assert_equal tag_event_count_before, TagEvent.count,
+      "second push of identical (tag, digest) should not emit a spurious TagEvent"
+  end
+
   private
 
   def build_different_manifest_json
