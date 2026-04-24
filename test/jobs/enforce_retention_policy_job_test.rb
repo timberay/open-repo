@@ -2,7 +2,7 @@ require "test_helper"
 
 class EnforceRetentionPolicyJobTest < ActiveJob::TestCase
   def setup
-    @repo = Repository.create!(name: "test-repo")
+    @repo = Repository.create!(name: "test-repo", owner_identity: identities(:tonny_google))
     @manifest = Manifest.create!(
       repository: @repo,
       digest: "sha256:stale",

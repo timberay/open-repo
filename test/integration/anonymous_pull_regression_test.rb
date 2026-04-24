@@ -25,7 +25,7 @@ require "test_helper"
 class AnonymousPullRegressionTest < ActionDispatch::IntegrationTest
   setup do
     Rails.configuration.x.registry.anonymous_pull_enabled = true
-    @repo = Repository.create!(name: "anon-pull-regression-repo-#{SecureRandom.hex(4)}")
+    @repo = Repository.create!(name: "anon-pull-regression-repo-#{SecureRandom.hex(4)}", owner_identity: identities(:tonny_google))
     @manifest = @repo.manifests.create!(
       digest: "sha256:anon#{SecureRandom.hex(8)}",
       media_type: "application/vnd.docker.distribution.manifest.v2+json",

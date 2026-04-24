@@ -2,7 +2,7 @@ require "test_helper"
 
 class V2::CatalogControllerTest < ActionDispatch::IntegrationTest
   setup do
-    %w[alpha bravo charlie].each { |n| Repository.create!(name: n) }
+    %w[alpha bravo charlie].each { |n| Repository.create!(name: n, owner_identity: identities(:tonny_google)) }
   end
 
   test "GET /v2/_catalog returns all repositories" do

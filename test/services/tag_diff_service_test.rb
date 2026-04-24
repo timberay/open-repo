@@ -2,7 +2,7 @@ require "test_helper"
 
 class TagDiffServiceTest < ActiveSupport::TestCase
   def repo
-    @repo ||= Repository.create!(name: "test-repo")
+    @repo ||= Repository.create!(name: "test-repo", owner_identity: identities(:tonny_google))
   end
 
   def shared_blob

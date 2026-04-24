@@ -2,7 +2,7 @@ require "test_helper"
 
 class AuthForbiddenActionTest < ActiveSupport::TestCase
   test "ForbiddenAction carries repository and action" do
-    repo = Repository.create!(name: "forbidden-test-#{SecureRandom.hex(4)}")
+    repo = Repository.create!(name: "forbidden-test-#{SecureRandom.hex(4)}", owner_identity: identities(:tonny_google))
     err = Auth::ForbiddenAction.new(repository: repo, action: :write)
     assert_equal repo, err.repository
     assert_equal :write, err.action
