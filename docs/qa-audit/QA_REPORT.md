@@ -1,23 +1,24 @@
 # QA Audit Report
 
-**Date:** 2026-04-24 (initial audit) · Wave 1 + Wave 2-A + Wave 2-B follow-ups appended same day
+**Date:** 2026-04-24 (initial audit) · Wave 1 + Wave 2-A + Wave 2-B + Wave 3 follow-ups appended same day
 **Scope:** Entire application (V2 Registry API, Web UI, Auth, Background jobs)
 **Method:** Feature inventory → use-case catalog → coverage gap analysis → automated suite execution
 
-## Headline numbers (post Wave 2-B — 2026-04-24)
+## Headline numbers (post Wave 3 — 2026-04-24)
 
 | Suite | Result | Detail | Δ vs initial |
 |---|---|---|---|
-| Ruby (Minitest) | ✅ PASS | 468 runs, 1176 assertions, 0 failures, 0 errors, 1 skip | +20 runs, +121 assertions |
+| Ruby (Minitest) | ✅ PASS | 490 runs, 1259 assertions, 0 failures, 0 errors, 2 skips | +42 runs, +204 assertions |
 | Static analysis (rubocop / brakeman / bundler-audit / importmap) | ✅ PASS | Brakeman 0 warnings, no vulnerable deps | unchanged |
 | Playwright E2E | ✅ PASS | 21 passed, 0 failed, 0 did not run | +15 passing (full suite green) |
-| Test-plan coverage | ✅ ~92% | V2 throttle + tag-protection mount-bypass now covered; UC-AUTH-012.e3 ❌→✅, UC-AUTH-014 ❌→✅ | +4 UCs total |
+| Test-plan coverage | ✅ ~97% | UC-UI-008, UC-UI-009, UC-AUTH-016, UC-V2-005.e11–.e16, UC-V2-016 all flipped ❌→✅ | +5 UCs / 22 cases |
 
 Trend snapshot:
 - Initial: Ruby 448/1055 · E2E 6 passed, 11 failed, 4 did not run · coverage 83% (48/58).
 - Post Wave 1: Ruby 462/1103 · E2E 10 passed, 7 failed, 4 did not run · coverage 88%.
 - Post Wave 2-A: Ruby 462/1103 · E2E 21 passed, 0 failed, 0 did not run · coverage 88%.
 - Post Wave 2-B: Ruby 468/1176 · E2E 21 passed, 0 failed, 0 did not run · coverage ~92%.
+- Post Wave 3: Ruby 490/1259 · E2E 21 passed, 0 failed, 0 did not run · coverage ~97%.
 
 ## Wave 1 — resolution status
 
@@ -56,6 +57,21 @@ Two MEDIUM-severity test-coverage gaps flagged in the initial audit (`GAP_ANALYS
 | 2 | UC-AUTH-014 — tag-protection bypass via blob mount was zero-coverage; the threat was flagged at `discovery/auth.md:171` | ✅ **FIXED** | `3f1704d` | `test/integration/v2_tag_protection_mount_bypass_test.rb` — 3 cases (writer-level attacker's PUT on protected tag after mount returns 409 `DENIED`; tag still points to original manifest; non-member attacker gets 403 before reaching the mount step). Defense lives at `ManifestProcessor#enforce_tag_protection!` and is end-to-end verified at the HTTP boundary |
 
 With these two rows flipping ❌→✅, the remaining uncovered UCs in the feature-by-feature table drop to the intentionally-deferred set (UC-UI-008 tag history, UC-UI-009 Help controller, UC-AUTH-015 visibility by design, UC-JOB-001 edges, UC-AUTH-016 session hygiene) — i.e. nothing load-bearing.
+
+## Wave 3 — resolution status
+
+Five remaining UCs (the post-2-B "intentionally deferred" set, plus the two largest 🟡 V2 push-edge groups) were closed in parallel sub-agents and committed atomically. No production code changed — every new spec asserts existing behavior. One pre-existing flake in `rack_attack_v2_throttle_test.rb` was uncovered by the full-suite run (minute-boundary race in the fixed-window throttle) and fixed with `travel_to`. Verification: post-wave3 Ruby log at `docs/qa-audit/run-logs/ruby-tests-post-wave3.log` (490 runs, 1259 assertions, 0 failures, 0 errors, 2 skips — the second skip is a documented `force_ssl` mid-process toggle limitation).
+
+| # | Gap | Status | Commit(s) | Evidence |
+|---|---|---|---|---|
+| 1 | UC-UI-009 — `HelpController#show` had zero tests | ✅ **FIXED** | `81e0349` | `test/controllers/help_controller_test.rb` — 3 cases (signed-out 200 + `registry_host` body assertion; signed-in 200; template content) |
+| 2 | UC-UI-008 — `TagsController#history` had zero tests | ✅ **FIXED** | `c3999d2` | `test/controllers/tags_controller_test.rb` — 6 new cases (happy path, `occurred_at DESC` ordering, empty state, missing repo/tag 404s, signed-out access) |
+| 3 | UC-AUTH-016 — session cookie hygiene unverified | ✅ **FIXED** | `f04498c` | `test/integration/session_cookie_hygiene_test.rb` — 5 cases (HttpOnly, SameSite=Lax, session-id rotates on `reset_session`, sign-out invalidates; 1 skip for `force_ssl` mid-process toggle). Locked-in defaults: `_repo_vista_session; path=/; httponly; samesite=lax` |
+| 4 | UC-V2-005 .e11–.e16 — manifest push edges (concurrent diff-digest race, empty layers, missing config, malformed config blob, namespaced repo, schema-vs-content-type ordering) | ✅ **FIXED** | `d8ee3d1` | `test/controllers/v2/manifest_push_edges_test.rb` — 6 cases. Notable: e15 is constrained to two-segment namespace (`org/app`) because `config/routes.rb` does not define a three-segment v2 scope; logged as a future-wave consideration |
+| 5 | UC-V2-016 — tag protection atomicity (concurrency race) | ✅ **FIXED** | `6899feb` | `test/integration/v2_tag_protection_atomicity_test.rb` — 2 cases using `Mutex` + `ConditionVariable` barrier and per-thread `connection_pool.with_connection` (mirrors `first_pusher_race_test.rb`). e2 implemented as baseline-vs-fresh-digest race because `enforce_tag_protection!` denies both writes if both differ from the baseline — only the implemented shape exercises the load-bearing invariant (protection check + `manifest.save!` atomic under `repository.with_lock`). Verified stable across 5 isolation runs |
+| 6 | Pre-existing flake — `rack_attack_v2_throttle_test.rb#test_throttle_counter_is_per-IP` failed under full-suite seed 182 because the 30-request loop straddled a wall-clock minute boundary, splitting the fixed-window counter | ✅ **FIXED** | `ff5c528` | `travel_to Time.current.beginning_of_minute` in setup; verified deterministic |
+
+Post-Wave-3, the only remaining uncovered UCs are by-design (UC-AUTH-015 visibility — single-tenant public-only) or low-stakes secondary edges (UC-JOB-001 cleanup-blob concurrency edges, scattered V2 .e* across pull/blob endpoints, model destroy-cascade ivars). Coverage is no longer load-bearing.
 
 ## Residual E2E failures (resolved — see Wave 2-A above)
 
@@ -139,7 +155,7 @@ Legend: ✅ green = happy path + edge cases both covered and passing · 🟡 yel
 | V2 API | Catalog `GET /v2/_catalog` (UC-V2-002) | ✅ | — | 7 edges, 4 not covered | 🟡 |
 | V2 API | Tags list `GET /v2/:name/tags/list` (UC-V2-003) | ✅ | — | 5 edges, 3 not covered | 🟡 |
 | V2 API | Manifest pull (UC-V2-004) | ✅ | — | 8 edges, mostly covered | ✅ |
-| V2 API | Manifest push (UC-V2-005) | ✅ | — | 16 edges, several uncovered (.e11–.e16) | 🟡 |
+| V2 API | Manifest push (UC-V2-005) | ✅ | — | 16 edges; .e11–.e16 closed in Wave 3 | ✅ |
 | V2 API | Manifest delete (UC-V2-006) | ✅ | — | Covered + auth edges | ✅ |
 | V2 API | Blob pull (UC-V2-007) | ✅ | — | Missing FS-drift + non-sha256 edges | 🟡 |
 | V2 API | Blob delete (UC-V2-008) | ✅ | — | Missing ref-count + FS-missing edges | 🟡 |
@@ -150,7 +166,7 @@ Legend: ✅ green = happy path + edge cases both covered and passing · 🟡 yel
 | V2 API | Chunked upload finalize (UC-V2-013) | ✅ | — | Digest-mismatch covered; twice-finalize, missing-digest uncovered | 🟡 |
 | V2 API | Upload cancel (UC-V2-014) | ✅ | — | Idempotency + auth edges uncovered | 🟡 |
 | V2 API | Error response format (UC-V2-015) | ⚠️ | — | Subset of codes asserted explicitly | 🟡 |
-| V2 API | Tag protection atomicity (UC-V2-016) | ⚠️ | — | No explicit concurrency race test | 🟡 |
+| V2 API | Tag protection atomicity (UC-V2-016) | ✅ | — | Concurrency race covered (Wave 3) | ✅ |
 
 ### Web UI
 
@@ -163,8 +179,8 @@ Legend: ✅ green = happy path + edge cases both covered and passing · 🟡 yel
 | Web UI | Repository delete (UC-UI-005) | ✅ | — | Non-owner + concurrent edges uncovered | 🟡 |
 | Web UI | Tag detail (UC-UI-006) | ✅ | 🔴 failing (tbody/Copy selector) | Most UI-rendering edges uncovered | 🔴 |
 | Web UI | Tag delete (UC-UI-007) | ✅ | — | Core edges covered | ✅ |
-| Web UI | Tag history (UC-UI-008) | ❌ | — | **No test whatsoever** | 🔴 |
-| Web UI | Help page (UC-UI-009) | ❌ | — | **No HelpController test** | 🟡 |
+| Web UI | Tag history (UC-UI-008) | ✅ | — | 6 cases covering happy/ordering/empty/404/signed-out (Wave 3) | ✅ |
+| Web UI | Help page (UC-UI-009) | ✅ | — | 3 cases covering signed-out/in + registry_host body (Wave 3) | ✅ |
 | Web UI | Dark mode toggle (UC-UI-010) | — | 🔴 failing (toggle button selector) | E2E only, now broken | 🔴 |
 | Web UI | PAT index (UC-UI-011) | ✅ | — | Status badges covered | ✅ |
 | Web UI | PAT create (UC-UI-012) | ✅ | — | Duplicate-name + blank covered; kind/expires edges partial | 🟡 |
@@ -189,7 +205,7 @@ Legend: ✅ green = happy path + edge cases both covered and passing · 🟡 yel
 | Auth | CSRF (UC-AUTH-013) | ❌ | — | **No CSRF-specific tests** | 🔴 |
 | Auth | Tag-protection bypass via mount (UC-AUTH-014) | ❌ | — | **No test** | 🔴 |
 | Auth | Repository visibility (UC-AUTH-015) | ⚠️ | — | No private/public gating (by design) | 🟡 |
-| Auth | Session cookie hygiene (UC-AUTH-016) | ❌ | — | Stale-session edge covered only | 🟡 |
+| Auth | Session cookie hygiene (UC-AUTH-016) | ✅ | — | HttpOnly + SameSite=Lax + session-id rotation + sign-out invalidation (Wave 3) | ✅ |
 | Auth | Email verification at sign-in (UC-AUTH-017) | ✅ | — | Email-change re-verify edge uncovered | 🟡 |
 | Auth | **RepositoriesController#update unprotected** | ❌ | ❌ | **CRITICAL — see top finding** | 🔴 |
 
