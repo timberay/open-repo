@@ -1,4 +1,5 @@
 class RepositoriesController < ApplicationController
+  before_action :authorize_update!,  only: [ :update ]
   before_action :set_repository_for_authz, only: [ :destroy ]
 
   def index
@@ -26,7 +27,6 @@ class RepositoriesController < ApplicationController
   end
 
   def update
-    @repository = Repository.find_by!(name: params[:name])
     if @repository.update(repository_params)
       redirect_to repository_path(@repository.name), notice: "Repository updated."
     else
@@ -46,6 +46,11 @@ class RepositoriesController < ApplicationController
   end
 
   private
+
+  def authorize_update!
+    @repository = Repository.find_by!(name: params[:name])
+    authorize_for!(:write)
+  end
 
   def set_repository_for_authz
     @repository = Repository.find_by!(name: params[:name])

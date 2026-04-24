@@ -25,6 +25,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "PATCH /repositories/:name updates description" do
+    post "/testing/sign_in", params: { user_id: users(:tonny).id }
     patch repository_path("test-repo"), params: { repository: { description: "Updated" } }
     assert_redirected_to repository_path("test-repo")
     assert_equal "Updated", @repo.reload.description
@@ -159,6 +160,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
 
   test "PATCH /repositories/:name persists tag_protection_policy when set to semver" do
     protection_repo = Repository.create!(name: "example", owner_identity: identities(:tonny_google))
+    post "/testing/sign_in", params: { user_id: users(:tonny).id }
     patch "/repositories/#{protection_repo.name}",
       params: { repository: { tag_protection_policy: "semver" } }
     assert_equal "semver", protection_repo.reload.tag_protection_policy
@@ -166,6 +168,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
 
   test "PATCH /repositories/:name persists tag_protection_pattern when policy is custom_regex" do
     protection_repo = Repository.create!(name: "example", owner_identity: identities(:tonny_google))
+    post "/testing/sign_in", params: { user_id: users(:tonny).id }
     patch "/repositories/#{protection_repo.name}",
       params: { repository: { tag_protection_policy: "custom_regex", tag_protection_pattern: '^release-\d+$' } }
     assert_equal "custom_regex", protection_repo.reload.tag_protection_policy
@@ -174,6 +177,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
 
   test "PATCH /repositories/:name clears pattern when policy reverts from custom_regex" do
     protection_repo = Repository.create!(name: "example", tag_protection_policy: "custom_regex", tag_protection_pattern: "^v.+$", owner_identity: identities(:tonny_google))
+    post "/testing/sign_in", params: { user_id: users(:tonny).id }
     patch "/repositories/#{protection_repo.name}",
       params: { repository: { tag_protection_policy: "semver", tag_protection_pattern: "^v.+$" } }
     assert_nil protection_repo.reload.tag_protection_pattern
@@ -181,6 +185,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
 
   test "PATCH /repositories/:name rejects invalid regex" do
     protection_repo = Repository.create!(name: "example", owner_identity: identities(:tonny_google))
+    post "/testing/sign_in", params: { user_id: users(:tonny).id }
     patch "/repositories/#{protection_repo.name}",
       params: { repository: { tag_protection_policy: "custom_regex", tag_protection_pattern: "[unclosed" } }
     assert_equal "none", protection_repo.reload.tag_protection_policy
@@ -188,6 +193,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
 
   test "PATCH /repositories/:name renders 422 with the validation message when regex is invalid" do
     protection_repo = Repository.create!(name: "example", owner_identity: identities(:tonny_google))
+    post "/testing/sign_in", params: { user_id: users(:tonny).id }
     patch "/repositories/#{protection_repo.name}",
       params: { repository: { tag_protection_policy: "custom_regex", tag_protection_pattern: "[unclosed" } }
     assert_response :unprocessable_content
@@ -201,6 +207,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
       payload: "{}", size: 2
     ).tap { |m| protection_repo.tags.create!(name: "v1.0.0", manifest: m) }
 
+    post "/testing/sign_in", params: { user_id: users(:tonny).id }
     patch "/repositories/#{protection_repo.name}",
       params: { repository: { tag_protection_policy: "custom_regex", tag_protection_pattern: "[unclosed" } }
     assert_response :unprocessable_content
@@ -248,5 +255,86 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
 
     assert_redirected_to root_path
     refute Repository.exists?(name: repo.name)
+  end
+
+  # ---------------------------------------------------------------------------
+  # Stage 2: update authz (CRITICAL security fix)
+  #
+  # #update must enforce :write authorization. Any signed-in user must NOT be
+  # able to flip tag_protection_policy, description, or maintainer on a repo
+  # they do not own (or have writer/admin membership on).
+  # ---------------------------------------------------------------------------
+
+  test "PATCH /repositories/:name by non-owner returns 302 redirect with alert and does not mutate" do
+    owner_identity = identities(:tonny_google)
+    repo = Repository.create!(
+      name: "update-authz-#{SecureRandom.hex(4)}",
+      description: "Original",
+      tag_protection_policy: "semver",
+      owner_identity: owner_identity
+    )
+
+    # admin user (not owner, not a member) tries to weaken protection
+    post "/testing/sign_in", params: { user_id: users(:admin).id }
+    patch "/repositories/#{repo.name}",
+      params: { repository: { description: "Hijacked", tag_protection_policy: "none" } }
+
+    assert_redirected_to repository_path(repo.name)
+    assert_match(/permission/, flash[:alert])
+    repo.reload
+    assert_equal "Original", repo.description, "description must not be mutated by non-owner"
+    assert_equal "semver", repo.tag_protection_policy, "tag_protection_policy must not be weakened by non-owner"
+  end
+
+  test "PATCH /repositories/:name by unauthenticated user redirects to OAuth and does not mutate" do
+    owner_identity = identities(:tonny_google)
+    repo = Repository.create!(
+      name: "update-anon-#{SecureRandom.hex(4)}",
+      description: "Original",
+      tag_protection_policy: "semver",
+      owner_identity: owner_identity
+    )
+
+    patch "/repositories/#{repo.name}",
+      params: { repository: { description: "Hijacked", tag_protection_policy: "none" } }
+
+    assert_response :redirect
+    repo.reload
+    assert_equal "Original", repo.description
+    assert_equal "semver", repo.tag_protection_policy
+  end
+
+  test "PATCH /repositories/:name by owner succeeds" do
+    owner_identity = identities(:tonny_google)
+    repo = Repository.create!(
+      name: "update-owner-#{SecureRandom.hex(4)}",
+      description: "Original",
+      owner_identity: owner_identity
+    )
+
+    post "/testing/sign_in", params: { user_id: users(:tonny).id }
+    patch "/repositories/#{repo.name}",
+      params: { repository: { description: "Updated by owner" } }
+
+    assert_redirected_to repository_path(repo.name)
+    assert_equal "Updated by owner", repo.reload.description
+  end
+
+  test "PATCH /repositories/:name by writer member succeeds" do
+    owner_identity = identities(:tonny_google)
+    writer_identity = identities(:admin_google)
+    repo = Repository.create!(
+      name: "update-writer-#{SecureRandom.hex(4)}",
+      description: "Original",
+      owner_identity: owner_identity
+    )
+    repo.repository_members.create!(identity: writer_identity, role: "writer")
+
+    post "/testing/sign_in", params: { user_id: users(:admin).id }
+    patch "/repositories/#{repo.name}",
+      params: { repository: { description: "Updated by writer" } }
+
+    assert_redirected_to repository_path(repo.name)
+    assert_equal "Updated by writer", repo.reload.description
   end
 end
