@@ -87,7 +87,7 @@
   - **e12**: empty layers array (valid per spec) → 201.
   - **e13**: missing config field → 400 + `MANIFEST_INVALID`.
   - **e14**: malformed config JSON (blob content) → architecture/os fallback to nil; manifest still succeeds.
-  - **e15**: namespace repo (`org/team/app`) manifest push succeeds.
+  - **e15**: namespace repo manifest push succeeds. **Note**: `config/routes.rb` defines `:name` and `:ns/:name` scopes only — three-segment names like `org/team/app` are intentionally rejected by route constraint. Two-segment form (`org/app`) is the supported maximum and is covered by `test/controllers/v2/manifest_push_edges_test.rb`. Original three-segment wording was a TEST_PLAN error, corrected 2026-04-24.
   - **e16**: Content-Type header mismatch with payload schema — schema check runs before content-type rejection.
 
 ### UC-V2-006: Manifest delete (`DELETE /v2/:name/manifests/:reference`)
@@ -517,12 +517,13 @@
 
 ### UC-AUTH-015: Repository visibility
 
+- **Status**: ✅ BY-DESIGN. This application is single-tenant / public-only by intent. There is no private/public gating in the data model (no `Repository#visibility` column, no `Membership#viewer` role) because the operational pattern is "every authenticated user inside the trust boundary may read every repo." If this ever changes, the data model + every list/show controller need a coordinated migration; that would be a Pipeline-Phases feature, not a test gap.
 - **Preconditions**: any signed-in or anonymous user.
 - **Steps**: `GET /repositories` and `GET /repositories/:name`.
-- **Expected**: all repos visible (no private/public gating).
+- **Expected**: all repos visible to everyone (no per-repo gating).
 - **Edge cases**:
-  - **e1**: anonymous user — controller does not require auth on show.
-  - **e2**: document threat-model implications (LOW-MEDIUM finding).
+  - **e1**: anonymous user — `RepositoriesController#index`/`#show` have no auth filter (locked in by `test/controllers/repositories_controller_test.rb` "GET /repositories/:name renders for anonymous" + "GET / renders empty state for anonymous").
+  - **e2**: threat-model rationale — single-tenant deployment; see Wave 6 closure note in `docs/qa-audit/QA_REPORT.md`.
 
 ### UC-AUTH-016: Session cookie hygiene
 

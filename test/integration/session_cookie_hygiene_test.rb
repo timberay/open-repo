@@ -138,4 +138,25 @@ class SessionCookieHygieneTest < ActionDispatch::IntegrationTest
          "and stubbing config.force_ssl does not retroactively insert ActionDispatch::SSL. " \
          "Coverage of the rewrite itself lives in Rails' own test suite."
   end
+
+  # Static invariant complementing the skipped force_ssl runtime test: assert
+  # the codebase never opts cookies into SameSite=None (which would weaken
+  # CSRF protection regardless of the Secure flag). Greps live initializers
+  # + every controller — production code only, not specs/fixtures.
+  test "no production code sets SameSite=None on cookies" do
+    paths = %w[app/ config/]
+    matches = []
+    paths.each do |dir|
+      Dir.glob(Rails.root.join(dir, "**/*.rb")).each do |file|
+        File.foreach(file).with_index(1) do |line, lineno|
+          next if line.lstrip.start_with?("#")
+          if line.match?(/same_site\s*:\s*:none\b/i) ||
+             line.match?(/SameSite\s*=\s*None/i)
+            matches << "#{file}:#{lineno}: #{line.strip}"
+          end
+        end
+      end
+    end
+    assert_empty matches, "SameSite=None found in production code:\n#{matches.join("\n")}"
+  end
 end
