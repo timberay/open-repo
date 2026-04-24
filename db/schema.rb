@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_24_003303) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_24_010032) do
   create_table "blob_uploads", force: :cascade do |t|
     t.bigint "byte_offset", default: 0
     t.datetime "created_at", null: false
@@ -31,17 +31,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_24_003303) do
     t.index [ "digest" ], name: "index_blobs_on_digest", unique: true
   end
 
-  create_table "exports", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.text "error_message"
-    t.string "output_path"
-    t.integer "repository_id", null: false
-    t.string "status", default: "pending", null: false
-    t.string "tag_name", null: false
-    t.datetime "updated_at", null: false
-    t.index [ "repository_id" ], name: "index_exports_on_repository_id"
-  end
-
   create_table "identities", force: :cascade do |t|
     t.string "avatar_url"
     t.datetime "created_at", null: false
@@ -55,17 +44,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_24_003303) do
     t.integer "user_id", null: false
     t.index [ "provider", "uid" ], name: "index_identities_on_provider_and_uid", unique: true
     t.index [ "user_id" ], name: "index_identities_on_user_id"
-  end
-
-  create_table "imports", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.text "error_message"
-    t.integer "progress", default: 0
-    t.string "repository_name"
-    t.string "status", default: "pending", null: false
-    t.string "tag_name"
-    t.string "tar_path"
-    t.datetime "updated_at", null: false
   end
 
   create_table "layers", force: :cascade do |t|
@@ -192,7 +170,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_24_003303) do
   end
 
   add_foreign_key "blob_uploads", "repositories"
-  add_foreign_key "exports", "repositories"
   add_foreign_key "identities", "users", on_delete: :restrict
   add_foreign_key "layers", "blobs"
   add_foreign_key "layers", "manifests"

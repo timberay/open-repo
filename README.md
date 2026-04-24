@@ -358,10 +358,6 @@ Located in `app/services/`.
 | `DigestCalculator` | SHA-256 computation (`compute`) and verification (`verify!`). Streams IO in 64 KB chunks; raises `Registry::DigestMismatch` on mismatch. |
 | `BlobStore` | Content-addressable filesystem storage at `<STORAGE_PATH>/blobs/<alg>/<shard>/<hex>` (shard = first two hex chars). Atomic writes via temp file + rename. Methods: `get`, `put`, `exists?`, `delete`, `size`, `create_upload`, `append_upload`, `upload_size`, `finalize_upload`, `cancel_upload`, `cleanup_stale_uploads(max_age:)`. |
 | `ManifestProcessor` | Push orchestration — validation, digest computation, row-locked tag protection enforcement, manifest/layer/tag persistence, `total_size` recompute. |
-| `ImageImportService` | Reads a `docker save` tar, promotes its config and layers into the blob store, builds a V2 Schema 2 manifest, and delegates to `ManifestProcessor`. Falls back to `"imported"` / `"latest"` when `RepoTags` is missing. |
-| `ImageExportService` | Inverse of import — writes a Docker-compatible tar with `manifest.json`, `<config>.json`, and one `<layer>/layer.tar` per layer, suitable for `docker load`. |
-| `TagDiffService` | Returns `common_layers`, `removed_layers`, `added_layers`, `size_delta`, and a key-by-key `config_diff` between two manifests. |
-| `DependencyAnalyzer` | For a given repository, returns other repositories ranked by shared layer count (`shared_layers`, `total_layers`, `ratio`). Useful for blob-mount planning and deletion impact analysis. |
 
 ---
 
@@ -378,9 +374,7 @@ All models live in `app/models/`.
 | `Layer` | Join table between `Manifest` and `Blob` with `position` (0-based). Unique on `(manifest_id, position)` and `(manifest_id, blob_id)`. |
 | `BlobUpload` | Tracks chunked upload sessions: `uuid`, `byte_offset`, `repository_id`. |
 | `PullEvent` | Immutable pull audit row: `manifest_id`, `tag_name` (nil for digest pulls), `user_agent`, `remote_ip`, `occurred_at`. Pruned after 90 days. |
-| `TagEvent` | Immutable tag audit row: `action` (`create` / `update` / `delete`), `previous_digest`, `new_digest`, `actor`, `occurred_at`. `actor` holds the signed-in user's email for V2 API and Web UI changes, `"system:import"` for tar imports without a session, `"retention-policy"` for automatic expirations, and `"anonymous"` for legacy rows predating PAT auth. Retained indefinitely. |
-| `Import` | Async tar import state: `tar_path`, `repository_name`, `tag_name`, `status` (`pending` / `processing` / `completed` / `failed`), `progress`, `error_message`. |
-| `Export` | Async tar export state: `repository_id`, `tag_name`, `status`, `output_path`, `error_message`. |
+| `TagEvent` | Immutable tag audit row: `action` (`create` / `update` / `delete`), `previous_digest`, `new_digest`, `actor`, `occurred_at`. `actor` holds the signed-in user's email for V2 API and Web UI changes, `"retention-policy"` for automatic expirations, and `"anonymous"` for legacy rows predating PAT auth. Retained indefinitely. |
 
 ---
 
@@ -390,11 +384,9 @@ Managed by Solid Queue. Recurring schedules live in `config/recurring.yml`.
 
 | Job | Schedule | Purpose |
 |-----|----------|---------|
-| `CleanupOrphanedBlobsJob` | Every 30 min | (1) Delete `Blob` rows with `references_count == 0` after a reload re-check (race-safe); (2) destroy manifests with no attached tags, decrementing layer blob refs; (3) `blob_store.cleanup_stale_uploads(max_age: 1.hour)`; (4) delete completed/failed `Export` rows older than 1 hour (plus their files); (5) delete completed/failed `Import` rows older than 24 hours (plus their files). |
+| `CleanupOrphanedBlobsJob` | Every 30 min | (1) Delete `Blob` rows with `references_count == 0` after a reload re-check (race-safe); (2) destroy manifests with no attached tags, decrementing layer blob refs; (3) `blob_store.cleanup_stale_uploads(max_age: 1.hour)`. |
 | `EnforceRetentionPolicyJob` | Daily 3 AM | Runs only when `RETENTION_ENABLED=true`. Finds manifests where `last_pulled_at < now − RETENTION_DAYS_WITHOUT_PULL` (or NULL) **and** `pull_count < RETENTION_MIN_PULL_COUNT`. Skips `latest` if `RETENTION_PROTECT_LATEST=true`. Skips any tag where `repository.tag_protected?` is true. Deletes remaining tags and emits `TagEvent(action: "delete", actor: "retention-policy")`. |
 | `PruneOldEventsJob` | Daily 4 AM | Batch-deletes `PullEvent` rows with `occurred_at < 90.days.ago`. |
-| `ProcessTarImportJob` | On-demand | Transitions `Import` from `pending` → `processing` (`progress: 10`) → `completed` (`progress: 100`) or `failed`. Calls `ImageImportService`. |
-| `PrepareExportJob` | On-demand | Writes a tar to `<STORAGE_PATH>/tmp/exports/` and transitions `Export` to `completed` or `failed`. |
 | `clear_solid_queue_finished_jobs` | Hourly at :12 | Clears finished Solid Queue jobs in batches. |
 
 ---
@@ -434,7 +426,7 @@ Two independent event streams are recorded by the system:
 
 **`PullEvent` — per-pull observability.** Emitted on every `GET /v2/:name/manifests/:ref`. Captures `user_agent`, `remote_ip`, `tag_name` (nil if pulled by digest), `occurred_at`, plus the associated `manifest_id` and `repository_id`. Pruned after 90 days by `PruneOldEventsJob`.
 
-**`TagEvent` — immutable change log.** Emitted by `ManifestProcessor` (create/update), `V2::ManifestsController#destroy` (delete, one per attached tag), `TagsController#destroy` (Web UI delete), and `EnforceRetentionPolicyJob` (delete, actor `"retention-policy"`). The `actor` column records the signed-in user's email for authenticated V2 / Web UI changes, `"system:import"` for `ProcessTarImportJob` runs without a session, `"retention-policy"` for auto-expirations, and `"anonymous"` for legacy rows. Surfaced in the Web UI on the tag history page via the `TagEvent#display_actor` helper (which wraps system actors in angle brackets, e.g. `<system: retention-policy>`). Not auto-pruned.
+**`TagEvent` — immutable change log.** Emitted by `ManifestProcessor` (create/update), `V2::ManifestsController#destroy` (delete, one per attached tag), `TagsController#destroy` (Web UI delete), and `EnforceRetentionPolicyJob` (delete, actor `"retention-policy"`). The `actor` column records the signed-in user's email for authenticated V2 / Web UI changes, `"retention-policy"` for auto-expirations, and `"anonymous"` for legacy rows. Surfaced in the Web UI on the tag history page via the `TagEvent#display_actor` helper (which wraps system actors in angle brackets, e.g. `<system: retention-policy>`). Not auto-pruned.
 
 ---
 
@@ -506,22 +498,15 @@ app/
 │       └── tags_controller.rb
 ├── models/                           # ActiveRecord models
 │   ├── repository.rb, manifest.rb, tag.rb, blob.rb, layer.rb
-│   ├── blob_upload.rb, tag_event.rb, pull_event.rb
-│   └── import.rb, export.rb
+│   └── blob_upload.rb, tag_event.rb, pull_event.rb
 ├── services/
 │   ├── blob_store.rb                 # Content-addressable filesystem storage
 │   ├── digest_calculator.rb          # SHA-256 computation and verification
-│   ├── manifest_processor.rb         # Manifest validation, metadata extraction
-│   ├── image_import_service.rb       # Docker tar → registry import
-│   ├── image_export_service.rb       # Registry → Docker tar export
-│   ├── tag_diff_service.rb           # Layer/config comparison between tags
-│   └── dependency_analyzer.rb        # Shared layer analysis across repos
+│   └── manifest_processor.rb         # Manifest validation, metadata extraction
 ├── jobs/
 │   ├── cleanup_orphaned_blobs_job.rb
 │   ├── enforce_retention_policy_job.rb
-│   ├── prune_old_events_job.rb
-│   ├── process_tar_import_job.rb
-│   └── prepare_export_job.rb
+│   └── prune_old_events_job.rb
 ├── javascript/controllers/
 │   ├── search_controller.js          # Debounced Turbo Frame search
 │   ├── clipboard_controller.js       # Copy docker pull command
