@@ -110,4 +110,49 @@ class V2::BlobUploadsControllerTest < ActionDispatch::IntegrationTest
     assert_response 204
     assert_nil BlobUpload.find_by(uuid: uuid)
   end
+
+  # ---------------------------------------------------------------------------
+  # Stage 2: first-pusher-owner + write authz
+  # ---------------------------------------------------------------------------
+
+  test "POST /v2/:name/blobs/uploads creates repo with current_user as owner" do
+    repo_name = "fp-owner-#{SecureRandom.hex(4)}"
+    refute Repository.exists?(name: repo_name)
+
+    post "/v2/#{repo_name}/blobs/uploads", headers: basic_auth_for
+    assert_response 202
+
+    repo = Repository.find_by!(name: repo_name)
+    assert_equal identities(:tonny_google).id, repo.owner_identity_id
+  end
+
+  test "POST /v2/:name/blobs/uploads by non-member of existing repo returns 403" do
+    owner_identity = identities(:tonny_google)
+    repo = Repository.create!(
+      name: "fp-nonmember-#{SecureRandom.hex(4)}",
+      owner_identity: owner_identity
+    )
+
+    post "/v2/#{repo.name}/blobs/uploads",
+         headers: basic_auth_for(pat_raw: ADMIN_CLI_RAW, email: "admin@timberay.com")
+    assert_response 403
+    assert_equal "DENIED", JSON.parse(response.body)["errors"][0]["code"]
+  end
+
+  test "POST /v2/:name/blobs/uploads by writer member of existing repo returns 202" do
+    owner_identity = identities(:tonny_google)
+    repo = Repository.create!(
+      name: "fp-writer-#{SecureRandom.hex(4)}",
+      owner_identity: owner_identity
+    )
+    RepositoryMember.create!(
+      repository: repo,
+      identity: identities(:admin_google),
+      role: "writer"
+    )
+
+    post "/v2/#{repo.name}/blobs/uploads",
+         headers: basic_auth_for(pat_raw: ADMIN_CLI_RAW, email: "admin@timberay.com")
+    assert_response 202
+  end
 end

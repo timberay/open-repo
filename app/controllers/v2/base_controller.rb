@@ -1,4 +1,6 @@
 class V2::BaseController < ActionController::API
+  include RepositoryAuthorization
+
   before_action :set_registry_headers
   before_action :authenticate_v2_basic!, unless: :anonymous_pull_allowed?
 
@@ -12,6 +14,15 @@ class V2::BaseController < ActionController::API
   rescue_from Registry::DigestMismatch, with: ->(e) { render_error("DIGEST_INVALID", e.message, 400) }
   rescue_from Registry::Unsupported, with: ->(e) { render_error("UNSUPPORTED", e.message, 415) }
   rescue_from Registry::TagProtected, with: ->(e) { render_error("DENIED", e.message, 409, detail: e.detail) }
+  rescue_from Auth::Unauthenticated, with: ->(_e) { render_v2_challenge }
+  rescue_from Auth::ForbiddenAction, with: ->(e) {
+    render_error(
+      "DENIED",
+      "insufficient_scope: #{e.action} privilege required on repository '#{e.repository.name}'",
+      403,
+      detail: { action: e.action.to_s, repository: e.repository.name }
+    )
+  }
 
   def index
     render json: {}

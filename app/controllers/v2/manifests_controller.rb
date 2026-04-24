@@ -3,6 +3,8 @@ class V2::ManifestsController < V2::BaseController
     "application/vnd.docker.distribution.manifest.v2+json"
   ].freeze
 
+  before_action :set_repository_for_authz, only: [ :update, :destroy ]
+
   def show
     repository = find_repository!
     manifest = find_manifest!(repository, params[:reference])
@@ -42,20 +44,18 @@ class V2::ManifestsController < V2::BaseController
   end
 
   def destroy
-    repository = find_repository!
-    manifest = find_manifest!(repository, params[:reference])
+    manifest = find_manifest!(@repository, params[:reference])
 
-    # Decision 1-B: whether reference is a digest or a tag name, if ANY tag
-    # connected to this manifest is protected, block the delete.
-    manifest.tags.each { |tag| repository.enforce_tag_protection!(tag.name) }
+    manifest.tags.each { |tag| @repository.enforce_tag_protection!(tag.name) }
 
     manifest.tags.each do |tag|
       TagEvent.create!(
-        repository: repository,
+        repository: @repository,
         tag_name: tag.name,
         action: "delete",
         previous_digest: manifest.digest,
         actor: current_user.email,
+        actor_identity_id: current_user.primary_identity_id,
         occurred_at: Time.current
       )
     end
@@ -71,6 +71,14 @@ class V2::ManifestsController < V2::BaseController
   end
 
   private
+
+  def set_repository_for_authz
+    @repository = find_repository!
+    case action_name
+    when "update"  then authorize_for!(:write)
+    when "destroy" then authorize_for!(:delete)
+    end
+  end
 
   def find_manifest!(repository, reference)
     if reference.start_with?("sha256:")

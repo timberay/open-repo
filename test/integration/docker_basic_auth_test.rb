@@ -47,6 +47,7 @@ class DockerBasicAuthTest < ActionDispatch::IntegrationTest
     @blob_store.put(@layer_digest, StringIO.new(@layer_content))
     Blob.create!(digest: @config_digest, size: config_content.bytesize)
     Blob.create!(digest: @layer_digest, size: @layer_content.bytesize)
+    Repository.create!(name: @repo_name, owner_identity: identities(:tonny_google))
   end
 
   teardown do

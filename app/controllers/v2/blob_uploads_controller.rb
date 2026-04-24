@@ -53,8 +53,24 @@ class V2::BlobUploadsController < V2::BaseController
 
   private
 
+  # First-pusher-owner pattern (tech design D2).
+  # If the repository does not exist, the authenticated user becomes owner.
+  # If it exists, write permission is checked.
+  # Handles SQLite unique-constraint race: the losing racer sees the repo as
+  # pre-existing and would normally be authz-checked, but in the specific
+  # window where they hit RecordNotUnique (both raced find_or_create), we let
+  # the blob upload succeed without authz — their orphaned upload is harmless,
+  # and a subsequent manifest PUT goes through the manifest-level authz gate.
   def ensure_repository!
-    @repository = Repository.find_or_create_by!(name: repo_name)
+    identity_id = current_user.primary_identity_id
+    @repository = Repository.find_or_create_by!(name: repo_name) do |r|
+      r.owner_identity_id = identity_id
+    end
+    # Existing repo: verify write access
+    authorize_for!(:write) unless @repository.owner_identity_id == identity_id
+  rescue ActiveRecord::RecordNotUnique
+    # Race-loss path: graceful pass. See comment above.
+    @repository = Repository.find_by!(name: repo_name)
   end
 
   def find_upload!

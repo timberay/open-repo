@@ -1,4 +1,6 @@
 class V2::BlobsController < V2::BaseController
+  before_action :set_repository_for_delete_authz, only: [ :destroy ]
+
   def show
     find_repository!
     blob = Blob.find_by!(digest: params[:digest])
@@ -20,12 +22,18 @@ class V2::BlobsController < V2::BaseController
   end
 
   def destroy
-    find_repository!
     blob = Blob.find_by!(digest: params[:digest])
     BlobStore.new.delete(blob.digest)
     blob.destroy!
     head :accepted
   rescue ActiveRecord::RecordNotFound
     raise Registry::BlobUnknown, "blob '#{params[:digest]}' not found"
+  end
+
+  private
+
+  def set_repository_for_delete_authz
+    @repository = find_repository!
+    authorize_for!(:delete)
   end
 end

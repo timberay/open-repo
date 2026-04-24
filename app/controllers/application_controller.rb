@@ -1,8 +1,16 @@
 class ApplicationController < ActionController::Base
+  include RepositoryAuthorization
+
   # Only allow modern browsers supporting webp images, web push, badges, import maps, CSS nesting, and CSS :has.
   allow_browser versions: :modern
 
   helper_method :current_user, :signed_in?
+
+  rescue_from Auth::Unauthenticated, with: -> { redirect_to "/auth/google_oauth2" }
+  rescue_from Auth::ForbiddenAction, with: ->(e) {
+    redirect_to repository_path(e.repository.name),
+                alert: "You don't have permission to #{e.action} in '#{e.repository.name}'."
+  }
 
   private
 

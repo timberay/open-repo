@@ -90,7 +90,10 @@ jobs:
       - name: Critical gap tests (hard gate)
         env:
           RAILS_ENV: test
+          REGISTRY_ADMIN_EMAIL: admin@timberay.com
         run: |
           bin/rails test \
             test/integration/anonymous_pull_regression_test.rb \
-            test/integration/docker_basic_auth_test.rb
+            test/integration/docker_basic_auth_test.rb \
+            test/integration/retention_ownership_interaction_test.rb \
+            test/integration/first_pusher_race_test.rb

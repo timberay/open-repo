@@ -49,6 +49,34 @@
 
 ---
 
+## Completion Status (PR-2, 2026-04-24)
+
+**PR-2:** 10 commits on `feature/registry-auth-stage2-pr2`, full suite 457 runs / 1081 assertions / 0 failures / 0 errors / 1 skip. Awaiting CI green + merge.
+
+**Scope deviations actually shipped vs. original plan text:**
+
+1. **Task 2.3 — commit scope 2 → 4 files.** In addition to `app/controllers/v2/manifests_controller.rb` + `test/controllers/v2/manifests_controller_test.rb`, the `before_action :set_repository_for_authz` gate forced test-side adaptation in two other files that pushed to a still-absent `"test-repo"` via `basic_auth_for`: `test/controllers/v2/base_controller_test.rb` (TagProtected setup) and `test/integration/docker_basic_auth_test.rb` (happy-path push). Both added `owner_identity: identities(:tonny_google)` or pre-created the repo so tonny owns it; no production code changes outside the manifests controller. Also corrected a typo in the plan's test block: `TagEvent.order(:created_at)` → `order(:occurred_at)` (tag_events has no `created_at`).
+2. **Task 2.5 — race-loser 403 bug (discovered by Task 2.8).** The original `ensure_repository!` called `authorize_for!(:write)` inside the `rescue ActiveRecord::RecordNotUnique` branch. That made the concurrent-first-push LOSER a 403 (they hit the rescue, then failed authz because the winner now owns the repo). This contradicted Task 2.8's Scenario 1 `[202, 202]` expectation. Resolved with a separate `fix(registry):` commit that drops the authz call from the race branch — the race-loser's blob upload is harmless (orphan sweeper handles it) and any subsequent manifest PUT still goes through the manifest-level authz gate. Not a behavior change to non-racing traffic.
+3. **Task 2.6 — deleted an obsolete test.** `test "unsigned destroy falls back to actor: 'anonymous'"` was removed. Its premise (anonymous delete with `actor: "anonymous"` fallback) is incompatible with the new `authorize_for!(:delete)` gate, which requires authentication. Controller now uses `current_user.primary_identity.email` directly, no nil-fallback branch.
+4. **NOT NULL + `optional: true` removal (flagged for PR-1 → PR-2) DEFERRED again.** ~20 callsites still create repos without `owner_identity` (primarily `test/models/repository_test.rb`, `test/services/manifest_processor_test.rb`, `test/services/dependency_analyzer_test.rb`, and a few controller tests that cover orthogonal concerns like search, protection, maintainer). Each needs an `owner_identity:` keyword added. The invariant is semantically safe right now — with first-pusher-owner live (Task 2.5), every new production repo is owned at creation; legacy nil-owner repos are effectively read-only because `writable_by?` / `deletable_by?` both return false when `owner_identity_id` is nil and there are no members. Making the column NOT NULL is hygiene, not security, so it can live on a follow-up PR that focuses purely on test cleanup + migration.
+
+**Commits on branch (oldest → newest):**
+- `d4a1179` feat(registry): V2::BaseController — include RepositoryAuthorization + rescue_from ForbiddenAction
+- `1652f49` feat(registry): ApplicationController + RepositoriesController — authz enforcement on destroy
+- `85652ab` feat(registry): V2::ManifestsController — authorize_for! + actor_identity_id threading
+- `c055ae9` feat(registry): V2::BlobsController#destroy — authorize_for!(:delete)
+- `0262a92` feat(registry): V2::BlobUploadsController — first-pusher-owner + authorize_for!(:write)
+- `441413a` feat(registry): TagsController#destroy — authorize_for!(:delete) + actor_identity_id
+- `d9a1e3a` test(registry): retention_ownership_interaction — Critical Gap #1 (Stage 2)
+- `1ecf9c4` fix(registry): ensure_repository! — race-loser gets graceful blob-upload pass
+- `f0f31d4` test(registry): first_pusher_race — Critical Gap #2 (Stage 2)
+- `e5546cc` ci(registry): add Stage 2 critical gap tests to CI hard gate
+
+**Follow-up PR (post-Stage-2):**
+- `ChangeOwnerIdentityToNotNullOnRepositories` migration + drop `optional: true` from `Repository.belongs_to :owner_identity` + update all `Repository.create!` callsites in tests to supply `owner_identity`. Purely hygiene; no security or behavior impact.
+
+---
+
 ## PR 분할 근거
 
 | PR | 성격 | 내용 |
