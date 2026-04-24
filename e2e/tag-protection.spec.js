@@ -44,29 +44,27 @@ test.describe('Tag Protection', () => {
     await signIn(page, ownerUserId);
   });
 
-  test('policy save reflects 🔒 badge and disabled delete button', async ({ page }) => {
+  test('policy save reflects protected badge on matching tags only', async ({ page }) => {
     await page.goto(`/repositories/${repoName}`);
 
-    // Scope to the desktop CSS grid; the template also renders a mobile card stack
-    // in the DOM, so we must narrow the locator to avoid strict-mode violations.
-    const desktopList = page.locator('.hidden.md\\:block').first();
-    const protectedRow = desktopList.locator(`a:has-text("${protectedTag}")`).locator('..');
-    await expect(protectedRow.getByText('🔒 Protected')).toBeVisible();
+    const protectedRow = page.locator(`[data-testid="tag-row"][data-tag-name="${protectedTag}"]`);
+    await expect(protectedRow.locator('[data-testid="tag-protected-badge"]')).toBeVisible();
 
-    const floatingRow = desktopList.locator(`a:has-text("${floatingTag}")`).locator('..');
-    await expect(floatingRow.getByText('🔒 Protected')).toHaveCount(0);
+    const floatingRow = page.locator(`[data-testid="tag-row"][data-tag-name="${floatingTag}"]`);
+    await expect(floatingRow.locator('[data-testid="tag-protected-badge"]')).toHaveCount(0);
   });
 
   test('protected tag delete button on repo show is disabled with tooltip', async ({ page }) => {
     await page.goto(`/repositories/${repoName}`);
-    const desktopList = page.locator('.hidden.md\\:block').first();
-    const protectedRow = desktopList.locator('.grid.border-t').filter({ hasText: protectedTag });
-    await expect(protectedRow.getByTitle(/Change the repository's tag protection policy/)).toBeVisible();
+    const protectedRow = page.locator(`[data-testid="tag-row"][data-tag-name="${protectedTag}"]`);
+    const disabled = protectedRow.locator('[data-testid="tag-delete-disabled"]');
+    await expect(disabled).toBeVisible();
+    await expect(disabled).toHaveAttribute('title', /Change the repository's tag protection policy/);
   });
 
   test('protected tag detail page shows disabled delete button', async ({ page }) => {
     await page.goto(`/repositories/${repoName}/tags/${protectedTag}`);
-    const btn = page.getByText('Delete tag (protected)');
+    const btn = page.locator('[data-testid="tag-delete-protected"]');
     await expect(btn).toBeVisible();
     await expect(btn).toHaveAttribute('title', /Change the repository's tag protection policy/);
   });
