@@ -103,7 +103,7 @@
            data-controller="clipboard"
            data-clipboard-text-value="<%= docker_pull_command(@repository.name, @tags.first.name) %>">
         <code class="flex-1 min-w-0 overflow-x-auto whitespace-nowrap text-sm font-mono text-slate-800 dark:text-blue-300"><%= docker_pull_command(@repository.name, @tags.first.name) %></code>
-        <button data-action="click->clipboard#copy" class="flex-shrink-0 p-2 rounded-md text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors duration-150" aria-label="Copy command">
+        <button data-action="click->clipboard#copy" data-testid="copy-pull-command" class="flex-shrink-0 p-2 rounded-md text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors duration-150" aria-label="Copy command">
           <%= heroicon "clipboard", class: "w-5 h-5" %>
         </button>
       </div>
@@ -113,22 +113,24 @@
 
 <%# Tags list — desktop CSS Grid %>
 <% if @tags.any? %>
-  <div class="hidden md:block rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+  <div class="hidden md:block rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden" data-testid="tags-table">
     <%# Header %>
     <div class="grid bg-slate-100 dark:bg-slate-800/80"
          style="grid-template-columns: minmax(120px, 1fr) 140px 100px 120px 80px minmax(100px, 1fr) 100px">
-      <div class="px-4 py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Tag</div>
-      <div class="px-4 py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Digest</div>
-      <div class="px-4 py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Size</div>
-      <div class="px-4 py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Arch</div>
-      <div class="px-4 py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Pulls</div>
-      <div class="px-4 py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Updated</div>
-      <div class="px-4 py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">Actions</div>
+      <div class="px-4 py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider" data-testid="tags-header-cell" data-col="tag">Tag</div>
+      <div class="px-4 py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider" data-testid="tags-header-cell" data-col="digest">Digest</div>
+      <div class="px-4 py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider" data-testid="tags-header-cell" data-col="size">Size</div>
+      <div class="px-4 py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider" data-testid="tags-header-cell" data-col="arch">Arch</div>
+      <div class="px-4 py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider" data-testid="tags-header-cell" data-col="pulls">Pulls</div>
+      <div class="px-4 py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider" data-testid="tags-header-cell" data-col="updated">Updated</div>
+      <div class="px-4 py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right" data-testid="tags-header-cell" data-col="actions">Actions</div>
     </div>
     <%# Body rows %>
     <% @tags.each do |tag| %>
       <div class="grid border-t border-slate-100 dark:border-slate-700/50 hover:bg-slate-50/50 dark:hover:bg-slate-700/50 transition-colors"
-           style="grid-template-columns: minmax(120px, 1fr) 140px 100px 120px 80px minmax(100px, 1fr) 100px">
+           style="grid-template-columns: minmax(120px, 1fr) 140px 100px 120px 80px minmax(100px, 1fr) 100px"
+           data-testid="tag-row"
+           data-tag-name="<%= tag.name %>">
         <div class="px-4 py-3">
           <div class="flex items-center gap-2">
             <%= link_to tag.name, repository_tag_path(@repository.name, tag),
@@ -138,7 +140,8 @@
                     variant: :warning,
                     icon: "lock-closed",
                     role: "img",
-                    "aria-label": "Protected tag (policy: #{@repository.tag_protection_policy})"
+                    "aria-label": "Protected tag (policy: #{@repository.tag_protection_policy})",
+                    data: { testid: "tag-protected-badge" }
                   )) { "Protected" } %>
             <% end %>
           </div>
@@ -161,13 +164,14 @@
         <div class="px-4 py-3 flex items-center justify-end">
           <% if @repository.tag_protected?(tag.name) %>
             <span class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-400 dark:text-slate-500 cursor-not-allowed"
-                  title="Change the repository's tag protection policy to delete this tag.">
+                  title="Change the repository's tag protection policy to delete this tag."
+                  data-testid="tag-delete-disabled">
               <%= heroicon "trash", class: "w-4 h-4" %>
               Delete
             </span>
           <% else %>
             <%= button_to repository_tag_path(@repository.name, tag), method: :delete,
-              data: { turbo_confirm: "Delete tag '#{tag.name}'? This action cannot be undone." },
+              data: { turbo_confirm: "Delete tag '#{tag.name}'? This action cannot be undone.", testid: "tag-delete" },
               class: "inline-flex items-center justify-center font-medium rounded-md transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:ring-offset-2 dark:focus-visible:ring-blue-400/50 dark:focus-visible:ring-offset-slate-900 text-blue-600 hover:text-blue-700 underline-offset-4 hover:underline dark:text-blue-400 dark:hover:text-blue-300 h-8 px-3 text-sm gap-2" do %>
               <%= heroicon "trash", class: "w-4 h-4" %>
               Delete

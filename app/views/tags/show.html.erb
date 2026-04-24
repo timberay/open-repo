@@ -35,7 +35,7 @@
          data-controller="clipboard"
          data-clipboard-text-value="<%= docker_pull_command(@repository.name, @tag.name) %>">
       <code class="flex-1 min-w-0 overflow-x-auto whitespace-nowrap text-sm font-mono text-slate-800 dark:text-blue-300"><%= docker_pull_command(@repository.name, @tag.name) %></code>
-      <button data-action="click->clipboard#copy" class="flex-shrink-0 p-2 rounded-md text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors duration-150" aria-label="Copy command">
+      <button data-action="click->clipboard#copy" data-testid="copy-pull-command" class="flex-shrink-0 p-2 rounded-md text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors duration-150" aria-label="Copy command">
         <%= heroicon "clipboard", class: "w-5 h-5" %>
       </button>
     </div>
@@ -51,7 +51,8 @@
     </p>
     <% if @repository.tag_protected?(@tag.name) %>
       <span class="inline-flex items-center gap-2 h-10 px-4 text-base font-medium text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 rounded-md cursor-not-allowed shrink-0"
-            title="Change the repository's tag protection policy to delete this tag.">
+            title="Change the repository's tag protection policy to delete this tag."
+            data-testid="tag-delete-protected">
         <%= heroicon "trash", class: "w-5 h-5" %>
         Delete tag (protected)
       </span>
