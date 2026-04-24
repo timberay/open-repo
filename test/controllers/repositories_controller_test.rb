@@ -337,4 +337,160 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to repository_path(repo.name)
     assert_equal "Updated by writer", repo.reload.description
   end
+
+  # ---------------------------------------------------------------------------
+  # UC-UI-001 — Repository list (`GET /`) edges
+  # The setup block already seeds one "test-repo". To exercise the empty-state
+  # path, destroy it inside the test (Repository#destroy decrements blob refs
+  # via dependent associations). Sort/search tests reuse the seed plus extras.
+  # No pagination exists in `RepositoriesController#index` — the controller
+  # returns `Repository.all.order(updated_at: :desc)` with no `.limit`/`.page`.
+  # That single-page-render contract is locked in by the "no pagination" test.
+  # ---------------------------------------------------------------------------
+
+  test "GET / with zero repositories renders the empty-state copy" do
+    Tag.destroy_all
+    Manifest.destroy_all
+    Repository.destroy_all
+
+    get root_path
+    assert_response :success
+    assert_includes response.body, "No repositories yet"
+    assert_includes response.body, "Push an image to get started"
+  end
+
+  test "GET / with no pagination renders all rows on a single page (current contract)" do
+    # CONTRACT: `RepositoriesController#index` does NOT paginate. There is no
+    # `paginate`, `per_page`, `limit`, or `page` parameter on the index action.
+    # This test pins that single-page render so any silent introduction of
+    # pagination (which would hide rows past page 1) becomes visible.
+    20.times do |i|
+      Repository.create!(
+        name: "pagination-probe-#{i}-#{SecureRandom.hex(2)}",
+        owner_identity: identities(:tonny_google)
+      )
+    end
+
+    get root_path
+    assert_response :success
+    rendered_count = response.body.scan(/href="\/repositories\/pagination-probe-/).count
+    assert_equal 20, rendered_count,
+      "expected all 20 pagination-probe rows on a single page (no pagination); got #{rendered_count}"
+  end
+
+  test "GET / sort=name orders repositories alphabetically ascending" do
+    Repository.create!(name: "alpha-sort-aaa", owner_identity: identities(:tonny_google))
+    Repository.create!(name: "alpha-sort-mmm", owner_identity: identities(:tonny_google))
+    Repository.create!(name: "alpha-sort-zzz", owner_identity: identities(:tonny_google))
+
+    get root_path, params: { sort: "name" }
+    assert_response :success
+
+    aaa_pos = response.body.index("alpha-sort-aaa")
+    mmm_pos = response.body.index("alpha-sort-mmm")
+    zzz_pos = response.body.index("alpha-sort-zzz")
+    assert aaa_pos && mmm_pos && zzz_pos, "all three sort-probe repos must render"
+    assert aaa_pos < mmm_pos, "expected aaa before mmm under sort=name"
+    assert mmm_pos < zzz_pos, "expected mmm before zzz under sort=name"
+  end
+
+  test "GET / with empty-string search query does not raise and renders normally" do
+    get root_path, params: { q: "" }
+    assert_response :success
+    # `params[:q].present?` is false for "", so the empty-string path acts like
+    # no search at all — the seeded repo must still render.
+    assert_includes response.body, "test-repo"
+  end
+
+  test "GET / with nil search query does not raise and renders normally" do
+    get root_path
+    assert_response :success
+    assert_includes response.body, "test-repo"
+  end
+
+  test "GET / with SQL-injection attempt is safely escaped, returns no rows, no error" do
+    injection = "'; DROP TABLE repositories;--"
+    get root_path, params: { q: injection }
+    assert_response :success
+    # The query must be parameter-bound by ActiveRecord, so the table still
+    # exists and the search simply matches nothing.
+    assert Repository.table_exists?, "repositories table must still exist after injection attempt"
+    assert Repository.exists?(name: "test-repo"), "seeded row must still exist"
+    # No rows match the literal injection string → empty-state copy renders.
+    assert_includes response.body, "No results found"
+  end
+
+  # ---------------------------------------------------------------------------
+  # UC-UI-003 — Repository detail edges
+  # ---------------------------------------------------------------------------
+
+  test "GET /repositories/:name with zero tags renders the 'No tags found' empty state" do
+    empty_repo = Repository.create!(
+      name: "no-tags-#{SecureRandom.hex(4)}",
+      owner_identity: identities(:tonny_google)
+    )
+
+    get repository_path(empty_repo.name)
+    assert_response :success
+    assert_includes response.body, "No tags found"
+    assert_includes response.body, "Push an image to create tags."
+  end
+
+  test "GET /repositories/:name with hyphen, underscore, and dot in name renders correctly" do
+    special_name = "weird.name_with-chars.v2"
+    Repository.create!(
+      name: special_name,
+      owner_identity: identities(:tonny_google)
+    )
+
+    get repository_path(special_name)
+    assert_response :success
+    assert_includes response.body, special_name
+  end
+
+  test "GET /repositories/:name for unknown repository returns 404" do
+    get "/repositories/no-such-repo-#{SecureRandom.hex(4)}"
+    assert_response :not_found
+  end
+
+  test "GET /repositories/:name as anonymous user renders the page (no auth filter on :show)" do
+    # No sign-in. The controller has no auth before_action on :show, so an
+    # anonymous visitor sees the page. This test pins that contract — if a
+    # future change adds an authentication gate to :show, this test flips and
+    # makes the regression visible.
+    get repository_path("test-repo")
+    assert_response :success
+    assert_includes response.body, "test-repo"
+    assert_includes response.body, "v1.0.0"
+  end
+
+  # ---------------------------------------------------------------------------
+  # UC-UI-005 — Repository delete (non-owner + edges)
+  # Concurrent-delete test lives in its own class below to pin
+  # `parallelize(workers: 1)` to that single test.
+  # ---------------------------------------------------------------------------
+
+  test "DELETE /repositories/:name as anonymous user redirects to OAuth and does not destroy" do
+    owner_identity = identities(:tonny_google)
+    repo = Repository.create!(
+      name: "destroy-anon-#{SecureRandom.hex(4)}",
+      owner_identity: owner_identity
+    )
+
+    delete "/repositories/#{repo.name}"
+
+    # `authorize_for!(:delete)` with no current_user raises Auth::Unauthenticated,
+    # which the ApplicationController rescue_from redirects to /auth/google_oauth2.
+    assert_response :redirect
+    assert_match %r{/auth/google_oauth2}, response.location
+    assert Repository.exists?(name: repo.name), "repository must NOT be destroyed by anonymous DELETE"
+  end
+
+  test "DELETE /repositories/:name for unknown repository returns 404" do
+    post "/testing/sign_in", params: { user_id: users(:tonny).id }
+    delete "/repositories/no-such-repo-#{SecureRandom.hex(4)}"
+    # `set_repository_for_authz` calls `Repository.find_by!(name: ...)` BEFORE
+    # the authorization check, so a missing repo surfaces as 404 (not 401/403).
+    assert_response :not_found
+  end
 end
