@@ -156,4 +156,62 @@ class Auth::SessionCreatorTest < ActiveSupport::TestCase
       assert_raises(Auth::EmailMismatch) { Auth::SessionCreator.new.call(profile) }
     end
   end
+
+  # UC-AUTH-017.e1 — existing user with verified email re-signs in succeeds.
+  test "UC-AUTH-017.e1 — existing verified identity re-sign-in succeeds (no new identity)" do
+    existing = identities(:tonny_google)
+    profile = profile_for(identity: existing) # email_verified: true via helper
+
+    assert_no_difference -> { Identity.count } do
+      assert_no_difference -> { User.count } do
+        user = Auth::SessionCreator.new.call(profile)
+        assert_equal existing.user, user
+      end
+    end
+  end
+
+  # UC-AUTH-017.e2 — DOCUMENTED SECURITY GAP (TEST_PLAN UC-AUTH-017.e2).
+  # Case A finds the identity by (provider, uid) and short-circuits without
+  # re-checking `email_verified` or comparing the incoming email to the stored
+  # one. This regression-canary locks in current (gap-included) behavior: a
+  # provider-side email change with email_verified=false still succeeds.
+  # When the gap is closed (re-verify on every Case A sign-in), this test
+  # MUST flip to expect `Auth::EmailMismatch` — making it a deliberate canary
+  # for the future fix.
+  test "UC-AUTH-017.e2 — Case A skips email_verified re-check (DOCUMENTED GAP)" do
+    existing = identities(:tonny_google)
+    profile = Auth::ProviderProfile.new(
+      provider: existing.provider,
+      uid: existing.uid,
+      email: "tonny+changed@timberay.com", # email changed at Google
+      email_verified: false,                # and no longer verified
+      name: existing.name,
+      avatar_url: nil
+    )
+
+    assert_nothing_raised do
+      user = Auth::SessionCreator.new.call(profile)
+      assert_equal existing.user, user
+    end
+  end
+
+  # UC-AUTH-017.e2 companion — sanity check that Case A also bypasses the
+  # email-verified gate when the flag IS true. Proves Case A doesn't even
+  # consult `email_verified` for already-matched identities (contrast with .e1).
+  test "UC-AUTH-017.e2 companion — Case A succeeds when email changed but verified=true" do
+    existing = identities(:tonny_google)
+    profile = Auth::ProviderProfile.new(
+      provider: existing.provider,
+      uid: existing.uid,
+      email: "tonny+rotated@timberay.com",
+      email_verified: true,
+      name: existing.name,
+      avatar_url: nil
+    )
+
+    assert_nothing_raised do
+      user = Auth::SessionCreator.new.call(profile)
+      assert_equal existing.user, user
+    end
+  end
 end
