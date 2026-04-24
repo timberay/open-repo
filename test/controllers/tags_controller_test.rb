@@ -213,4 +213,92 @@ class TagsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, "create"
   end
+
+  # ---------------------------------------------------------------------------
+  # UC-UI-006: GET /repositories/:repository_name/tags/:name (Wave 6 — pin edges)
+  # ---------------------------------------------------------------------------
+
+  test "UC-UI-006 GET tag with zero layers renders without crash and shows Layers (0) header" do
+    # @tag's @manifest from setup has no layers attached.
+    assert_equal 0, @manifest.layers.count
+
+    get "/repositories/#{@repo.name}/tags/#{@tag.name}"
+
+    assert_response :success
+    # Locked-in empty-state UI: header still rendered with parenthesized count "(0)".
+    assert_match(/Layers \(0\)/, response.body)
+  end
+
+  test "UC-UI-006 GET tag with 50 layers renders all of them in :position order" do
+    # DigestComponent renders the FIRST 12 hex chars after "sha256:" — so each
+    # blob digest must differ within those leading 12 chars to be uniquely identifiable
+    # in the response body.
+    blobs = Array.new(50) do |i|
+      prefix = i.to_s(16).rjust(12, "0") # 000000000000, 000000000001, ..., 000000000031
+      Blob.create!(digest: "sha256:#{prefix}#{"a" * 52}", size: 1024 + i)
+    end
+    # Insert in REVERSE order to prove the controller sorts by position, not by id/created_at.
+    49.downto(0) do |i|
+      Layer.create!(manifest: @manifest, blob: blobs[i], position: i)
+    end
+
+    get "/repositories/#{@repo.name}/tags/#{@tag.name}"
+
+    assert_response :success
+    assert_match(/Layers \(50\)/, response.body)
+
+    short_digests = blobs.map { |b| b.digest.delete_prefix("sha256:")[0, 12] }
+    short_digests.each do |sd|
+      assert_includes response.body, sd, "expected layer digest #{sd} to be rendered"
+    end
+
+    # Order: position 0 must appear before position 49 in the response body
+    # (the desktop grid iterates @layers in ASC order, so first-occurrence index works).
+    pos0_idx  = response.body.index(short_digests[0])
+    pos49_idx = response.body.index(short_digests[49])
+    assert pos0_idx, "position-0 digest should be rendered"
+    assert pos49_idx, "position-49 digest should be rendered"
+    assert pos0_idx < pos49_idx,
+      "layers should render in position ASC order (pos 0 before pos 49)"
+  end
+
+  test "UC-UI-006 GET unknown tag for known repo returns 404" do
+    get "/repositories/#{@repo.name}/tags/no-such-tag-xyz"
+    assert_response :not_found
+  end
+
+  test "UC-UI-006 GET tag with special-char name (v1.0.0-rc.1) round-trips per route constraint" do
+    # Route constraint allows /[a-zA-Z0-9._:-]+/ — exercise dots, hyphens, alphanumerics.
+    special_tag = @repo.tags.create!(name: "v1.0.0-rc.1", manifest: @manifest)
+
+    get "/repositories/#{@repo.name}/tags/#{special_tag.name}"
+
+    assert_response :success
+    # The h1 renders "<repo>:<tag>" — confirm the special-char tag round-tripped through routing intact.
+    assert_includes response.body, "#{@repo.name}:v1.0.0-rc.1"
+  end
+
+  test "UC-UI-006 GET tag as anonymous (signed-out) renders successfully — Web UI does not gate by anonymous_pull_enabled" do
+    # Drop the session set by the setup block. TagsController#show has zero auth filter.
+    reset!
+
+    get "/repositories/#{@repo.name}/tags/#{@tag.name}"
+
+    assert_response :success
+    # Confirm we got the actual page, not a redirect to OAuth.
+    assert_includes response.body, "#{@repo.name}:#{@tag.name}"
+  end
+
+  test "UC-UI-006 GET tag as anonymous still renders even when anonymous_pull_enabled is false (Web UI is independent of V2 flag)" do
+    # Pin behavior: the V2 anonymous_pull_enabled flag does NOT affect Web UI tag pages.
+    Rails.configuration.x.registry.anonymous_pull_enabled = false
+    reset!
+
+    get "/repositories/#{@repo.name}/tags/#{@tag.name}"
+
+    assert_response :success
+    assert_includes response.body, "#{@repo.name}:#{@tag.name}"
+  ensure
+    Rails.configuration.x.registry.anonymous_pull_enabled = true
+  end
 end
