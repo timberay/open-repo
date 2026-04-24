@@ -12,11 +12,17 @@ class RackAttackV2ThrottleTest < ActionDispatch::IntegrationTest
     Rack::Attack.enabled = true
     Rack::Attack.reset!
 
+    # Pin the fixed-window key to a single minute so a 30-request loop that
+    # straddles a wall-clock minute boundary cannot split the counter and
+    # silently grant a fresh budget mid-test.
+    travel_to Time.current.beginning_of_minute
+
     @storage_dir = Dir.mktmpdir
     Rails.configuration.storage_path = @storage_dir
   end
 
   teardown do
+    travel_back
     Rack::Attack.cache.store = @original_store
     Rack::Attack.enabled = @original_enabled
     FileUtils.rm_rf(@storage_dir)
