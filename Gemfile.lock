@@ -442,7 +442,6 @@ DEPENDENCIES
   debug
   importmap-rails
   jbuilder
-  jwt
   kamal
   omniauth (~> 2.1)
   omniauth-google-oauth2
