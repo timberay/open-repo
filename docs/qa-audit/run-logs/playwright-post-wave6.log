@@ -1,0 +1,25 @@
+[1A[2K[chromium] › e2e/search.spec.js:44:3 › Repository Search › should sort repositories
+
+
+[1A[2K[chromium] › e2e/tag-details.spec.js:22:3 › Tag Details › should display repository details page
+
+
+[1A[2K[13/21] [chromium] › e2e/tag-details.spec.js:36:3 › Tag Details › should display tag rows
+[1A[2K[14/21] [chromium] › e2e/tag-details.spec.js:47:3 › Tag Details › should navigate back to repository list
+[1A[2K[15/21] [chromium] › e2e/tag-protection.spec.js:47:3 › Tag Protection › policy save reflects protected badge on matching tags only
+[1A[2K[16/21] [chromium] › e2e/tag-details.spec.js:27:3 › Tag Details › should display tags table
+[1A[2K[chromium] › e2e/tag-details.spec.js:36:3 › Tag Details › should display tag rows
+
+
+[1A[2K[chromium] › e2e/tag-details.spec.js:47:3 › Tag Details › should navigate back to repository list
+
+
+[1A[2K[chromium] › e2e/tag-protection.spec.js:47:3 › Tag Protection › policy save reflects protected badge on matching tags only
+
+
+[1A[2K[17/21] [chromium] › e2e/tag-details.spec.js:42:3 › Tag Details › should display a copy button for the pull command
+[1A[2K[18/21] [chromium] › e2e/tag-protection.spec.js:57:3 › Tag Protection › protected tag delete button on repo show is disabled with tooltip
+[1A[2K[19/21] [chromium] › e2e/tag-protection.spec.js:65:3 › Tag Protection › protected tag detail page shows disabled delete button
+[1A[2K[20/21] [chromium] › e2e/tag-protection.spec.js:72:3 › Tag Protection › custom_regex shows regex input, non-custom hides it
+[1A[2K[21/21] [chromium] › e2e/tag-protection.spec.js:85:3 › Tag Protection › invalid regex surfaces validation error
+[1A[2K  21 passed (12.6s)

@@ -1,0 +1,20 @@
+=== rubocop ===
+.................................................................................................................................................................
+
+161 files inspected, no offenses detected
+
+=== brakeman ===
+Security Warnings: 0
+Ignored Warnings: 1
+
+== Warning Types ==
+
+
+No warnings found
+
+
+=== bundler-audit ===
+No vulnerabilities found
+
+=== importmap audit ===
+No vulnerable packages found
