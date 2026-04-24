@@ -4,8 +4,12 @@ Rails.application.routes.draw do
   get    "/auth/failure",            to: "auth/sessions#failure", as: :auth_failure
   delete "/auth/sign_out",           to: "auth/sessions#destroy", as: :sign_out
 
-  # Test-only signin helper
-  if Rails.env.test?
+  # Test-only signin helper.
+  # Mounted in Rails.env.test? (used by Minitest integration suites) and in
+  # Rails.env.development? when USE_MOCK_REGISTRY=true (used by Playwright E2E,
+  # which boots a development server — see playwright.config.js). NEVER mounted
+  # in production: the ENV guard plus the env check together prevent leakage.
+  if Rails.env.test? || (Rails.env.development? && ENV["USE_MOCK_REGISTRY"] == "true")
     post "/testing/sign_in", to: "testing#sign_in"
   end
 
