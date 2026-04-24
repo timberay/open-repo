@@ -269,6 +269,29 @@ class V2::ManifestPushEdgesTest < ActionDispatch::IntegrationTest
   end
 
   # ---------------------------------------------------------------------------
+  # e15 invariant — two-segment namespace (`org/repo`) is the supported maximum
+  # by deliberate design (operator-confirmed: this is an internal single-tenant
+  # registry, not GCR/Harbor with project hierarchies). config/routes.rb only
+  # defines `:name` and `:ns/:name` scopes. Three-segment paths like
+  # `org/team/app` MUST be rejected at the router (404), not silently routed
+  # to a V2 controller. If this test ever fails, someone added a multi-segment
+  # route — verify intent before letting it land.
+  # ---------------------------------------------------------------------------
+  test "e15 invariant — three-segment paths return 404 at the router (no V2 routing)" do
+    %w[manifests/v1 blobs/sha256:abc tags/list blobs/uploads].each do |suffix|
+      get "/v2/org/team/app/#{suffix}", headers: basic_auth_for
+      assert_response :not_found,
+        "GET /v2/org/team/app/#{suffix} should be rejected by the router (got #{response.status})"
+    end
+
+    put "/v2/org/team/app/manifests/v1.0.0",
+        params: build_manifest_payload(layer_digest: @layer_digest, layer_size: @layer_content.bytesize),
+        headers: { "CONTENT_TYPE" => MEDIA_TYPE }.merge(basic_auth_for)
+    assert_response :not_found,
+      "PUT /v2/org/team/app/manifests/v1.0.0 should be rejected by the router (got #{response.status})"
+  end
+
+  # ---------------------------------------------------------------------------
   # e16 — schemaVersion: 1 in body, valid v2 Content-Type. The schema check
   # in ManifestProcessor runs BEFORE the controller's Content-Type gate would
   # reject anything (and Content-Type is the supported v2 type anyway), so

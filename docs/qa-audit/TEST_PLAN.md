@@ -87,7 +87,7 @@
   - **e12**: empty layers array (valid per spec) → 201.
   - **e13**: missing config field → 400 + `MANIFEST_INVALID`.
   - **e14**: malformed config JSON (blob content) → architecture/os fallback to nil; manifest still succeeds.
-  - **e15**: namespace repo manifest push succeeds. **Note**: `config/routes.rb` defines `:name` and `:ns/:name` scopes only — three-segment names like `org/team/app` are intentionally rejected by route constraint. Two-segment form (`org/app`) is the supported maximum and is covered by `test/controllers/v2/manifest_push_edges_test.rb`. Original three-segment wording was a TEST_PLAN error, corrected 2026-04-24.
+  - **e15**: namespace repo manifest push succeeds. **Operator-confirmed design (2026-04-24)**: this is an internal single-tenant registry; two-segment form (`org/app`) is the supported maximum, three-segment paths (`org/team/app`) are intentionally rejected at the router. Both the happy path AND the rejection invariant are pinned in `test/controllers/v2/manifest_push_edges_test.rb` so an accidental future routing change surfaces immediately. Original three-segment wording was a TEST_PLAN error.
   - **e16**: Content-Type header mismatch with payload schema — schema check runs before content-type rejection.
 
 ### UC-V2-006: Manifest delete (`DELETE /v2/:name/manifests/:reference`)
