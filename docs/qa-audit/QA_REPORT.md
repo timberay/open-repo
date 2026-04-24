@@ -1,22 +1,23 @@
 # QA Audit Report
 
-**Date:** 2026-04-24 (initial audit) · Wave 1 + Wave 2-A follow-ups appended same day
+**Date:** 2026-04-24 (initial audit) · Wave 1 + Wave 2-A + Wave 2-B follow-ups appended same day
 **Scope:** Entire application (V2 Registry API, Web UI, Auth, Background jobs)
 **Method:** Feature inventory → use-case catalog → coverage gap analysis → automated suite execution
 
-## Headline numbers (post Wave 2-A — 2026-04-24)
+## Headline numbers (post Wave 2-B — 2026-04-24)
 
 | Suite | Result | Detail | Δ vs initial |
 |---|---|---|---|
-| Ruby (Minitest) | ✅ PASS | 462 runs, 1103 assertions, 0 failures, 0 errors, 1 skip | +14 runs, +48 assertions |
+| Ruby (Minitest) | ✅ PASS | 468 runs, 1176 assertions, 0 failures, 0 errors, 1 skip | +20 runs, +121 assertions |
 | Static analysis (rubocop / brakeman / bundler-audit / importmap) | ✅ PASS | Brakeman 0 warnings, no vulnerable deps | unchanged |
 | Playwright E2E | ✅ PASS | 21 passed, 0 failed, 0 did not run | +15 passing (full suite green) |
-| Test-plan coverage | ⚠️ ~88% | CSRF + PruneOldEvents now covered; UC-AUTH-013 ❌→✅, UC-JOB-003 ❌→✅ | +2 UCs |
+| Test-plan coverage | ✅ ~92% | V2 throttle + tag-protection mount-bypass now covered; UC-AUTH-012.e3 ❌→✅, UC-AUTH-014 ❌→✅ | +4 UCs total |
 
 Trend snapshot:
 - Initial: Ruby 448/1055 · E2E 6 passed, 11 failed, 4 did not run · coverage 83% (48/58).
 - Post Wave 1: Ruby 462/1103 · E2E 10 passed, 7 failed, 4 did not run · coverage 88%.
 - Post Wave 2-A: Ruby 462/1103 · E2E 21 passed, 0 failed, 0 did not run · coverage 88%.
+- Post Wave 2-B: Ruby 468/1176 · E2E 21 passed, 0 failed, 0 did not run · coverage ~92%.
 
 ## Wave 1 — resolution status
 
@@ -44,6 +45,17 @@ All four residual E2E failures called out in the Wave 1 "Residual E2E failures" 
 | 5 | `search.spec.js:44` sort-order drift (expected `backend-api` first) | ✅ **FIXED** | `a182439` | Assertion relaxed to relative ordering (`backend-api` before `frontend-web`); no dependency on dev-DB contents |
 
 With the tag-details, tag-protection, dark-mode, and search specs all green, the E2E ship-readiness row flips to ✅. The Feature-by-feature table below is updated in-place to reflect that.
+
+## Wave 2-B — resolution status
+
+Two MEDIUM-severity test-coverage gaps flagged in the initial audit (`GAP_ANALYSIS.md` lines 104 and 106) were closed with integration-level security tests. No production code changed — both new specs asserted the existing defenses and went green on first run. Verification: post-wave2b Ruby log at `docs/qa-audit/run-logs/ruby-tests-post-wave2b.log` (468 runs, 1176 assertions, 0 failures, 0 errors, 1 skip).
+
+| # | Gap | Status | Commit(s) | Evidence |
+|---|---|---|---|---|
+| 1 | UC-AUTH-012.e3 — V2 non-GET 30/min rack-attack throttle was unverified; a regex typo in `v2_protected_by_ip` could silently disable it | ✅ **FIXED** | `df37b03` | `test/integration/rack_attack_v2_throttle_test.rb` — 3 cases (31st POST returns 429 + `Retry-After: 60` + `TOO_MANY_REQUESTS`; GET `/v2/_catalog` not bound by the mutation limiter; counter is IP-scoped) |
+| 2 | UC-AUTH-014 — tag-protection bypass via blob mount was zero-coverage; the threat was flagged at `discovery/auth.md:171` | ✅ **FIXED** | `3f1704d` | `test/integration/v2_tag_protection_mount_bypass_test.rb` — 3 cases (writer-level attacker's PUT on protected tag after mount returns 409 `DENIED`; tag still points to original manifest; non-member attacker gets 403 before reaching the mount step). Defense lives at `ManifestProcessor#enforce_tag_protection!` and is end-to-end verified at the HTTP boundary |
+
+With these two rows flipping ❌→✅, the remaining uncovered UCs in the feature-by-feature table drop to the intentionally-deferred set (UC-UI-008 tag history, UC-UI-009 Help controller, UC-AUTH-015 visibility by design, UC-JOB-001 edges, UC-AUTH-016 session hygiene) — i.e. nothing load-bearing.
 
 ## Residual E2E failures (resolved — see Wave 2-A above)
 
