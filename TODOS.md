@@ -19,24 +19,6 @@ re-reading the original review.
 
 ---
 
-## [P2] JWT signing key rotation procedure
-
-**What:** Stage 1 의 RS256 JWT 서명 키 (config/credentials.yml.enc 에 저장) 를 유출 시 무중단 교체하는 절차 문서화 + 선택적으로 dual-key window 지원 구현.
-
-**Why:** 초기 설계는 정적 키 + 명시적 `iss`/`aud` ENV. 하지만 키가 유출되면 즉시 교체 가능한 경로가 없음. 현재는 교체 시 발급된 JWT 전부 무효화 + 전 CI 재로그인 필요 → 대규모 중단.
-
-**Pros:** 보안 사건 대응력. GitHub/GitLab 수준의 운영 신뢰성.
-
-**Cons:** dual-key 구현은 TokenIssuer+TokenVerifier 에 key-id(kid) 지원 추가 필요. 복잡도 증가.
-
-**Context:** `/plan-eng-review` 2026-04-23 Architecture A3 에서 도출. 설계에 "future work" 로 명시됨. 키 유출이 아직 일어나지 않은 시점에서는 정적 키 단일 구성으로 충분.
-
-**Depends on / blocked by:** Stage 1 배포 완료 후.
-
-**Source:** `/plan-eng-review` on `~/.gstack/projects/timberay-open-repo/tonny-chore-design-review-polish-design-20260423-103952.md`.
-
----
-
 ## [P2] NAT-aware /v2/token throttling for CI
 
 **What:** rack-attack 의 `/v2/token` 제한을 IP 단독에서 `(username, ip)` 쌍 또는 `PAT prefix + ip` 로 변경. 사내 CI 팜이 NAT 뒤 공유 IP 에서 다수 파이프라인을 돌리는 경우에만 필요.
