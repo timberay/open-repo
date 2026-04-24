@@ -204,12 +204,12 @@
 
 ### UC-V2-016: Tag protection atomicity
 
-- **Preconditions**: repo with protected-tag policy; two simultaneous PUT manifest requests.
-- **Steps**: race them.
-- **Expected**: at most one succeeds; no orphan manifest rows (tag-protection checked inside `repository.with_lock` before `manifest.save!`).
+- **Preconditions**: repo with protected-tag policy; an existing tag pointing at a baseline manifest; two simultaneous PUT manifest requests against that tag.
+- **Steps**: race them inside `repository.with_lock`.
+- **Expected**: at most one new manifest row ever lands while the tag is mutated; the surviving tag never points at a digest that bypassed `enforce_tag_protection!`.
 - **Edge cases**:
-  - **e1**: both with same digest (idempotent) → both 201, same manifest.
-  - **e2**: both different digests on protected tag → one 201, one 409.
+  - **e1**: both PUTs carry the **same digest** as the existing tag (idempotent CI retry) → both 201, no new Manifest row, tag unchanged.
+  - **e2**: one PUT carries the **baseline digest** (idempotent path → 201), the other carries a **fresh digest** (denied path → 409 `DENIED`). Tag never flips to the loser's digest, no orphan Manifest row from the loser. The "both differ from baseline AND from each other" reading is unsatisfiable: `enforce_tag_protection!` denies *any* non-idempotent write to a protected tag, so symmetric-difference racers would both 409 with no atomicity signal to assert. The implemented baseline-vs-fresh shape is the only one that exercises the load-bearing invariant (protection check + `manifest.save!` atomic under `with_lock`).
 
 ---
 

@@ -1,0 +1,21 @@
+
+Run options: --seed 49411
+
+# Running:
+
+........................................................................................................................................................S..................................................................S.................................................................................................................................................................................................................................................D, [2026-04-24T13:51:03.583410 #36395] DEBUG -- omniauth: (google_oauth2) Request phase initiated.
+D, [2026-04-24T13:51:03.585040 #36395] DEBUG -- omniauth: (google_oauth2) Request phase initiated.
+D, [2026-04-24T13:51:03.587200 #36395] DEBUG -- omniauth: (google_oauth2) Request phase initiated.
+D, [2026-04-24T13:51:03.588497 #36395] DEBUG -- omniauth: (google_oauth2) Request phase initiated.
+D, [2026-04-24T13:51:03.590541 #36395] DEBUG -- omniauth: (google_oauth2) Request phase initiated.
+D, [2026-04-24T13:51:03.592892 #36395] DEBUG -- omniauth: (google_oauth2) Request phase initiated.
+D, [2026-04-24T13:51:03.595426 #36395] DEBUG -- omniauth: (google_oauth2) Request phase initiated.
+D, [2026-04-24T13:51:03.596960 #36395] DEBUG -- omniauth: (google_oauth2) Request phase initiated.
+D, [2026-04-24T13:51:03.598231 #36395] DEBUG -- omniauth: (google_oauth2) Request phase initiated.
+D, [2026-04-24T13:51:03.599941 #36395] DEBUG -- omniauth: (google_oauth2) Request phase initiated.
+..........................................
+
+Finished in 4.345224s, 115.7593 runs/s, 296.6475 assertions/s.
+503 runs, 1289 assertions, 0 failures, 0 errors, 2 skips
+
+You have skipped tests. Run with --verbose for details.

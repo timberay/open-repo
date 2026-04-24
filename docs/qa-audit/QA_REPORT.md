@@ -1,17 +1,17 @@
 # QA Audit Report
 
-**Date:** 2026-04-24 (initial audit) · Wave 1 + Wave 2-A + Wave 2-B + Wave 3 follow-ups appended same day
+**Date:** 2026-04-24 (initial audit) · Wave 1 + Wave 2-A + Wave 2-B + Wave 3 + Wave 4 follow-ups appended same day
 **Scope:** Entire application (V2 Registry API, Web UI, Auth, Background jobs)
 **Method:** Feature inventory → use-case catalog → coverage gap analysis → automated suite execution
 
-## Headline numbers (post Wave 3 — 2026-04-24)
+## Headline numbers (post Wave 4 — 2026-04-24)
 
 | Suite | Result | Detail | Δ vs initial |
 |---|---|---|---|
-| Ruby (Minitest) | ✅ PASS | 490 runs, 1259 assertions, 0 failures, 0 errors, 2 skips | +42 runs, +204 assertions |
+| Ruby (Minitest) | ✅ PASS | 503 runs, 1289 assertions, 0 failures, 0 errors, 2 skips | +55 runs, +234 assertions |
 | Static analysis (rubocop / brakeman / bundler-audit / importmap) | ✅ PASS | Brakeman 0 warnings, no vulnerable deps | unchanged |
 | Playwright E2E | ✅ PASS | 21 passed, 0 failed, 0 did not run | +15 passing (full suite green) |
-| Test-plan coverage | ✅ ~97% | UC-UI-008, UC-UI-009, UC-AUTH-016, UC-V2-005.e11–.e16, UC-V2-016 all flipped ❌→✅ | +5 UCs / 22 cases |
+| Test-plan coverage | ✅ ~99% | UC-JOB-001 (.e1/.e3/.e5 + cleanup_stale_uploads happy/edge), UC-AUTH-006/007/017 all flipped ❌/🟡→✅; one production fix (BlobStore Time.parse rescue) shipped alongside | +9 UCs / 35 cases |
 
 Trend snapshot:
 - Initial: Ruby 448/1055 · E2E 6 passed, 11 failed, 4 did not run · coverage 83% (48/58).
@@ -19,6 +19,7 @@ Trend snapshot:
 - Post Wave 2-A: Ruby 462/1103 · E2E 21 passed, 0 failed, 0 did not run · coverage 88%.
 - Post Wave 2-B: Ruby 468/1176 · E2E 21 passed, 0 failed, 0 did not run · coverage ~92%.
 - Post Wave 3: Ruby 490/1259 · E2E 21 passed, 0 failed, 0 did not run · coverage ~97%.
+- Post Wave 4: Ruby 503/1289 · E2E 21 passed, 0 failed, 0 did not run · coverage ~99%.
 
 ## Wave 1 — resolution status
 
@@ -72,6 +73,21 @@ Five remaining UCs (the post-2-B "intentionally deferred" set, plus the two larg
 | 6 | Pre-existing flake — `rack_attack_v2_throttle_test.rb#test_throttle_counter_is_per-IP` failed under full-suite seed 182 because the 30-request loop straddled a wall-clock minute boundary, splitting the fixed-window counter | ✅ **FIXED** | `ff5c528` | `travel_to Time.current.beginning_of_minute` in setup; verified deterministic |
 
 Post-Wave-3, the only remaining uncovered UCs are by-design (UC-AUTH-015 visibility — single-tenant public-only) or low-stakes secondary edges (UC-JOB-001 cleanup-blob concurrency edges, scattered V2 .e* across pull/blob endpoints, model destroy-cascade ivars). Coverage is no longer load-bearing.
+
+## Wave 4 — resolution status
+
+Three remaining UCs (UC-JOB-001 edges, PAT lifecycle UC-AUTH-006/007, email re-verify UC-AUTH-017) and one TEST_PLAN clarification were closed in three parallel sub-agents. One real production bug surfaced and was fixed inline (TDD red→green): `BlobStore#cleanup_stale_uploads` did not rescue `Time.parse`, so a corrupt `startedat` file would crash the daily cleanup cron. Two regression-canary tests intentionally lock in documented gaps so future fixes are observable. Verification: post-wave4 Ruby log at `docs/qa-audit/run-logs/ruby-tests-post-wave4.log` (503 runs, 1289 assertions, 0 failures, 0 errors, 2 skips).
+
+| # | Gap | Status | Commit(s) | Evidence |
+|---|---|---|---|---|
+| 1 | UC-JOB-001 edges (.e1 mid-loop refs_count, .e3 missing FS file, .e5 unparseable startedat) + cleanup_stale_uploads happy/edge | ✅ **FIXED** (incl. prod fix) | `8174da9` | `test/jobs/cleanup_orphaned_blobs_job_test.rb` 5 new cases. Production fix: `app/services/blob_store.rb` now rescues `ArgumentError`/`TypeError` from `Time.parse` and skips the dir, matching TEST_PLAN's "skipped silently" expectation |
+| 2 | UC-AUTH-006 expired PAT boundary + UC-AUTH-007 revoke lifecycle | ✅ **FIXED** | `563f555` | `test/integration/pat_lifecycle_test.rb` 5 cases. Confirmed `.active` scope's strict `>` boundary on `expires_at`; confirmed `last_used_at` stamping on the prior in-flight request before revoke; nil expiry tested at +100y |
+| 3 | UC-AUTH-017 email re-verification at sign-in (.e1 happy + .e2 documented gap) | ✅ **FIXED** (canary) | `e49bdf4` | `test/services/auth/session_creator_test.rb` 3 cases. Case A (existing `provider:uid` identity) skips `email_verified` re-check AND never compares incoming email to stored identity.email — broader gap than the spec stated. Inline canary comment marks the test to flip when the gap is closed |
+| 4 | TEST_PLAN UC-V2-016.e2 spec was unsatisfiable as written | ✅ **CLARIFIED** | (this commit) | `docs/qa-audit/TEST_PLAN.md` reworded to acknowledge `enforce_tag_protection!` denies any non-idempotent write; spec'd shape is now baseline-vs-fresh racer (matches the implemented Wave 3 test) |
+
+Production-code change in this wave: 1 file, 7 lines (`app/services/blob_store.rb` rescue + comment). Brakeman + bundler-audit unchanged (no new dependency surface).
+
+After Wave 4 the only outstanding work is opportunistic — assorted V2 pull/blob/upload-cancel `.e*` cases, Identity/RepositoryMember destroy-cascade behavior, scattered model edge cases — none load-bearing. Two known security gaps are now under regression canaries: Case A email-re-verify (UC-AUTH-017.e2) and force_ssl mid-process toggle (UC-AUTH-016, documented skip).
 
 ## Residual E2E failures (resolved — see Wave 2-A above)
 
@@ -195,8 +211,8 @@ Legend: ✅ green = happy path + edge cases both covered and passing · 🟡 yel
 | Auth | OAuth failure page (UC-AUTH-003) | ✅ | — | Strategy messages partial | 🟡 |
 | Auth | V2 HTTP Basic — valid PAT (UC-AUTH-004) | ✅ | — | Happy + case-insensitive | ✅ |
 | Auth | V2 HTTP Basic — invalid/missing (UC-AUTH-005) | ✅ | — | 7 edges, most covered | ✅ |
-| Auth | Expired PAT (UC-AUTH-006) | ✅ | — | Boundary edge uncovered | 🟡 |
-| Auth | Revoked PAT (UC-AUTH-007) | ✅ | — | Mid-request race edges uncovered | 🟡 |
+| Auth | Expired PAT (UC-AUTH-006) | ✅ | — | Strict-`>` boundary verified (Wave 4) | ✅ |
+| Auth | Revoked PAT (UC-AUTH-007) | ✅ | — | Revoke-then-401 + in-flight 200 + last_used_at stamping (Wave 4) | ✅ |
 | Auth | Authorization — write (UC-AUTH-008) | ✅ | — | Owner/writer/admin covered | ✅ |
 | Auth | Authorization — delete (UC-AUTH-009) | ✅ | — | Writer/admin/owner covered | ✅ |
 | Auth | Anonymous pull gating (UC-AUTH-010) | ✅ | — | Full regression matrix | ✅ |
@@ -206,14 +222,14 @@ Legend: ✅ green = happy path + edge cases both covered and passing · 🟡 yel
 | Auth | Tag-protection bypass via mount (UC-AUTH-014) | ❌ | — | **No test** | 🔴 |
 | Auth | Repository visibility (UC-AUTH-015) | ⚠️ | — | No private/public gating (by design) | 🟡 |
 | Auth | Session cookie hygiene (UC-AUTH-016) | ✅ | — | HttpOnly + SameSite=Lax + session-id rotation + sign-out invalidation (Wave 3) | ✅ |
-| Auth | Email verification at sign-in (UC-AUTH-017) | ✅ | — | Email-change re-verify edge uncovered | 🟡 |
+| Auth | Email verification at sign-in (UC-AUTH-017) | ✅ | — | Re-verify gap pinned by regression canary (Wave 4) | ✅ |
 | Auth | **RepositoriesController#update unprotected** | ❌ | ❌ | **CRITICAL — see top finding** | 🔴 |
 
 ### Jobs
 
 | Area | Feature | Ruby test | E2E test | Covered by test plan | Ship-readiness |
 |---|---|---|---|---|---|
-| Jobs | CleanupOrphanedBlobsJob (UC-JOB-001) | ⚠️ | — | Happy path only; 6 edges uncovered | 🟡 |
+| Jobs | CleanupOrphanedBlobsJob (UC-JOB-001) | ✅ | — | e1/e3/e5 + prod fix (Wave 4); e2/e4/e6 deferred as known gaps | ✅ |
 | Jobs | EnforceRetentionPolicyJob (UC-JOB-002) | ✅ | — | Many edges covered; regex / semver boundary partial | ✅ |
 | Jobs | PruneOldEventsJob (UC-JOB-003) | ❌ | — | **No test file at all** | 🔴 |
 
