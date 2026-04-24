@@ -188,7 +188,7 @@
 - **Steps**: `DELETE /v2/<name>/blobs/uploads/<uuid>`.
 - **Expected**: 204 No Content. BlobStore upload dir + DB row removed.
 - **Edge cases**:
-  - **e1**: unknown UUID → still 204 (idempotent per discovery).
+  - **e1**: unknown UUID → 404 BLOB_UPLOAD_UNKNOWN. (Originally specced as "still 204 (idempotent)" — reality is 404 because `find_upload!` raises before the destroy can run; first DELETE is 204, second DELETE on the same UUID is 404. Rewritten 2026-04-24 after `test/controllers/v2/blob_upload_edges_test.rb` pinned actual behavior.)
   - **e2**: cancel then PATCH → 404.
   - **e3**: unauthenticated → 401.
 
