@@ -2,7 +2,7 @@ require "test_helper"
 
 class BlobUploadTest < ActiveSupport::TestCase
   def repository
-    @repository ||= Repository.create!(name: "test-repo")
+    @repository ||= Repository.create!(name: "test-repo", owner_identity: identities(:tonny_google))
   end
 
   test "validations requires uuid" do

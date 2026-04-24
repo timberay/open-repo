@@ -102,7 +102,7 @@ class DockerBasicAuthTest < ActionDispatch::IntegrationTest
   test "GET manifest without Authorization returns 200 when anonymous_pull_enabled" do
     Rails.configuration.x.registry.anonymous_pull_enabled = true
 
-    anon_repo = Repository.create!(name: "anon-basic-#{@suffix}")
+    anon_repo = Repository.create!(name: "anon-basic-#{@suffix}", owner_identity: identities(:tonny_google))
     anon_manifest = anon_repo.manifests.create!(
       digest: "sha256:anon#{SecureRandom.hex(8)}",
       media_type: "application/vnd.docker.distribution.manifest.v2+json",

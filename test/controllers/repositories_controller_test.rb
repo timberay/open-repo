@@ -2,7 +2,7 @@ require "test_helper"
 
 class RepositoriesControllerTest < ActionDispatch::IntegrationTest
   setup do
-    @repo = Repository.create!(name: "test-repo", description: "Test", maintainer: "Team A")
+    @repo = Repository.create!(name: "test-repo", description: "Test", maintainer: "Team A", owner_identity: identities(:tonny_google))
     @manifest = Manifest.create!(repository: @repo, digest: "sha256:abc", media_type: "application/vnd.docker.distribution.manifest.v2+json", payload: "{}", size: 100)
     @tag = Tag.create!(repository: @repo, manifest: @manifest, name: "v1.0.0")
   end
@@ -39,7 +39,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "renders protected badge with lock-closed heroicon, no emoji, text-sm" do
-    protected_repo = Repository.create!(name: "protected-repo", tag_protection_policy: "semver")
+    protected_repo = Repository.create!(name: "protected-repo", tag_protection_policy: "semver", owner_identity: identities(:tonny_google))
     protected_manifest = Manifest.create!(repository: protected_repo, digest: "sha256:def", media_type: "application/vnd.docker.distribution.manifest.v2+json", payload: "{}", size: 200)
     Tag.create!(repository: protected_repo, manifest: protected_manifest, name: "v1.0.0")
 
@@ -125,7 +125,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "omits the card bottom row entirely when the repository has no maintainer" do
-    Repository.create!(name: "no-maintainer", maintainer: nil)
+    Repository.create!(name: "no-maintainer", maintainer: nil, owner_identity: identities(:tonny_google))
     get root_path
     assert_response :success
     no_maintainer_card = response.body.match(
@@ -158,14 +158,14 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "PATCH /repositories/:name persists tag_protection_policy when set to semver" do
-    protection_repo = Repository.create!(name: "example")
+    protection_repo = Repository.create!(name: "example", owner_identity: identities(:tonny_google))
     patch "/repositories/#{protection_repo.name}",
       params: { repository: { tag_protection_policy: "semver" } }
     assert_equal "semver", protection_repo.reload.tag_protection_policy
   end
 
   test "PATCH /repositories/:name persists tag_protection_pattern when policy is custom_regex" do
-    protection_repo = Repository.create!(name: "example")
+    protection_repo = Repository.create!(name: "example", owner_identity: identities(:tonny_google))
     patch "/repositories/#{protection_repo.name}",
       params: { repository: { tag_protection_policy: "custom_regex", tag_protection_pattern: '^release-\d+$' } }
     assert_equal "custom_regex", protection_repo.reload.tag_protection_policy
@@ -173,21 +173,21 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "PATCH /repositories/:name clears pattern when policy reverts from custom_regex" do
-    protection_repo = Repository.create!(name: "example", tag_protection_policy: "custom_regex", tag_protection_pattern: "^v.+$")
+    protection_repo = Repository.create!(name: "example", tag_protection_policy: "custom_regex", tag_protection_pattern: "^v.+$", owner_identity: identities(:tonny_google))
     patch "/repositories/#{protection_repo.name}",
       params: { repository: { tag_protection_policy: "semver", tag_protection_pattern: "^v.+$" } }
     assert_nil protection_repo.reload.tag_protection_pattern
   end
 
   test "PATCH /repositories/:name rejects invalid regex" do
-    protection_repo = Repository.create!(name: "example")
+    protection_repo = Repository.create!(name: "example", owner_identity: identities(:tonny_google))
     patch "/repositories/#{protection_repo.name}",
       params: { repository: { tag_protection_policy: "custom_regex", tag_protection_pattern: "[unclosed" } }
     assert_equal "none", protection_repo.reload.tag_protection_policy
   end
 
   test "PATCH /repositories/:name renders 422 with the validation message when regex is invalid" do
-    protection_repo = Repository.create!(name: "example")
+    protection_repo = Repository.create!(name: "example", owner_identity: identities(:tonny_google))
     patch "/repositories/#{protection_repo.name}",
       params: { repository: { tag_protection_policy: "custom_regex", tag_protection_pattern: "[unclosed" } }
     assert_response :unprocessable_content
@@ -195,7 +195,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "PATCH /repositories/:name does not crash when the invalid in-memory state touches tags in the view" do
-    protection_repo = Repository.create!(name: "example")
+    protection_repo = Repository.create!(name: "example", owner_identity: identities(:tonny_google))
     protection_repo.manifests.create!(
       digest: "sha256:showcrash", media_type: "application/vnd.docker.distribution.manifest.v2+json",
       payload: "{}", size: 2

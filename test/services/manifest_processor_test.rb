@@ -134,7 +134,7 @@ class ManifestProcessorTest < ActiveSupport::TestCase
   # Tag protection tests
 
   test "call with tag protection same digest re-push succeeds" do
-    repo = Repository.create!(name: "test-repo")
+    repo = Repository.create!(name: "test-repo", owner_identity: identities(:tonny_google))
     processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
     repo.update!(tag_protection_policy: "semver")
     repo.reload
@@ -145,7 +145,7 @@ class ManifestProcessorTest < ActiveSupport::TestCase
   end
 
   test "call with tag protection different digest push on protected tag raises Registry::TagProtected" do
-    repo = Repository.create!(name: "test-repo")
+    repo = Repository.create!(name: "test-repo", owner_identity: identities(:tonny_google))
     processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
     repo.update!(tag_protection_policy: "semver")
     repo.reload
@@ -158,7 +158,7 @@ class ManifestProcessorTest < ActiveSupport::TestCase
   end
 
   test "call with tag protection different digest push does NOT create a new manifest row" do
-    repo = Repository.create!(name: "test-repo")
+    repo = Repository.create!(name: "test-repo", owner_identity: identities(:tonny_google))
     processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
     repo.update!(tag_protection_policy: "semver")
     repo.reload
@@ -174,7 +174,7 @@ class ManifestProcessorTest < ActiveSupport::TestCase
   end
 
   test "call with tag protection different digest push does NOT increment layer blob references_count" do
-    repo = Repository.create!(name: "test-repo")
+    repo = Repository.create!(name: "test-repo", owner_identity: identities(:tonny_google))
     processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
     repo.update!(tag_protection_policy: "semver")
     repo.reload
@@ -192,7 +192,7 @@ class ManifestProcessorTest < ActiveSupport::TestCase
   end
 
   test "call with tag protection unprotected tag (latest with semver policy) permits push" do
-    repo = Repository.create!(name: "test-repo")
+    repo = Repository.create!(name: "test-repo", owner_identity: identities(:tonny_google))
     processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
     repo.update!(tag_protection_policy: "semver")
     repo.reload
@@ -203,7 +203,7 @@ class ManifestProcessorTest < ActiveSupport::TestCase
   end
 
   test "call with tag protection digest reference bypasses protection check" do
-    repo = Repository.create!(name: "test-repo")
+    repo = Repository.create!(name: "test-repo", owner_identity: identities(:tonny_google))
     processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
     repo.update!(tag_protection_policy: "semver")
     repo.reload

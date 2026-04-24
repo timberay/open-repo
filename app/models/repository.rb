@@ -1,5 +1,5 @@
 class Repository < ApplicationRecord
-  belongs_to :owner_identity, class_name: "Identity", optional: true
+  belongs_to :owner_identity, class_name: "Identity"
   has_many :repository_members, dependent: :destroy
   has_many :member_identities, through: :repository_members, source: :identity
   has_many :tags, dependent: :destroy

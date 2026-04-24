@@ -15,7 +15,10 @@ class ManifestProcessor
       raise Registry::ManifestInvalid, "layer blob not found: #{d}" unless @blob_store.exists?(d)
     end
 
-    repository = Repository.find_or_create_by!(name: repo_name)
+    repository = Repository.find_or_create_by!(name: repo_name) do |r|
+      admin_email = Rails.configuration.x.registry.admin_email
+      r.owner_identity = User.find_by!(email: admin_email).primary_identity
+    end
     digest = DigestCalculator.compute(payload)
 
     tag_name = reference if reference.present? && !reference.start_with?("sha256:")

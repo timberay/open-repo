@@ -85,7 +85,7 @@ class V2::BlobUploadsControllerTest < ActionDispatch::IntegrationTest
   test "POST /v2/:name/blobs/uploads?mount=&from= mounts existing blob from another repo" do
     content = "shared layer"
     digest = DigestCalculator.compute(content)
-    Repository.create!(name: "source-repo")
+    Repository.create!(name: "source-repo", owner_identity: identities(:tonny_google))
     Blob.create!(digest: digest, size: content.bytesize)
     BlobStore.new(@storage_dir).put(digest, StringIO.new(content))
 
