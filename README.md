@@ -76,19 +76,39 @@ Everything runs on a single Rails monolith with SQLite (Solid Cache/Queue/Cable)
 
 ## Prerequisites
 
-- Ruby 3.4+
+- Ruby **3.4.8** (pinned in `.ruby-version`). Install via `rbenv`, `asdf`, or `mise` — any of them works as long as the version matches.
 - Node.js 18+ and npm
 - SQLite3
+
+### PATH ordering (important)
+
+Your version manager's shims directory **must come before `/usr/bin`** in `PATH`. Otherwise `/usr/bin/ruby` (typically 3.3.x on Ubuntu) wins and `bundle install` installs gems against the wrong ruby, producing a confusing `Bundler::GemNotFound` later.
+
+```bash
+# rbenv example — put this in ~/.zshrc / ~/.bashrc before any /usr-bin-leading PATH tweaks
+export PATH="$HOME/.rbenv/shims:$PATH"
+ruby -v   # => ruby 3.4.8
+```
 
 ---
 
 ## Installation
+
+Run the idempotent setup script — it checks the bundle, prepares the database, and starts `bin/dev`:
+
+```bash
+bin/setup
+```
+
+Or do it by hand:
 
 ```bash
 bundle install
 npm install
 bin/rails db:prepare
 ```
+
+Additional dev commands are documented in [`docs/standards/TOOLS.md`](docs/standards/TOOLS.md).
 
 ---
 
@@ -166,6 +186,14 @@ bin/dev
 ```
 
 Starts the Rails server on http://localhost:3000 with the TailwindCSS watcher.
+
+### Running E2E tests with the right Ruby
+
+Playwright spawns a Rails process, so it must inherit a `PATH` where the rbenv (or asdf / mise) shims come first. If your shell doesn't already do this, prefix the command:
+
+```bash
+PATH="$HOME/.rbenv/shims:$PATH" npx playwright test
+```
 
 ---
 
