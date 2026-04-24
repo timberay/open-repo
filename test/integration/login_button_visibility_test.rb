@@ -16,6 +16,13 @@ class LoginButtonVisibilityTest < ActionDispatch::IntegrationTest
     assert_select "form[action='/auth/sign_out'][method='post']"
   end
 
+  test "sign-out button opts out of Turbo Drive to avoid cached signed-in preview" do
+    post "/testing/sign_in", params: { user_id: users(:tonny).id }
+    get "/"
+    assert_response :ok
+    assert_select "form[action='/auth/sign_out'] button[data-turbo='false']"
+  end
+
   test "signed-in home shows 'Tokens' link to /settings/tokens" do
     post "/testing/sign_in", params: { user_id: users(:tonny).id }
     get "/"
