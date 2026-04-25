@@ -1,0 +1,7 @@
+<% content_for :title, "Sign in" %>
+<div class="max-w-md mx-auto py-16 px-4 text-center">
+  <h1 class="text-2xl font-semibold text-slate-100 mb-6">Sign in to continue</h1>
+  <%= button_to "Sign in with Google", "/auth/google_oauth2", method: :post,
+                class: "inline-flex items-center justify-center min-h-11 px-4 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors duration-150",
+                data: { turbo: false } %>
+</div>

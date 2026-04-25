@@ -1,5 +1,6 @@
 class ApplicationController < ActionController::Base
   include RepositoryAuthorization
+  include Auth::SafeReturn
 
   # Only allow modern browsers supporting webp images, web push, badges, import maps, CSS nesting, and CSS :has.
   allow_browser versions: :modern
@@ -26,5 +27,10 @@ class ApplicationController < ActionController::Base
 
   def signed_in?
     current_user.present?
+  end
+
+  def redirect_to_sign_in!
+    session[:return_to] = request.fullpath if request.get?
+    redirect_to sign_in_path
   end
 end

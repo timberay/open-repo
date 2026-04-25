@@ -4,6 +4,10 @@ class Auth::SessionsController < ApplicationController
 
   skip_forgery_protection only: [ :create ]
 
+  def new
+    redirect_to(root_path) and return if signed_in?
+  end
+
   def create
     auth_hash = request.env["omniauth.auth"] or
       raise Auth::InvalidProfile, "missing omniauth.auth env (middleware not engaged)"

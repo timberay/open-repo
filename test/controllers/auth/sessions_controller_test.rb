@@ -68,4 +68,19 @@ class Auth::SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to root_path
     assert_equal "Sign-in failed (unknown: failed).", flash[:alert]
   end
+
+  # --- new (sign-in page) ---
+
+  test "GET /sign_in renders the sign-in page with the Google POST button" do
+    get "/sign_in"
+    assert_response :ok
+    assert_select "form[action='/auth/google_oauth2'][method='post'] button",
+                  text: /Sign in with Google/i
+  end
+
+  test "GET /sign_in redirects signed-in users to root" do
+    post "/testing/sign_in", params: { user_id: users(:tonny).id }
+    get "/sign_in"
+    assert_redirected_to root_path
+  end
 end
