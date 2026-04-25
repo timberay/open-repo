@@ -1,5 +1,6 @@
 Rails.application.routes.draw do
   # OmniAuth (Stage 0 — Google only)
+  get    "/sign_in",                 to: "auth/sessions#new",     as: :sign_in
   get    "/auth/:provider/callback", to: "auth/sessions#create",  as: :auth_callback
   get    "/auth/failure",            to: "auth/sessions#failure", as: :auth_failure
   delete "/auth/sign_out",           to: "auth/sessions#destroy", as: :sign_out

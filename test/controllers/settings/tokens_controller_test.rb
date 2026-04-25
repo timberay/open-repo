@@ -7,7 +7,7 @@ class Settings::TokensControllerTest < ActionDispatch::IntegrationTest
 
   test "GET /settings/tokens 302 without signed-in user" do
     get settings_tokens_path
-    assert_redirected_to "/auth/google_oauth2"
+    assert_redirected_to sign_in_path
   end
 
   test "GET /settings/tokens lists active + revoked tokens for current identity" do

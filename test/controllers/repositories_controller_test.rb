@@ -482,7 +482,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     # `authorize_for!(:delete)` with no current_user raises Auth::Unauthenticated,
     # which the ApplicationController rescue_from redirects to /auth/google_oauth2.
     assert_response :redirect
-    assert_match %r{/auth/google_oauth2}, response.location
+    assert_match %r{/sign_in}, response.location
     assert Repository.exists?(name: repo.name), "repository must NOT be destroyed by anonymous DELETE"
   end
 
