@@ -7,7 +7,7 @@ class ApplicationController < ActionController::Base
 
   helper_method :current_user, :signed_in?
 
-  rescue_from Auth::Unauthenticated, with: -> { redirect_to "/auth/google_oauth2" }
+  rescue_from Auth::Unauthenticated, with: :handle_unauthenticated
   rescue_from Auth::ForbiddenAction, with: ->(e) {
     redirect_to repository_path(e.repository.name),
                 alert: "You don't have permission to #{e.action} in '#{e.repository.name}'."
@@ -27,6 +27,10 @@ class ApplicationController < ActionController::Base
 
   def signed_in?
     current_user.present?
+  end
+
+  def handle_unauthenticated
+    redirect_to_sign_in!
   end
 
   def redirect_to_sign_in!

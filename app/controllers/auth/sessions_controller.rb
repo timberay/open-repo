@@ -13,10 +13,14 @@ class Auth::SessionsController < ApplicationController
       raise Auth::InvalidProfile, "missing omniauth.auth env (middleware not engaged)"
     profile = adapter_for(provider_param).to_profile(auth_hash)
     user = Auth::SessionCreator.new.call(profile)
+
+    # Pull return_to BEFORE reset_session wipes it; validate before trusting it.
+    return_to = session[:return_to]
     reset_session
     session[:user_id] = user.id
+    destination = safe_return_to(return_to) || root_path
     # Signed-in user sees their own email — intentional UX, not PII exposure.
-    redirect_to root_path, notice: "Signed in as #{user.email}"
+    redirect_to destination, notice: "Signed in as #{user.email}"
   rescue Auth::EmailMismatch => e
     Rails.logger.warn("auth: email mismatch (#{e.message})")
     redirect_to auth_failure_path(strategy: provider_param, message: "email_mismatch")

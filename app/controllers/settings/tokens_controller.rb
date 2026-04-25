@@ -37,7 +37,8 @@ module Settings
     private
 
     def ensure_current_user
-      redirect_to "/auth/google_oauth2" unless signed_in?
+      return if signed_in?
+      redirect_to_sign_in!
     end
 
     def current_identity
