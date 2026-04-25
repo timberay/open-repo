@@ -34,7 +34,10 @@ class ApplicationController < ActionController::Base
   end
 
   def redirect_to_sign_in!
-    session[:return_to] = request.fullpath if request.get?
+    # HEAD is routed identically to GET in Rails, so it is also safe to
+    # round-trip. Restricting to (get? || head?) avoids brakeman's
+    # VerbConfusion warning while still excluding non-idempotent verbs.
+    session[:return_to] = request.fullpath if request.get? || request.head?
     redirect_to sign_in_path
   end
 end
