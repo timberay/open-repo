@@ -57,6 +57,16 @@ class AnonymousRedirectTest < ActionDispatch::IntegrationTest
     repo&.destroy
   end
 
+  test "anon HEAD on a protected GET-able resource saves return_to (HEAD is safe)" do
+    mock_google_for(users(:tonny))
+
+    head "/settings/tokens"
+    assert_redirected_to sign_in_path
+
+    get "/auth/google_oauth2/callback"
+    assert_redirected_to "/settings/tokens"
+  end
+
   test "GET /sign_in is accessible to anonymous users (no auth required)" do
     get "/sign_in"
     assert_response :ok
