@@ -292,6 +292,76 @@ class V2::ManifestPushEdgesTest < ActionDispatch::IntegrationTest
   end
 
   # ---------------------------------------------------------------------------
+  # E-26 — custom_regex tag protection enforced at the PUT manifest endpoint.
+  # Model-level coverage exists (test/models/repository_test.rb), but the
+  # controller path (rescue_from Registry::TagProtected → 409 DENIED) needs
+  # an integration assertion. We seed a baseline `release-2025` tag while the
+  # policy is permissive, flip on `custom_regex` with pattern `^release-.*`,
+  # then exercise both paths:
+  #   * matching tag (different digest)  → 409 DENIED with TAG_PROTECTED detail
+  #   * non-matching tag (`dev-feature`) → 201 Created
+  # Also asserts the protected tag's digest mapping is unchanged after the
+  # rejected push (no orphan write past the protection check).
+  # ---------------------------------------------------------------------------
+  test "E-26 custom_regex tag protection denies matching push and allows non-matching push" do
+    protected_tag     = "release-2025"
+    non_matching_tag  = "dev-feature"
+
+    # 1. Seed `release-2025` while protection is off so we have a baseline
+    #    digest that subsequent (different-digest) pushes can fail against.
+    seed_payload = build_manifest_payload(layer_digest: @layer_digest, layer_size: @layer_content.bytesize)
+    put "/v2/#{@repo_name}/manifests/#{protected_tag}",
+        params: seed_payload,
+        headers: { "CONTENT_TYPE" => MEDIA_TYPE }.merge(basic_auth_for)
+    assert_response :created
+    baseline_digest = response.headers["Docker-Content-Digest"]
+    assert_match(/\Asha256:/, baseline_digest)
+
+    # 2. Turn on custom_regex protection — anything matching `^release-.*`
+    #    is now frozen (idempotent same-digest still allowed by the model).
+    @repo.update!(tag_protection_policy: "custom_regex", tag_protection_pattern: "^release-.*")
+    assert @repo.reload.tag_protected?(protected_tag)
+    refute @repo.tag_protected?(non_matching_tag)
+
+    # 3. Build a DIFFERENT digest payload and try to overwrite `release-2025`.
+    other_layer = SecureRandom.random_bytes(2048)
+    other_digest = write_blob(other_layer)
+    new_payload = build_manifest_payload(layer_digest: other_digest, layer_size: other_layer.bytesize)
+    refute_equal seed_payload, new_payload
+
+    pre_count = Manifest.count
+
+    put "/v2/#{@repo_name}/manifests/#{protected_tag}",
+        params: new_payload,
+        headers: { "CONTENT_TYPE" => MEDIA_TYPE }.merge(basic_auth_for)
+
+    assert_response :conflict
+    body = JSON.parse(response.body)
+    assert_equal "DENIED", body.dig("errors", 0, "code")
+    assert_equal protected_tag, body.dig("errors", 0, "detail", "tag")
+    assert_equal "custom_regex", body.dig("errors", 0, "detail", "policy")
+
+    # No orphan manifest row was created past the protection check.
+    assert_equal 0, Manifest.count - pre_count
+
+    # Protected tag still maps to the baseline digest (atomicity).
+    surviving_tag = @repo.tags.find_by!(name: protected_tag)
+    assert_equal baseline_digest, surviving_tag.manifest.digest
+
+    # 4. A push to a non-matching tag must succeed (policy is regex-scoped,
+    #    not a blanket freeze).
+    put "/v2/#{@repo_name}/manifests/#{non_matching_tag}",
+        params: new_payload,
+        headers: { "CONTENT_TYPE" => MEDIA_TYPE }.merge(basic_auth_for)
+    assert_response :created
+    new_tag_digest = response.headers["Docker-Content-Digest"]
+    assert_match(/\Asha256:/, new_tag_digest)
+    refute_equal baseline_digest, new_tag_digest
+
+    assert @repo.tags.exists?(name: non_matching_tag)
+  end
+
+  # ---------------------------------------------------------------------------
   # e16 — schemaVersion: 1 in body, valid v2 Content-Type. The schema check
   # in ManifestProcessor runs BEFORE the controller's Content-Type gate would
   # reject anything (and Content-Type is the supported v2 type anyway), so
