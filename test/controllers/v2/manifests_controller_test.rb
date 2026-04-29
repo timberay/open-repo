@@ -43,6 +43,61 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
     assert_match(/\Asha256:/, response.headers["Docker-Content-Digest"])
   end
 
+  test "PUT /v2/:name/manifests/:reference accepts OCI image manifest media type" do
+    put "/v2/#{@repo_name}/manifests/v1.0.0",
+        params: @manifest_payload,
+        headers: { "CONTENT_TYPE" => "application/vnd.oci.image.manifest.v1+json" }.merge(basic_auth_for)
+
+    assert_response 201
+    assert_match(/\Asha256:/, response.headers["Docker-Content-Digest"])
+    assert_equal "application/vnd.oci.image.manifest.v1+json", Manifest.last.media_type
+  end
+
+  test "GET /v2/:name/manifests/:reference returns OCI media type when stored as OCI and Accept matches" do
+    put "/v2/#{@repo_name}/manifests/v1.0.0",
+        params: @manifest_payload,
+        headers: { "CONTENT_TYPE" => "application/vnd.oci.image.manifest.v1+json" }.merge(basic_auth_for)
+
+    get "/v2/#{@repo_name}/manifests/v1.0.0",
+        headers: { "HTTP_ACCEPT" => "application/vnd.oci.image.manifest.v1+json" }
+
+    assert_response 200
+    assert_equal "application/vnd.oci.image.manifest.v1+json", response.headers["Content-Type"]
+  end
+
+  test "GET /v2/:name/manifests/:reference returns Docker media type when stored as Docker and Accept matches" do
+    put "/v2/#{@repo_name}/manifests/v1.0.0",
+        params: @manifest_payload,
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }.merge(basic_auth_for)
+
+    get "/v2/#{@repo_name}/manifests/v1.0.0",
+        headers: { "HTTP_ACCEPT" => "application/vnd.docker.distribution.manifest.v2+json" }
+
+    assert_response 200
+    assert_equal "application/vnd.docker.distribution.manifest.v2+json", response.headers["Content-Type"]
+  end
+
+  test "GET /v2/:name/manifests/:reference returns 200 when Accept header is missing or */*" do
+    put "/v2/#{@repo_name}/manifests/v1.0.0",
+        params: @manifest_payload,
+        headers: { "CONTENT_TYPE" => "application/vnd.oci.image.manifest.v1+json" }.merge(basic_auth_for)
+
+    get "/v2/#{@repo_name}/manifests/v1.0.0", headers: { "HTTP_ACCEPT" => "*/*" }
+    assert_response 200
+    assert_equal "application/vnd.oci.image.manifest.v1+json", response.headers["Content-Type"]
+  end
+
+  test "GET /v2/:name/manifests/:reference returns 406 when Accept does not include the stored media type" do
+    put "/v2/#{@repo_name}/manifests/v1.0.0",
+        params: @manifest_payload,
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }.merge(basic_auth_for)
+
+    get "/v2/#{@repo_name}/manifests/v1.0.0",
+        headers: { "HTTP_ACCEPT" => "text/plain" }
+
+    assert_response 406
+  end
+
   test "PUT /v2/:name/manifests/:reference rejects unsupported media type" do
     put "/v2/#{@repo_name}/manifests/v1",
         params: "{}",
