@@ -94,6 +94,20 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "v1.0.0", PullEvent.last.tag_name
   end
 
+  # E-38: PullEvent must capture the request's User-Agent header so we can
+  # report on which clients (docker, podman, ci runners) are pulling images.
+  test "GET /v2/:name/manifests/:reference records request user_agent on PullEvent" do
+    put "/v2/#{@repo_name}/manifests/v1.0.0",
+        params: @manifest_payload,
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }.merge(basic_auth_for)
+
+    user_agent = "docker/24.0.0 (linux)"
+    get "/v2/#{@repo_name}/manifests/v1.0.0", headers: { "HTTP_USER_AGENT" => user_agent }
+
+    assert_response :ok
+    assert_equal user_agent, PullEvent.last.user_agent
+  end
+
   test "GET /v2/:name/manifests/:reference returns 404 for unknown tag" do
     get "/v2/#{@repo_name}/manifests/nonexistent"
     assert_response 404
