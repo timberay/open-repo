@@ -87,6 +87,28 @@ class DockerBasicAuthTest < ActionDispatch::IntegrationTest
     assert_in_delta before_time.to_i, pat.last_used_at.to_i, 5
   end
 
+  # E-16: CI-kind PAT (expires_at: nil) Basic auth → 201 + TagEvent.actor = owner email.
+  # Mirrors Scenario 2 but uses tonny_ci_never_expires (kind: ci, expires_at: nil)
+  # to assert non-expiring CI tokens are accepted on the same Basic-auth path.
+  test "PUT with valid CI-kind PAT (no expiration) returns 201 and records TagEvent actor as owner email" do
+    pat = personal_access_tokens(:tonny_ci_never_expires)
+    assert_equal "ci", pat.kind
+    assert_nil   pat.expires_at, "fixture invariant: ci PAT must have no expiration"
+
+    assert_difference -> { TagEvent.count }, +1 do
+      put "/v2/#{@repo_name}/manifests/v1.0.0",
+          params: @manifest_payload,
+          headers: {
+            "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json"
+          }.merge(basic_auth_for(pat_raw: TONNY_CI_RAW, email: "tonny@timberay.com"))
+    end
+
+    assert_response 201
+
+    event = TagEvent.order(:occurred_at).last
+    assert_equal "tonny@timberay.com", event.actor
+  end
+
   # Scenario 3: revoked PAT → 401
   test "PUT with revoked PAT returns 401" do
     put "/v2/#{@repo_name}/manifests/v1.0.0",
