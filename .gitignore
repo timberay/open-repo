@@ -106,6 +106,7 @@ Thumbs.db
 # Claude Code runtime artifacts
 # ============================================================
 /.claude/scheduled_tasks.lock
+/.claude/worktrees/
 
 # ============================================================
 # graphify knowledge graph (regenerate locally with /graphify)
