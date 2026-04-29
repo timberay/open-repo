@@ -134,6 +134,45 @@ class CleanupOrphanedBlobsJobTest < ActiveJob::TestCase
     assert Manifest.exists?(id: manifest_b.id)
   end
 
+  # E-33: GC must remove orphan manifests (no tag pointing to them) and
+  # decrement the references_count of every blob the manifest used. Blobs
+  # whose only reference was the orphan manifest reach 0 and are deleted
+  # on the next sweep.
+  test "perform removes orphan manifests and decrements (then GCs) their blobs" do
+    content = "orphan manifest blob"
+    digest = DigestCalculator.compute(content)
+    @blob_store.put(digest, StringIO.new(content))
+    blob = Blob.create!(digest: digest, size: content.bytesize, references_count: 1)
+
+    repo = Repository.create!(
+      name: "orphan-mfst-repo-#{SecureRandom.hex(4)}",
+      owner_identity: identities(:tonny_google)
+    )
+    orphan_manifest = repo.manifests.create!(
+      digest: "sha256:orphan-#{SecureRandom.hex(8)}",
+      media_type: "application/vnd.docker.distribution.manifest.v2+json",
+      payload: "{}", size: 2
+    )
+    Layer.create!(manifest: orphan_manifest, blob: blob, position: 0)
+    # Intentionally NO tag: this manifest is orphaned.
+
+    assert_nil Tag.find_by(manifest_id: orphan_manifest.id), "precondition: no tag on orphan manifest"
+
+    CleanupOrphanedBlobsJob.perform_now
+
+    # Manifest is destroyed; its blob's references_count is decremented to 0.
+    assert_nil Manifest.find_by(id: orphan_manifest.id), "orphan manifest must be destroyed"
+    assert_equal 0, blob.reload.references_count, "blob references_count must be decremented"
+
+    # Blob is still on disk because cleanup_orphaned_blobs ran BEFORE
+    # cleanup_orphaned_manifests in this same pass — that's expected.
+    # A second GC pass picks up the now-zero-ref blob.
+    CleanupOrphanedBlobsJob.perform_now
+
+    assert_nil Blob.find_by(digest: digest), "blob row must be GC'd on the next pass"
+    assert_equal false, @blob_store.exists?(digest), "blob file must be GC'd on the next pass"
+  end
+
   # cleanup_stale_uploads happy-path companion (older than max_age -> deleted)
   test "perform removes upload dirs older than 1 hour" do
     uuid = SecureRandom.uuid
