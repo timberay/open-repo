@@ -17,6 +17,17 @@ class Settings::TokensControllerTest < ActionDispatch::IntegrationTest
     assert_select "td", text: "laptop"
   end
 
+  # B-40: /settings/tokens must explain that oprk_ identifies open-repo PATs.
+  test "GET /settings/tokens explains the oprk_ token prefix" do
+    post "/testing/sign_in", params: { user_id: users(:tonny).id }
+    get settings_tokens_path
+    assert_response :ok
+    assert_includes response.body, "oprk_",
+      "expected /settings/tokens to mention the oprk_ prefix"
+    assert_match(/personal access token/i, response.body,
+      "expected /settings/tokens to describe oprk_ as a personal access token prefix")
+  end
+
   test "never leaks other users' tokens" do
     post "/testing/sign_in", params: { user_id: users(:admin).id }
     get settings_tokens_path

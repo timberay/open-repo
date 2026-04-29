@@ -2,8 +2,11 @@
 
 <section class="px-4 md:px-6 py-6 max-w-2xl mx-auto">
   <h1 class="text-xl font-semibold mb-4">Personal Access Tokens</h1>
-  <p class="text-slate-500 text-sm mb-6">
+  <p class="text-slate-500 text-sm mb-2">
     Used by Docker CLI: <code>docker login &lt;registry-host&gt; -u &lt;your email&gt; -p &lt;token&gt;</code>.
+  </p>
+  <p class="text-slate-500 text-sm mb-6">
+    Tokens issued here begin with <code>oprk_</code> — the prefix that identifies an open-repo personal access token.
   </p>
 
   <% if flash[:raw_token].present? %>
