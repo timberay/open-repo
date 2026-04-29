@@ -42,6 +42,28 @@ class Settings::TokensControllerTest < ActionDispatch::IntegrationTest
     assert_in_delta 30.days.from_now, pat.expires_at, 1.minute
   end
 
+  # B-25: raw-token flash banner must include a copy-to-clipboard affordance
+  # using the existing clipboard Stimulus controller.
+  test "POST /settings/tokens raw-token flash includes a clipboard copy button" do
+    post "/testing/sign_in", params: { user_id: users(:tonny).id }
+    post settings_tokens_path, params: {
+      personal_access_token: { name: "copy-test", kind: "cli", expires_in_days: "30" }
+    }
+    follow_redirect!
+    raw = flash[:raw_token].to_s
+    assert_match(/\Aoprk_/, raw)
+
+    # Stimulus controller binding present.
+    assert_match(/data-controller="clipboard"/, response.body,
+      "expected a data-controller=\"clipboard\" element on the raw-token flash")
+    # The clipboard target value carries the raw token.
+    assert_includes response.body, %(data-clipboard-text-value="#{raw}"),
+      "expected clipboard-text-value to carry the raw token"
+    # A click action wired to clipboard#copy is present.
+    assert_match(/data-action="click->clipboard#copy"/, response.body,
+      "expected click->clipboard#copy action on a copy button")
+  end
+
   test "POST /settings/tokens with kind=ci + blank expires_in_days → never expires" do
     post "/testing/sign_in", params: { user_id: users(:tonny).id }
     post settings_tokens_path, params: {
