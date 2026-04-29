@@ -55,4 +55,34 @@ class AuthGoogleOauthFlowTest < ActionDispatch::IntegrationTest
     get "/auth/google_oauth2/callback"
     assert User.find_by!(email: "boss@timberay.com").admin?
   end
+
+  # E-22: OAuth state CSRF protection.
+  # OmniAuth's google_oauth2 strategy validates the `state` param to defend
+  # against login-CSRF. When test_mode is on, that validation is bypassed —
+  # so we route the failure path explicitly: assigning a Symbol to mock_auth
+  # makes OmniAuth deliver an error to its failure endpoint, which our
+  # Auth::SessionsController#failure handler converts to a redirect to root
+  # with an alert flash. The contract this test pins:
+  #   - no session is created (no session[:user_id])
+  #   - user lands back on the unauthenticated UI with an alert flash
+  #   - no User row is created from a forged callback
+  test "callback with state CSRF failure does NOT create a session and surfaces error flash" do
+    OmniAuth.config.mock_auth[:google_oauth2] = :csrf_detected
+
+    assert_no_difference -> { User.count } do
+      get "/auth/google_oauth2/callback"
+    end
+
+    # OmniAuth's on_failure proc is wired in config/initializers/omniauth.rb to
+    # invoke Auth::SessionsController#failure directly, so the callback response
+    # IS the failure handler's redirect (not an intermediate /auth/failure hop).
+    assert_redirected_to root_path
+    # Failure handler whitelists messages (csrf_detected is not in the list,
+    # so it normalizes to "failed") — we just assert the user-visible alert
+    # surfaces the failure rather than the specific OmniAuth error name.
+    assert_match(/sign-in failed/i, flash[:alert].to_s)
+
+    # Critical security assertion: no session was established.
+    assert_nil session[:user_id]
+  end
 end

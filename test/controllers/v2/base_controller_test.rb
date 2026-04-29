@@ -64,6 +64,23 @@ class V2::BaseControllerTest < ActionDispatch::IntegrationTest
     assert_match %r{\ABasic realm=}, response.headers["WWW-Authenticate"]
   end
 
+  # E-20: Bearer scheme is not honored on Basic-only V2 endpoints. The auth
+  # gate uses `HttpAuthentication::Basic.user_name_and_password`, which silently
+  # ignores non-Basic schemes — so a Bearer header looks like "no credentials"
+  # and we must respond with the same exact challenge as anonymous, including
+  # the canonical Docker error envelope (UNAUTHORIZED).
+  test "POST /v2/<name>/blobs/uploads with Bearer scheme → 401 + Basic realm challenge + UNAUTHORIZED envelope" do
+    post "/v2/myimage/blobs/uploads",
+         headers: { "Authorization" => "Bearer oprk_validlookingvalue" }
+
+    assert_response :unauthorized
+    assert_equal %(Basic realm="Registry"), response.headers["WWW-Authenticate"]
+    assert_equal "registry/2.0", response.headers["Docker-Distribution-API-Version"]
+
+    body = JSON.parse(response.body)
+    assert_equal "UNAUTHORIZED", body.dig("errors", 0, "code")
+  end
+
   # --- Basic auth success ---
 
   test "with valid PAT Basic auth → current_user set and request proceeds" do
