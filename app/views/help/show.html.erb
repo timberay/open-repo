@@ -20,6 +20,10 @@
 <%= render CardComponent.new(padding: :none, class: "mb-6") do %>
   <div class="p-6">
     <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4">Push & Pull Images</h2>
+    <p class="text-sm text-slate-600 dark:text-slate-400 mb-4">
+      Authenticate with a token from <%= link_to "Settings → Tokens", settings_tokens_path, class: "text-blue-600 dark:text-blue-400 hover:underline" %>.
+      Tokens begin with <code class="bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-sm font-mono">oprk_</code> — the prefix that identifies an open-repo personal access token.
+    </p>
     <div class="space-y-4">
       <div>
         <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Tag an image for this registry</h3>

@@ -2,14 +2,29 @@
 
 <section class="px-4 md:px-6 py-6 max-w-2xl mx-auto">
   <h1 class="text-xl font-semibold mb-4">Personal Access Tokens</h1>
-  <p class="text-slate-500 text-sm mb-6">
+  <p class="text-slate-500 text-sm mb-2">
     Used by Docker CLI: <code>docker login &lt;registry-host&gt; -u &lt;your email&gt; -p &lt;token&gt;</code>.
+  </p>
+  <p class="text-slate-500 text-sm mb-6">
+    Tokens issued here begin with <code>oprk_</code> — the prefix that identifies an open-repo personal access token.
   </p>
 
   <% if flash[:raw_token].present? %>
-    <div class="mb-6 rounded bg-amber-50 border border-amber-200 p-4">
+    <div class="mb-6 rounded bg-amber-50 border border-amber-200 p-4"
+         data-controller="clipboard"
+         data-clipboard-text-value="<%= flash[:raw_token] %>">
       <p class="font-medium text-amber-900">Copy this token now — you will not see it again:</p>
-      <pre class="mt-2 p-2 bg-white border font-mono text-sm break-all"><%= flash[:raw_token] %></pre>
+      <div class="mt-2 flex items-center gap-2">
+        <pre class="flex-1 min-w-0 p-2 bg-white border font-mono text-sm break-all overflow-x-auto"><%= flash[:raw_token] %></pre>
+        <button type="button"
+                data-action="click->clipboard#copy"
+                data-testid="copy-raw-token"
+                class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-amber-100 text-amber-900 hover:bg-amber-200 transition-colors duration-150 text-sm font-medium"
+                aria-label="Copy token to clipboard">
+          <%= heroicon "clipboard", class: "w-5 h-5" %>
+          <span data-clipboard-target="label">Copy</span>
+        </button>
+      </div>
     </div>
   <% end %>
 

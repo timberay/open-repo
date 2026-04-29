@@ -21,6 +21,9 @@
             <%= render(BadgeComponent.new(variant: variant)) { event.action } %>
             <span class="text-sm text-slate-400 dark:text-slate-500"><%= event.occurred_at.strftime('%Y-%m-%d %H:%M') %></span>
           </div>
+          <div class="text-sm text-slate-600 dark:text-slate-400 mb-1">
+            By: <span class="font-medium text-slate-700 dark:text-slate-300"><%= event.display_actor %></span>
+          </div>
           <% if event.previous_digest.present? %>
             <div class="text-sm text-slate-600 dark:text-slate-400">
               Previous: <code class="font-mono text-sm bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded"><%= short_digest(event.previous_digest) %></code>
@@ -35,6 +38,10 @@
       <% end %>
     <% end %>
   </div>
+
+  <nav class="mt-6 flex justify-center" aria-label="Pagination">
+    <%= paginate @events %>
+  </nav>
 <% else %>
   <div class="flex flex-col items-center justify-center py-16 px-4">
     <%= heroicon "clock", class: "w-12 h-12 text-slate-300 dark:text-slate-600 mb-4" %>

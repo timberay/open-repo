@@ -28,7 +28,9 @@ class TagsController < ApplicationController
   end
 
   def history
-    @events = TagEvent.where(repository: @repository, tag_name: @tag.name).order(occurred_at: :desc)
+    @events = TagEvent.where(repository: @repository, tag_name: @tag.name)
+      .order(occurred_at: :desc)
+      .page(params[:page]).per(25)
   end
 
   private

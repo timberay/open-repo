@@ -17,6 +17,17 @@ class Settings::TokensControllerTest < ActionDispatch::IntegrationTest
     assert_select "td", text: "laptop"
   end
 
+  # B-40: /settings/tokens must explain that oprk_ identifies open-repo PATs.
+  test "GET /settings/tokens explains the oprk_ token prefix" do
+    post "/testing/sign_in", params: { user_id: users(:tonny).id }
+    get settings_tokens_path
+    assert_response :ok
+    assert_includes response.body, "oprk_",
+      "expected /settings/tokens to mention the oprk_ prefix"
+    assert_match(/personal access token/i, response.body,
+      "expected /settings/tokens to describe oprk_ as a personal access token prefix")
+  end
+
   test "never leaks other users' tokens" do
     post "/testing/sign_in", params: { user_id: users(:admin).id }
     get settings_tokens_path
@@ -40,6 +51,28 @@ class Settings::TokensControllerTest < ActionDispatch::IntegrationTest
     assert_equal "new-laptop", pat.name
     assert_equal "cli", pat.kind
     assert_in_delta 30.days.from_now, pat.expires_at, 1.minute
+  end
+
+  # B-25: raw-token flash banner must include a copy-to-clipboard affordance
+  # using the existing clipboard Stimulus controller.
+  test "POST /settings/tokens raw-token flash includes a clipboard copy button" do
+    post "/testing/sign_in", params: { user_id: users(:tonny).id }
+    post settings_tokens_path, params: {
+      personal_access_token: { name: "copy-test", kind: "cli", expires_in_days: "30" }
+    }
+    follow_redirect!
+    raw = flash[:raw_token].to_s
+    assert_match(/\Aoprk_/, raw)
+
+    # Stimulus controller binding present.
+    assert_match(/data-controller="clipboard"/, response.body,
+      "expected a data-controller=\"clipboard\" element on the raw-token flash")
+    # The clipboard target value carries the raw token.
+    assert_includes response.body, %(data-clipboard-text-value="#{raw}"),
+      "expected clipboard-text-value to carry the raw token"
+    # A click action wired to clipboard#copy is present.
+    assert_match(/data-action="click->clipboard#copy"/, response.body,
+      "expected click->clipboard#copy action on a copy button")
   end
 
   test "POST /settings/tokens with kind=ci + blank expires_in_days → never expires" do

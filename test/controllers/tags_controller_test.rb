@@ -214,6 +214,65 @@ class TagsControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "create"
   end
 
+  # B-21: tag history must paginate at 25 events per page.
+  test "GET tag history paginates at 25 events per page" do
+    30.times do |i|
+      TagEvent.create!(
+        repository: @repo, tag_name: @tag.name, action: "update",
+        actor: "user#{i}@example.com",
+        new_digest: "sha256:b21paginate#{i.to_s.rjust(2, '0')}aaaaaaaaaa",
+        occurred_at: (30 - i).hours.ago
+      )
+    end
+
+    # Page 1: should render 25 events.
+    get "/repositories/#{@repo.name}/tags/#{@tag.name}/history"
+    assert_response :success
+    page1_actor_count = response.body.scan(/user\d+@example\.com/).uniq.size
+    assert_equal 25, page1_actor_count,
+      "page 1 should render exactly 25 distinct actors, got #{page1_actor_count}"
+
+    # Pagination link to next page must be present on page 1.
+    assert_match(/page=2/, response.body,
+      "expected a Next/page=2 pagination link on page 1")
+
+    # Page 2: should render the remaining 5 events.
+    get "/repositories/#{@repo.name}/tags/#{@tag.name}/history", params: { page: 2 }
+    assert_response :success
+    page2_actor_count = response.body.scan(/user\d+@example\.com/).uniq.size
+    assert_equal 5, page2_actor_count,
+      "page 2 should render exactly 5 distinct actors, got #{page2_actor_count}"
+  end
+
+  # B-19: actor must be rendered in the history view for each event.
+  test "GET tag history renders actor for user email, system import, and retention policy" do
+    TagEvent.create!(
+      repository: @repo, tag_name: @tag.name, action: "create",
+      actor: "alice@example.com", new_digest: "sha256:b19user11111",
+      occurred_at: 3.hours.ago
+    )
+    TagEvent.create!(
+      repository: @repo, tag_name: @tag.name, action: "update",
+      actor: "system:import", previous_digest: "sha256:b19user11111",
+      new_digest: "sha256:b19import2222", occurred_at: 2.hours.ago
+    )
+    TagEvent.create!(
+      repository: @repo, tag_name: @tag.name, action: "delete",
+      actor: "retention-policy", previous_digest: "sha256:b19import2222",
+      occurred_at: 1.hour.ago
+    )
+
+    get "/repositories/#{@repo.name}/tags/#{@tag.name}/history"
+
+    assert_response :success
+    assert_includes response.body, "alice@example.com",
+      "expected user email actor to render"
+    assert_includes response.body, "system: import",
+      "expected system:import actor to render via display_actor"
+    assert_includes response.body, "retention-policy",
+      "expected retention-policy actor to render"
+  end
+
   # ---------------------------------------------------------------------------
   # UC-UI-006: GET /repositories/:repository_name/tags/:name (Wave 6 — pin edges)
   # ---------------------------------------------------------------------------
