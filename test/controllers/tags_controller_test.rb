@@ -214,6 +214,35 @@ class TagsControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "create"
   end
 
+  # B-19: actor must be rendered in the history view for each event.
+  test "GET tag history renders actor for user email, system import, and retention policy" do
+    TagEvent.create!(
+      repository: @repo, tag_name: @tag.name, action: "create",
+      actor: "alice@example.com", new_digest: "sha256:b19user11111",
+      occurred_at: 3.hours.ago
+    )
+    TagEvent.create!(
+      repository: @repo, tag_name: @tag.name, action: "update",
+      actor: "system:import", previous_digest: "sha256:b19user11111",
+      new_digest: "sha256:b19import2222", occurred_at: 2.hours.ago
+    )
+    TagEvent.create!(
+      repository: @repo, tag_name: @tag.name, action: "delete",
+      actor: "retention-policy", previous_digest: "sha256:b19import2222",
+      occurred_at: 1.hour.ago
+    )
+
+    get "/repositories/#{@repo.name}/tags/#{@tag.name}/history"
+
+    assert_response :success
+    assert_includes response.body, "alice@example.com",
+      "expected user email actor to render"
+    assert_includes response.body, "system: import",
+      "expected system:import actor to render via display_actor"
+    assert_includes response.body, "retention-policy",
+      "expected retention-policy actor to render"
+  end
+
   # ---------------------------------------------------------------------------
   # UC-UI-006: GET /repositories/:repository_name/tags/:name (Wave 6 — pin edges)
   # ---------------------------------------------------------------------------
