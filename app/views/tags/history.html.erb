@@ -38,6 +38,10 @@
       <% end %>
     <% end %>
   </div>
+
+  <nav class="mt-6 flex justify-center" aria-label="Pagination">
+    <%= paginate @events %>
+  </nav>
 <% else %>
   <div class="flex flex-col items-center justify-center py-16 px-4">
     <%= heroicon "clock", class: "w-12 h-12 text-slate-300 dark:text-slate-600 mb-4" %>

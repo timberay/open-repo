@@ -214,6 +214,36 @@ class TagsControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "create"
   end
 
+  # B-21: tag history must paginate at 25 events per page.
+  test "GET tag history paginates at 25 events per page" do
+    30.times do |i|
+      TagEvent.create!(
+        repository: @repo, tag_name: @tag.name, action: "update",
+        actor: "user#{i}@example.com",
+        new_digest: "sha256:b21paginate#{i.to_s.rjust(2, '0')}aaaaaaaaaa",
+        occurred_at: (30 - i).hours.ago
+      )
+    end
+
+    # Page 1: should render 25 events.
+    get "/repositories/#{@repo.name}/tags/#{@tag.name}/history"
+    assert_response :success
+    page1_actor_count = response.body.scan(/user\d+@example\.com/).uniq.size
+    assert_equal 25, page1_actor_count,
+      "page 1 should render exactly 25 distinct actors, got #{page1_actor_count}"
+
+    # Pagination link to next page must be present on page 1.
+    assert_match(/page=2/, response.body,
+      "expected a Next/page=2 pagination link on page 1")
+
+    # Page 2: should render the remaining 5 events.
+    get "/repositories/#{@repo.name}/tags/#{@tag.name}/history", params: { page: 2 }
+    assert_response :success
+    page2_actor_count = response.body.scan(/user\d+@example\.com/).uniq.size
+    assert_equal 5, page2_actor_count,
+      "page 2 should render exactly 5 distinct actors, got #{page2_actor_count}"
+  end
+
   # B-19: actor must be rendered in the history view for each event.
   test "GET tag history renders actor for user email, system import, and retention policy" do
     TagEvent.create!(
