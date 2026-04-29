@@ -89,6 +89,51 @@ class CleanupOrphanedBlobsJobTest < ActiveJob::TestCase
     assert_equal false, @blob_store.exists?(digest)
   end
 
+  # E-32: GC must preserve a blob that is shared across repositories.
+  # Two repos each have a manifest referencing blob B (references_count = 2).
+  # After deleting the manifest in repoA (which decrements references_count to 1),
+  # the GC job MUST NOT delete B because it is still referenced by repoB.
+  test "perform preserves blob shared across repos when one reference is removed" do
+    content = "shared blob bytes"
+    digest = DigestCalculator.compute(content)
+    @blob_store.put(digest, StringIO.new(content))
+    blob = Blob.create!(digest: digest, size: content.bytesize, references_count: 2)
+
+    owner = identities(:tonny_google)
+    repo_a = Repository.create!(name: "shared-blob-repo-a-#{SecureRandom.hex(4)}", owner_identity: owner)
+    repo_b = Repository.create!(name: "shared-blob-repo-b-#{SecureRandom.hex(4)}", owner_identity: owner)
+
+    manifest_a = repo_a.manifests.create!(
+      digest: "sha256:shared-a-#{SecureRandom.hex(8)}",
+      media_type: "application/vnd.docker.distribution.manifest.v2+json",
+      payload: "{}", size: 2
+    )
+    manifest_b = repo_b.manifests.create!(
+      digest: "sha256:shared-b-#{SecureRandom.hex(8)}",
+      media_type: "application/vnd.docker.distribution.manifest.v2+json",
+      payload: "{}", size: 2
+    )
+    Layer.create!(manifest: manifest_a, blob: blob, position: 0)
+    Layer.create!(manifest: manifest_b, blob: blob, position: 0)
+    # Tag both manifests so the orphan-manifest sweep does not destroy them.
+    repo_a.tags.create!(name: "v1", manifest: manifest_a)
+    repo_b.tags.create!(name: "v1", manifest: manifest_b)
+
+    # Simulate the V2 destroy path on repoA: drop tags, decrement once
+    # (references_count: 2 -> 1), then destroy the manifest in repoA.
+    manifest_a.tags.destroy_all
+    blob.decrement!(:references_count)
+    manifest_a.destroy!
+
+    CleanupOrphanedBlobsJob.perform_now
+
+    assert Blob.exists?(digest: digest), "shared blob row must survive GC"
+    assert_equal true, @blob_store.exists?(digest), "shared blob file must survive GC"
+    assert_equal 1, blob.reload.references_count
+    # Sanity: manifest in repoB still alive and still referencing the blob.
+    assert Manifest.exists?(id: manifest_b.id)
+  end
+
   # cleanup_stale_uploads happy-path companion (older than max_age -> deleted)
   test "perform removes upload dirs older than 1 hour" do
     uuid = SecureRandom.uuid
