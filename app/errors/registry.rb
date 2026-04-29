@@ -6,6 +6,7 @@ module Registry
   class ManifestInvalid < Error; end
   class NameUnknown < Error; end
   class DigestMismatch < Error; end
+  class DigestInvalid < Error; end
   class Unsupported < Error; end
 
   class TagProtected < Error

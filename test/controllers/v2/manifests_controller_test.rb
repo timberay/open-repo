@@ -138,7 +138,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
 
   test "DELETE /v2/:name/manifests/:digest when connected tag is protected returns 409 Conflict with DENIED envelope" do
     repo = Repository.create!(name: "example", tag_protection_policy: "semver", owner_identity: identities(:tonny_google))
-    manifest = repo.manifests.create!(digest: "sha256:abc", media_type: "application/vnd.docker.distribution.manifest.v2+json", payload: "{}", size: 2)
+    manifest = repo.manifests.create!(digest: "sha256:#{"a" * 64}", media_type: "application/vnd.docker.distribution.manifest.v2+json", payload: "{}", size: 2)
     repo.tags.create!(name: "v1.0.0", manifest: manifest)
 
     delete "/v2/#{repo.name}/manifests/#{manifest.digest}", headers: basic_auth_for
@@ -151,7 +151,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
 
   test "DELETE /v2/:name/manifests/:reference returns 409 even when called with tag reference" do
     repo = Repository.create!(name: "example", tag_protection_policy: "semver", owner_identity: identities(:tonny_google))
-    manifest = repo.manifests.create!(digest: "sha256:abc", media_type: "application/vnd.docker.distribution.manifest.v2+json", payload: "{}", size: 2)
+    manifest = repo.manifests.create!(digest: "sha256:#{"a" * 64}", media_type: "application/vnd.docker.distribution.manifest.v2+json", payload: "{}", size: 2)
     repo.tags.create!(name: "v1.0.0", manifest: manifest)
 
     delete "/v2/#{repo.name}/manifests/v1.0.0", headers: basic_auth_for
@@ -160,7 +160,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
 
   test "DELETE /v2/:name/manifests/:digest when connected tag is protected does NOT destroy the manifest" do
     repo = Repository.create!(name: "example", tag_protection_policy: "semver", owner_identity: identities(:tonny_google))
-    manifest = repo.manifests.create!(digest: "sha256:abc", media_type: "application/vnd.docker.distribution.manifest.v2+json", payload: "{}", size: 2)
+    manifest = repo.manifests.create!(digest: "sha256:#{"a" * 64}", media_type: "application/vnd.docker.distribution.manifest.v2+json", payload: "{}", size: 2)
     repo.tags.create!(name: "v1.0.0", manifest: manifest)
 
     delete "/v2/#{repo.name}/manifests/#{manifest.digest}", headers: basic_auth_for
@@ -170,7 +170,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
   test "DELETE /v2/:name/manifests/:digest when no connected tag is protected returns 202 Accepted" do
     repo = Repository.create!(name: "open", owner_identity: identities(:tonny_google))
     manifest = repo.manifests.create!(
-      digest: "sha256:def",
+      digest: "sha256:#{"d" * 64}",
       media_type: "application/vnd.docker.distribution.manifest.v2+json",
       payload: "{}", size: 2
     )
@@ -194,7 +194,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
   test "authenticated DELETE records TagEvent.actor = current_user.email for each tag" do
     repo = Repository.create!(name: "actor-realname-delete-repo", owner_identity: identities(:tonny_google))
     manifest = repo.manifests.create!(
-      digest: "sha256:actor-realname-delete-#{SecureRandom.hex(4)}",
+      digest: "sha256:#{SecureRandom.hex(32)}",
       media_type: "application/vnd.docker.distribution.manifest.v2+json",
       payload: "{}",
       size: 2

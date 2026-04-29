@@ -81,7 +81,8 @@ class V2::ManifestsController < V2::BaseController
   end
 
   def find_manifest!(repository, reference)
-    if reference.start_with?("sha256:")
+    if reference.include?(":")
+      validate_digest!(reference)
       repository.manifests.find_by!(digest: reference)
     else
       tag = repository.tags.find_by!(name: reference)

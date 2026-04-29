@@ -12,6 +12,7 @@ class V2::BaseController < ActionController::API
   rescue_from Registry::ManifestInvalid, with: ->(e) { render_error("MANIFEST_INVALID", e.message, 400) }
   rescue_from Registry::NameUnknown, with: ->(e) { render_error("NAME_UNKNOWN", e.message, 404) }
   rescue_from Registry::DigestMismatch, with: ->(e) { render_error("DIGEST_INVALID", e.message, 400) }
+  rescue_from Registry::DigestInvalid, with: ->(e) { render_error("DIGEST_INVALID", e.message, 400) }
   rescue_from Registry::Unsupported, with: ->(e) { render_error("UNSUPPORTED", e.message, 415) }
   rescue_from Registry::TagProtected, with: ->(e) { render_error("DENIED", e.message, 409, detail: e.detail) }
   rescue_from Auth::Unauthenticated, with: ->(_e) { render_v2_challenge }
@@ -74,6 +75,26 @@ class V2::BaseController < ActionController::API
 
   def repo_name
     params[:ns].present? ? "#{params[:ns]}/#{params[:name]}" : params[:name]
+  end
+
+  # Validates a content-addressable digest against the OCI/Docker spec format:
+  # `<algorithm>:<hex>` where algorithm is one of the registered hash algorithms
+  # and the hex portion has the algorithm-specific length.
+  # Spec: https://github.com/opencontainers/image-spec/blob/main/descriptor.md#digests
+  DIGEST_HEX_LENGTHS = {
+    "sha256" => 64,
+    "sha512" => 128
+  }.freeze
+
+  def validate_digest!(digest)
+    raise Registry::DigestInvalid, "digest '#{digest}' is malformed" if digest.blank?
+
+    algorithm, hex = digest.split(":", 2)
+    expected_length = DIGEST_HEX_LENGTHS[algorithm]
+
+    unless expected_length && hex && hex.match?(/\A[a-fA-F0-9]+\z/) && hex.length == expected_length
+      raise Registry::DigestInvalid, "digest '#{digest}' is malformed"
+    end
   end
 
   def find_repository!

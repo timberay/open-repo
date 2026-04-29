@@ -27,8 +27,28 @@ class V2::BlobsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "GET /v2/:name/blobs/:digest returns 404 for unknown digest" do
-    get "/v2/#{@repo_name}/blobs/sha256:nonexistent"
+    # 64 hex chars — well-formed sha256 digest that just doesn't exist
+    get "/v2/#{@repo_name}/blobs/sha256:#{"a" * 64}"
     assert_response 404
+    assert_equal "BLOB_UNKNOWN", JSON.parse(response.body)["errors"][0]["code"]
+  end
+
+  test "GET /v2/:name/blobs/:digest returns 400 DIGEST_INVALID for malformed digest (short hash)" do
+    get "/v2/#{@repo_name}/blobs/sha256:notreallyahash"
+    assert_response 400
+    assert_equal "DIGEST_INVALID", JSON.parse(response.body)["errors"][0]["code"]
+  end
+
+  test "GET /v2/:name/blobs/:digest returns 400 DIGEST_INVALID when missing algorithm" do
+    get "/v2/#{@repo_name}/blobs/#{"a" * 64}"
+    assert_response 400
+    assert_equal "DIGEST_INVALID", JSON.parse(response.body)["errors"][0]["code"]
+  end
+
+  test "DELETE /v2/:name/blobs/:digest returns 400 DIGEST_INVALID for malformed digest" do
+    delete "/v2/#{@repo_name}/blobs/sha256:notreallyahash", headers: basic_auth_for
+    assert_response 400
+    assert_equal "DIGEST_INVALID", JSON.parse(response.body)["errors"][0]["code"]
   end
 
   test "HEAD /v2/:name/blobs/:digest returns headers without body" do
