@@ -102,6 +102,39 @@ class V2::BlobUploadsControllerTest < ActionDispatch::IntegrationTest
     assert response.headers["Docker-Upload-UUID"].present?
   end
 
+  test "GET /v2/:name/blobs/uploads/:uuid returns 204 with current Range and Docker-Upload-UUID" do
+    post "/v2/#{@repo_name}/blobs/uploads", headers: basic_auth_for
+    uuid = response.headers["Docker-Upload-UUID"]
+
+    patch "/v2/#{@repo_name}/blobs/uploads/#{uuid}",
+          params: "chunk data", # 10 bytes
+          headers: { "CONTENT_TYPE" => "application/octet-stream" }.merge(basic_auth_for)
+
+    get "/v2/#{@repo_name}/blobs/uploads/#{uuid}", headers: basic_auth_for
+
+    assert_response 204
+    assert_equal "0-9", response.headers["Range"]
+    assert_equal uuid, response.headers["Docker-Upload-UUID"]
+  end
+
+  test "GET /v2/:name/blobs/uploads/:uuid returns 0-0 for upload with no bytes received" do
+    post "/v2/#{@repo_name}/blobs/uploads", headers: basic_auth_for
+    uuid = response.headers["Docker-Upload-UUID"]
+
+    get "/v2/#{@repo_name}/blobs/uploads/#{uuid}", headers: basic_auth_for
+
+    assert_response 204
+    assert_equal "0-0", response.headers["Range"]
+    assert_equal uuid, response.headers["Docker-Upload-UUID"]
+  end
+
+  test "GET /v2/:name/blobs/uploads/:uuid returns 404 BLOB_UPLOAD_UNKNOWN for missing upload" do
+    Repository.create!(name: @repo_name, owner_identity: identities(:tonny_google))
+    get "/v2/#{@repo_name}/blobs/uploads/does-not-exist", headers: basic_auth_for
+    assert_response 404
+    assert_equal "BLOB_UPLOAD_UNKNOWN", JSON.parse(response.body)["errors"][0]["code"]
+  end
+
   test "DELETE /v2/:name/blobs/uploads/:uuid cancels upload" do
     post "/v2/#{@repo_name}/blobs/uploads", headers: basic_auth_for
     uuid = response.headers["Docker-Upload-UUID"]

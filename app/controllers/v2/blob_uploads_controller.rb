@@ -11,6 +11,20 @@ class V2::BlobUploadsController < V2::BaseController
     end
   end
 
+  def show
+    upload = find_upload!
+    bytes_received = upload.byte_offset.to_i
+
+    # Per V2 spec: Range header is inclusive of the last byte received.
+    # When zero bytes have been written, the canonical "no progress" value is "0-0".
+    range_end = bytes_received.positive? ? bytes_received - 1 : 0
+
+    response.headers["Location"] = upload_url(upload)
+    response.headers["Docker-Upload-UUID"] = upload.uuid
+    response.headers["Range"] = "0-#{range_end}"
+    head :no_content
+  end
+
   def update
     upload = find_upload!
     blob_store.append_upload(upload.uuid, request.body)

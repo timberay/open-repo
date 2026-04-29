@@ -51,6 +51,7 @@ Rails.application.routes.draw do
       delete "blobs/:digest", to: "v2/blobs#destroy", constraints: digest_constraint
 
       post "blobs/uploads", to: "v2/blob_uploads#create"
+      get "blobs/uploads/:uuid", to: "v2/blob_uploads#show"
       patch "blobs/uploads/:uuid", to: "v2/blob_uploads#update"
       put "blobs/uploads/:uuid", to: "v2/blob_uploads#complete"
       delete "blobs/uploads/:uuid", to: "v2/blob_uploads#destroy"
@@ -66,6 +67,7 @@ Rails.application.routes.draw do
       delete "blobs/:digest", to: "v2/blobs#destroy", constraints: digest_constraint
 
       post "blobs/uploads", to: "v2/blob_uploads#create"
+      get "blobs/uploads/:uuid", to: "v2/blob_uploads#show"
       patch "blobs/uploads/:uuid", to: "v2/blob_uploads#update"
       put "blobs/uploads/:uuid", to: "v2/blob_uploads#complete"
       delete "blobs/uploads/:uuid", to: "v2/blob_uploads#destroy"
