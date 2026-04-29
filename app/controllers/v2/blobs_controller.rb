@@ -1,4 +1,5 @@
 class V2::BlobsController < V2::BaseController
+  before_action :validate_digest_param!, only: [ :show, :destroy ]
   before_action :set_repository_for_delete_authz, only: [ :destroy ]
 
   def show
@@ -31,6 +32,10 @@ class V2::BlobsController < V2::BaseController
   end
 
   private
+
+  def validate_digest_param!
+    validate_digest!(params[:digest])
+  end
 
   def set_repository_for_delete_authz
     @repository = find_repository!

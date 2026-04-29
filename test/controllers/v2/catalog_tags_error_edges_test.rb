@@ -277,7 +277,7 @@ class V2::CatalogTagsErrorEdgesTest < ActionDispatch::IntegrationTest
       name: "v2-015-blob-unknown-#{SecureRandom.hex(4)}",
       owner_identity: identities(:tonny_google)
     )
-    get "/v2/#{repo.name}/blobs/sha256:doesnotexist"
+    get "/v2/#{repo.name}/blobs/sha256:#{"f" * 64}"
     assert_response :not_found
     assert_error_envelope!("BLOB_UNKNOWN")
   ensure

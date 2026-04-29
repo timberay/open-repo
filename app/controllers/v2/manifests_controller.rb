@@ -1,6 +1,11 @@
 class V2::ManifestsController < V2::BaseController
+  # Single-platform v2 schema 2 manifests, in either Docker or OCI flavor.
+  # Both formats are byte-compatible JSON for our supported subset; we store
+  # whichever the client uploaded and return it verbatim on GET, gated by the
+  # client's Accept header (Docker Registry V2 spec §manifest-content-type).
   SUPPORTED_MEDIA_TYPES = [
-    "application/vnd.docker.distribution.manifest.v2+json"
+    "application/vnd.docker.distribution.manifest.v2+json",
+    "application/vnd.oci.image.manifest.v1+json"
   ].freeze
 
   before_action :set_repository_for_authz, only: [ :update, :destroy ]
@@ -8,6 +13,11 @@ class V2::ManifestsController < V2::BaseController
   def show
     repository = find_repository!
     manifest = find_manifest!(repository, params[:reference])
+
+    unless accept_includes?(manifest.media_type)
+      head :not_acceptable
+      return
+    end
 
     response.headers["Docker-Content-Digest"] = manifest.digest
     response.headers["Content-Type"] = manifest.media_type
@@ -25,7 +35,7 @@ class V2::ManifestsController < V2::BaseController
     unless SUPPORTED_MEDIA_TYPES.include?(request.content_type)
       raise Registry::Unsupported,
         "Unsupported manifest media type: #{request.content_type}. " \
-        "This registry supports single-platform V2 Schema 2 manifests only. " \
+        "This registry supports single-platform V2 Schema 2 (Docker or OCI) manifests only. " \
         "Use: docker build --platform linux/amd64 -t <image> ."
     end
 
@@ -80,8 +90,24 @@ class V2::ManifestsController < V2::BaseController
     end
   end
 
+  # True when the client's Accept header is empty/wildcard or explicitly lists
+  # the stored manifest media type. Quality (q=) parameters and parameters on
+  # the wildcard (e.g. "*/*; q=0.5") are tolerated. We do NOT transcode between
+  # Docker and OCI manifest formats, so a client that asks ONLY for the format
+  # we did not store gets a 406.
+  def accept_includes?(media_type)
+    accept = request.headers["Accept"].to_s
+    return true if accept.blank?
+
+    accept.split(",").any? do |entry|
+      token = entry.split(";").first.to_s.strip
+      token == media_type || token == "*/*" || token == "application/*"
+    end
+  end
+
   def find_manifest!(repository, reference)
-    if reference.start_with?("sha256:")
+    if reference.include?(":")
+      validate_digest!(reference)
       repository.manifests.find_by!(digest: reference)
     else
       tag = repository.tags.find_by!(name: reference)

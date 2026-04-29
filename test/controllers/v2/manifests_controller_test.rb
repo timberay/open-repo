@@ -43,6 +43,61 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
     assert_match(/\Asha256:/, response.headers["Docker-Content-Digest"])
   end
 
+  test "PUT /v2/:name/manifests/:reference accepts OCI image manifest media type" do
+    put "/v2/#{@repo_name}/manifests/v1.0.0",
+        params: @manifest_payload,
+        headers: { "CONTENT_TYPE" => "application/vnd.oci.image.manifest.v1+json" }.merge(basic_auth_for)
+
+    assert_response 201
+    assert_match(/\Asha256:/, response.headers["Docker-Content-Digest"])
+    assert_equal "application/vnd.oci.image.manifest.v1+json", Manifest.last.media_type
+  end
+
+  test "GET /v2/:name/manifests/:reference returns OCI media type when stored as OCI and Accept matches" do
+    put "/v2/#{@repo_name}/manifests/v1.0.0",
+        params: @manifest_payload,
+        headers: { "CONTENT_TYPE" => "application/vnd.oci.image.manifest.v1+json" }.merge(basic_auth_for)
+
+    get "/v2/#{@repo_name}/manifests/v1.0.0",
+        headers: { "HTTP_ACCEPT" => "application/vnd.oci.image.manifest.v1+json" }
+
+    assert_response 200
+    assert_equal "application/vnd.oci.image.manifest.v1+json", response.headers["Content-Type"]
+  end
+
+  test "GET /v2/:name/manifests/:reference returns Docker media type when stored as Docker and Accept matches" do
+    put "/v2/#{@repo_name}/manifests/v1.0.0",
+        params: @manifest_payload,
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }.merge(basic_auth_for)
+
+    get "/v2/#{@repo_name}/manifests/v1.0.0",
+        headers: { "HTTP_ACCEPT" => "application/vnd.docker.distribution.manifest.v2+json" }
+
+    assert_response 200
+    assert_equal "application/vnd.docker.distribution.manifest.v2+json", response.headers["Content-Type"]
+  end
+
+  test "GET /v2/:name/manifests/:reference returns 200 when Accept header is missing or */*" do
+    put "/v2/#{@repo_name}/manifests/v1.0.0",
+        params: @manifest_payload,
+        headers: { "CONTENT_TYPE" => "application/vnd.oci.image.manifest.v1+json" }.merge(basic_auth_for)
+
+    get "/v2/#{@repo_name}/manifests/v1.0.0", headers: { "HTTP_ACCEPT" => "*/*" }
+    assert_response 200
+    assert_equal "application/vnd.oci.image.manifest.v1+json", response.headers["Content-Type"]
+  end
+
+  test "GET /v2/:name/manifests/:reference returns 406 when Accept does not include the stored media type" do
+    put "/v2/#{@repo_name}/manifests/v1.0.0",
+        params: @manifest_payload,
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }.merge(basic_auth_for)
+
+    get "/v2/#{@repo_name}/manifests/v1.0.0",
+        headers: { "HTTP_ACCEPT" => "text/plain" }
+
+    assert_response 406
+  end
+
   test "PUT /v2/:name/manifests/:reference rejects unsupported media type" do
     put "/v2/#{@repo_name}/manifests/v1",
         params: "{}",
@@ -186,7 +241,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
 
   test "DELETE /v2/:name/manifests/:digest when connected tag is protected returns 409 Conflict with DENIED envelope" do
     repo = Repository.create!(name: "example", tag_protection_policy: "semver", owner_identity: identities(:tonny_google))
-    manifest = repo.manifests.create!(digest: "sha256:abc", media_type: "application/vnd.docker.distribution.manifest.v2+json", payload: "{}", size: 2)
+    manifest = repo.manifests.create!(digest: "sha256:#{"a" * 64}", media_type: "application/vnd.docker.distribution.manifest.v2+json", payload: "{}", size: 2)
     repo.tags.create!(name: "v1.0.0", manifest: manifest)
 
     delete "/v2/#{repo.name}/manifests/#{manifest.digest}", headers: basic_auth_for
@@ -199,7 +254,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
 
   test "DELETE /v2/:name/manifests/:reference returns 409 even when called with tag reference" do
     repo = Repository.create!(name: "example", tag_protection_policy: "semver", owner_identity: identities(:tonny_google))
-    manifest = repo.manifests.create!(digest: "sha256:abc", media_type: "application/vnd.docker.distribution.manifest.v2+json", payload: "{}", size: 2)
+    manifest = repo.manifests.create!(digest: "sha256:#{"a" * 64}", media_type: "application/vnd.docker.distribution.manifest.v2+json", payload: "{}", size: 2)
     repo.tags.create!(name: "v1.0.0", manifest: manifest)
 
     delete "/v2/#{repo.name}/manifests/v1.0.0", headers: basic_auth_for
@@ -208,7 +263,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
 
   test "DELETE /v2/:name/manifests/:digest when connected tag is protected does NOT destroy the manifest" do
     repo = Repository.create!(name: "example", tag_protection_policy: "semver", owner_identity: identities(:tonny_google))
-    manifest = repo.manifests.create!(digest: "sha256:abc", media_type: "application/vnd.docker.distribution.manifest.v2+json", payload: "{}", size: 2)
+    manifest = repo.manifests.create!(digest: "sha256:#{"a" * 64}", media_type: "application/vnd.docker.distribution.manifest.v2+json", payload: "{}", size: 2)
     repo.tags.create!(name: "v1.0.0", manifest: manifest)
 
     delete "/v2/#{repo.name}/manifests/#{manifest.digest}", headers: basic_auth_for
@@ -218,7 +273,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
   test "DELETE /v2/:name/manifests/:digest when no connected tag is protected returns 202 Accepted" do
     repo = Repository.create!(name: "open", owner_identity: identities(:tonny_google))
     manifest = repo.manifests.create!(
-      digest: "sha256:def",
+      digest: "sha256:#{"d" * 64}",
       media_type: "application/vnd.docker.distribution.manifest.v2+json",
       payload: "{}", size: 2
     )
@@ -242,7 +297,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
   test "authenticated DELETE records TagEvent.actor = current_user.email for each tag" do
     repo = Repository.create!(name: "actor-realname-delete-repo", owner_identity: identities(:tonny_google))
     manifest = repo.manifests.create!(
-      digest: "sha256:actor-realname-delete-#{SecureRandom.hex(4)}",
+      digest: "sha256:#{SecureRandom.hex(32)}",
       media_type: "application/vnd.docker.distribution.manifest.v2+json",
       payload: "{}",
       size: 2

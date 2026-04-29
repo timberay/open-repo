@@ -21,7 +21,7 @@ class V2::BaseControllerTest < ActionDispatch::IntegrationTest
   setup do
     @repo = Repository.create!(name: "example", tag_protection_policy: "semver", owner_identity: identities(:tonny_google))
     @manifest = @repo.manifests.create!(
-      digest: "sha256:abc",
+      digest: "sha256:#{"a" * 64}",
       media_type: "application/vnd.docker.distribution.manifest.v2+json",
       payload: "{}", size: 2
     )
