@@ -94,6 +94,54 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "v1.0.0", PullEvent.last.tag_name
   end
 
+  # E-38: PullEvent must capture the request's User-Agent header so we can
+  # report on which clients (docker, podman, ci runners) are pulling images.
+  test "GET /v2/:name/manifests/:reference records request user_agent on PullEvent" do
+    put "/v2/#{@repo_name}/manifests/v1.0.0",
+        params: @manifest_payload,
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }.merge(basic_auth_for)
+
+    user_agent = "docker/24.0.0 (linux)"
+    get "/v2/#{@repo_name}/manifests/v1.0.0", headers: { "HTTP_USER_AGENT" => user_agent }
+
+    assert_response :ok
+    assert_equal user_agent, PullEvent.last.user_agent
+  end
+
+  # E-39: pull_count must increment atomically when concurrent pulls hit the
+  # same manifest. The controller uses Manifest#increment! which translates
+  # into a single SQL UPDATE … SET pull_count = pull_count + 1, so N
+  # concurrent GETs must yield exactly pull_count == N (no lost updates).
+  #
+  # Implementation note: the integration-test session is single-threaded, so
+  # we exercise the increment path at the model level — the same code the
+  # controller calls on line 95 of v2/manifests_controller.rb. SQLite's
+  # write serialization plus the timeout make this safe to assert.
+  test "Manifest#increment!(:pull_count) is atomic across N concurrent threads" do
+    put "/v2/#{@repo_name}/manifests/v1.0.0",
+        params: @manifest_payload,
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }.merge(basic_auth_for)
+
+    manifest = Manifest.last
+    assert_equal 0, manifest.pull_count
+
+    n = 10
+    barrier = Queue.new
+    threads = Array.new(n) do
+      Thread.new do
+        # Wait until main thread releases the barrier, so all threads race together.
+        barrier.pop
+        ActiveRecord::Base.connection_pool.with_connection do
+          Manifest.find(manifest.id).increment!(:pull_count)
+        end
+      end
+    end
+    n.times { barrier << :go }
+    threads.each(&:join)
+
+    assert_equal n, manifest.reload.pull_count, "concurrent increments must not lose updates"
+  end
+
   test "GET /v2/:name/manifests/:reference returns 404 for unknown tag" do
     get "/v2/#{@repo_name}/manifests/nonexistent"
     assert_response 404
