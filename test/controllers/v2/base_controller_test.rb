@@ -5,12 +5,14 @@ class V2::BaseControllerTest < ActionDispatch::IntegrationTest
   include ActiveSupport::Testing::TimeHelpers
 
   test "GET /v2/ returns 200 with empty JSON body" do
+    Rails.configuration.x.registry.anonymous_pull_enabled = true
     get "/v2/"
     assert_response 200
     assert_equal({}, JSON.parse(response.body))
   end
 
   test "GET /v2/ includes Docker-Distribution-API-Version header" do
+    Rails.configuration.x.registry.anonymous_pull_enabled = true
     get "/v2/"
     assert_equal "registry/2.0", response.headers["Docker-Distribution-API-Version"]
   end
@@ -26,6 +28,16 @@ class V2::BaseControllerTest < ActionDispatch::IntegrationTest
       payload: "{}", size: 2
     )
     @repo.tags.create!(name: "v1.0.0", manifest: @manifest)
+
+    # B-38: most of the auth-gate assertions below require the anonymous-pull
+    # gate to be CLOSED so unauthenticated GETs receive 401 instead of being
+    # waved through. Save the prior value to restore in teardown.
+    @prev_anon = Rails.configuration.x.registry.anonymous_pull_enabled
+    Rails.configuration.x.registry.anonymous_pull_enabled = false
+  end
+
+  teardown do
+    Rails.configuration.x.registry.anonymous_pull_enabled = @prev_anon
   end
 
   test "TagProtected raises returns 409 Conflict" do
@@ -149,5 +161,19 @@ class V2::BaseControllerTest < ActionDispatch::IntegrationTest
     # anonymous (no auth) → 401 은 이미 있음. 403 은 별도 케이스
     # 이 테스트는 concern + rescue_from 이 연결되면 통과
     skip "rescue_from wired in this task — tested via ManifestsController in Task 2.2"
+  end
+
+  # B-38: docker CLI surfaces the body of 401 responses to the user. Point
+  # them at /help and /settings/tokens so they can recover without rummaging
+  # through server logs.
+  test "401 response body includes a /help URL pointer" do
+    get "/v2/some-repo/manifests/latest"
+    assert_response :unauthorized
+    body = JSON.parse(response.body)
+    detail = body["errors"].first["detail"]
+    assert_kind_of Hash, detail
+    assert_match %r{/help}, detail["help_url"]
+    assert_match %r{/help}, body["errors"].first["message"]
+    assert_match %r{/settings/tokens}, body["errors"].first["message"]
   end
 end

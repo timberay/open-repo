@@ -30,4 +30,28 @@ class HelpControllerTest < ActionDispatch::IntegrationTest
     assert_match(/personal access token/i, response.body,
       "expected /help to describe oprk_ as a personal access token prefix")
   end
+
+  # B-37: /help must guide users through PAT generation.
+  test "GET /help renders PAT generation guidance" do
+    get "/help"
+    assert_response :ok
+    assert_select "h2", text: /Personal Access Token/i
+    assert_select "a[href=?]", "/settings/tokens"
+  end
+
+  # B-39: /help must explain the HTTP-vs-HTTPS choice.
+  test "GET /help renders HTTP vs HTTPS guidance" do
+    get "/help"
+    assert_response :ok
+    assert_select "h2", text: /HTTP vs HTTPS/i
+    assert_select "*", text: /insecure-registries/
+  end
+
+  # B-46: /help must walk users from sign-in through docker login.
+  test "GET /help shows sign-in to docker-login walkthrough" do
+    get "/help"
+    assert_response :ok
+    assert_select "h2", text: /Sign in.*docker login/i
+    assert_select "*", text: /docker login/
+  end
 end

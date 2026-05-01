@@ -61,7 +61,11 @@ class V2::BaseController < ActionController::API
     response.headers["WWW-Authenticate"]                = %(Basic realm="Registry")
     response.headers["Docker-Distribution-API-Version"] = "registry/2.0"
     render json: {
-      errors: [ { code: "UNAUTHORIZED", message: "authentication required", detail: nil } ]
+      errors: [ {
+        code: "UNAUTHORIZED",
+        message: "authentication required — generate a Personal Access Token at /settings/tokens; see /help for setup",
+        detail: { help_url: help_path }
+      } ]
     }, status: :unauthorized
   end
 
