@@ -4,21 +4,26 @@ Follow-up to the 99-use-case full inspection (전수검사) completed on 2026-04
 
 Spec source: `/tmp/uc-inspection/use-cases.md` (99 cases after B-49 struck by convention).
 
-## Status snapshot — after Wave 1
+## Status snapshot — after Wave 2
 
 | 상태 | 개수 | 비율 |
 |------|------|------|
-| Pass ✅ | 77 | 77.8% |
-| Partial ⚠️ | 16 | 16.2% |
+| Pass ✅ | 87 | 87.9% |
+| Partial ⚠️ | 6 | 6.1% |
 | Fail ❌ | 0 | 0% |
 | N/I ➖ | 4 | 4.0% |
 | N/A — | 2 | 2.0% |
 
-Wave 1 (already shipped on `main`, commits `e57855a..d1f4cf8`):
+Wave 1 (shipped on `main`, commits `e57855a..d1f4cf8`):
 - Fail 2건 수정 (B-19, B-25)
 - N/I 5건 구현 (B-21, B-40, E-07, E-13, E-47)
 - Partial 8건 테스트 보강으로 Pass 승격 (E-16, E-20, E-22, E-26, E-32, E-33, E-38, E-39)
 - B-49 spec 제외 (CLAUDE.md "English for code/yaml" 규칙 충돌)
+
+Wave 2 (shipped on `main`, PRs #41 / #42 / #43, commits `9074caf` / `259129a` / `82f30df`):
+- W2-A — B-03 (sign-out → /sign_in), B-07 (/sign_in 프로젝트 설명), B-22 (PAT prefix 컬럼)
+- W2-B — B-37 / B-39 / B-46 (Help 페이지 PAT / HTTP-vs-HTTPS / docker-login walkthrough), B-38 (V2 401 body `detail.help_url`)
+- W2-C — B-30 / B-35 / B-42 (docker login challenge / typo password / re-tag 복구 회귀 보호)
 
 ---
 

@@ -286,14 +286,15 @@ This registry accepts **single-platform Docker V2 Schema 2** manifests only. Mul
 - Scoped to the signed-in user's primary identity — never lists tokens belonging to other users.
 - **Create form**: name (required, unique per identity), kind (`cli` / `ci`), expires-in-days (blank for never).
 - On successful create, the raw `oprk_...` token is shown exactly once via a one-shot flash banner. Only the SHA-256 digest is persisted.
-- **Existing tokens table** with columns Name / Kind / Expires / Last used / Status. Status is `Active`, `Revoked` (red), or `Expired` (grey).
+- **Existing tokens table** with columns Name / Kind / Prefix / Expires / Last used / Status. The Prefix column shows the first 12 characters of the raw token (e.g., `oprk_xY9aBz2`) so users can identify which token is on which machine without seeing the full secret. Status is `Active`, `Revoked` (red), or `Expired` (grey).
 - **Revoke** button (turbo-confirmed) on each active row — sets `revoked_at`, preserving the row for audit.
 - Visible via the **Tokens** link in the top nav when signed in; hidden when signed out.
 
 ### Help Page (`GET /help`)
 
-- Static guide covering Docker daemon `insecure-registries` config, push/pull examples, Kubernetes/containerd mirror configuration, and an Nginx TLS reverse-proxy snippet.
+- Static guide covering Docker daemon `insecure-registries` config, HTTP vs HTTPS choice, Personal Access Token generation, the sign-in → token → `docker login` walkthrough, push/pull examples, Kubernetes/containerd mirror configuration, and an Nginx TLS reverse-proxy snippet.
 - Explicit warning about single-platform Docker V2 Schema 2 support.
+- The V2 API's 401 response body includes `detail.help_url = /help`, so `docker login` failures surface a direct pointer to this page.
 
 ### Global UI
 
@@ -323,7 +324,7 @@ Error mapping in `V2::BaseController#rescue_from`:
 | `Registry::DigestMismatch` | 400 | `DIGEST_INVALID` |
 | `Registry::Unsupported` | 415 | `UNSUPPORTED` |
 | `Registry::TagProtected` | 409 | `DENIED` |
-| `Auth::Unauthenticated` / `Auth::PatInvalid` | 401 | `UNAUTHORIZED` + `WWW-Authenticate: Basic realm="Registry"` |
+| `Auth::Unauthenticated` / `Auth::PatInvalid` | 401 | `UNAUTHORIZED` + `WWW-Authenticate: Basic realm="Registry"`. The response body's `detail.help_url` points at `/help` for self-service token setup. |
 | `Rack::Attack::Throttled` | 429 | `TOO_MANY_REQUESTS` + `Retry-After: 60` |
 
 ### Endpoints
