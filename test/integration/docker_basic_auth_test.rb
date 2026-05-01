@@ -137,4 +137,35 @@ class DockerBasicAuthTest < ActionDispatch::IntegrationTest
 
     assert_response :ok
   end
+
+  # B-30: docker login uses GET /v2/ as the auth probe.
+  # Real CLI sequence:
+  #   1. GET /v2/  (no auth) → 401 + WWW-Authenticate: Basic realm="Registry"
+  #   2. GET /v2/  (Authorization: Basic <b64>) → 200
+  test "docker login challenge: GET /v2/ no-auth then Basic-auth returns 401 then 200" do
+    prev_anon = Rails.configuration.x.registry.anonymous_pull_enabled
+    Rails.configuration.x.registry.anonymous_pull_enabled = false
+
+    # Step 1: probe without auth
+    get "/v2/"
+    assert_response :unauthorized
+    assert_equal %(Basic realm="Registry"), response.headers["WWW-Authenticate"]
+
+    # Step 2: retry with Basic auth using a valid PAT
+    get "/v2/", headers: basic_auth_for(pat_raw: TONNY_CLI_RAW, email: "tonny@timberay.com")
+    assert_response :ok
+    assert_equal "registry/2.0", response.headers["Docker-Distribution-API-Version"]
+  ensure
+    Rails.configuration.x.registry.anonymous_pull_enabled = prev_anon
+  end
+
+  test "docker login challenge: invalid PAT on /v2/ returns 401 (login fails)" do
+    prev_anon = Rails.configuration.x.registry.anonymous_pull_enabled
+    Rails.configuration.x.registry.anonymous_pull_enabled = false
+
+    get "/v2/", headers: basic_auth_for(pat_raw: "oprk_bogus_token", email: "tonny@timberay.com")
+    assert_response :unauthorized
+  ensure
+    Rails.configuration.x.registry.anonymous_pull_enabled = prev_anon
+  end
 end

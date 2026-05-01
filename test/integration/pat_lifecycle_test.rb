@@ -118,6 +118,29 @@ class PatLifecycleTest < ActionDispatch::IntegrationTest
                     "post-revoke request must 401; got #{response.status}"
   end
 
+  # ---- B-35: Mistyped password (typo) → 401, no last_used_at mutation ----
+  #
+  # Locks in that authentication side-effects only happen on a successful
+  # match. A single-character truncation on the raw value must be rejected
+  # without touching the real PAT's observability fields. Complements the
+  # existing expired/revoked coverage with the typo path.
+
+  test "B-35: typo password returns 401 and does not update last_used_at" do
+    raw = PersonalAccessToken.generate_raw
+    pat = create_pat!(raw: raw, name: "typo-test", expires_at: 1.day.from_now)
+    pat.update_column(:last_used_at, nil)
+
+    # Drop a single character to simulate a typo.
+    typo = raw[0..-2]
+
+    post "/v2/#{@repo_name}/blobs/uploads", headers: pat_headers(typo)
+    assert_response :unauthorized
+
+    pat.reload
+    assert_nil pat.last_used_at,
+               "typo'd password must not advance last_used_at"
+  end
+
   private
 
   def create_pat!(raw:, name:, expires_at:)
