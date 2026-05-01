@@ -46,7 +46,7 @@ class Auth::SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal users(:tonny).id, session[:user_id]
 
     delete sign_out_path
-    assert_redirected_to root_path
+    assert_redirected_to sign_in_path
     assert_nil session[:user_id]
   end
 
@@ -82,5 +82,12 @@ class Auth::SessionsControllerTest < ActionDispatch::IntegrationTest
     post "/testing/sign_in", params: { user_id: users(:tonny).id }
     get "/sign_in"
     assert_redirected_to root_path
+  end
+
+  test "GET /sign_in shows project description and PAT/help pointers" do
+    get "/sign_in"
+    assert_response :ok
+    assert_select "p", text: /open-repo.*self-hosted Docker registry/i
+    assert_select "a[href=?]", "/help", text: /Setup guide/i
   end
 end

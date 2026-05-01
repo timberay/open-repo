@@ -1,6 +1,7 @@
 <tr class="border-b">
   <td class="py-2"><%= token.name %></td>
   <td><%= token.kind %></td>
+  <td><code class="font-mono text-xs text-slate-700"><%= token.prefix %></code></td>
   <td><%= token.expires_at ? l(token.expires_at.to_date) : "never" %></td>
   <td><%= token.last_used_at ? time_ago_in_words(token.last_used_at) + " ago" : "—" %></td>
   <td>

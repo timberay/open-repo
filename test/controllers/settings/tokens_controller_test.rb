@@ -28,6 +28,30 @@ class Settings::TokensControllerTest < ActionDispatch::IntegrationTest
       "expected /settings/tokens to describe oprk_ as a personal access token prefix")
   end
 
+  # B-22: /settings/tokens must show a per-row Prefix column so users can
+  # identify which token is on which machine after the raw value is gone.
+  test "GET /settings/tokens lists prefix column for each token" do
+    post "/testing/sign_in", params: { user_id: users(:tonny).id }
+    get settings_tokens_path
+    assert_response :ok
+    assert_select "th", text: "Prefix"
+    # Existing fixture-loaded PATs render via _token_row partial; the column
+    # is present on every row.
+    assert_select "tr td", text: /\Aoprk_/
+  end
+
+  test "POST /settings/tokens stores 12-char prefix from raw token" do
+    post "/testing/sign_in", params: { user_id: users(:tonny).id }
+    assert_difference -> { PersonalAccessToken.count }, +1 do
+      post settings_tokens_path, params: {
+        personal_access_token: { name: "with-prefix", kind: "cli" }
+      }
+    end
+    raw = flash[:raw_token]
+    pat = PersonalAccessToken.order(:id).last
+    assert_equal raw[0, 12], pat.prefix
+  end
+
   test "never leaks other users' tokens" do
     post "/testing/sign_in", params: { user_id: users(:admin).id }
     get settings_tokens_path

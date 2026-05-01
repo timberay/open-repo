@@ -1,6 +1,15 @@
 <% content_for :title, "Sign in" %>
 <div class="max-w-md mx-auto py-16 px-4 text-center">
-  <h1 class="text-2xl font-semibold text-slate-100 mb-6">Sign in to continue</h1>
+  <h1 class="text-2xl font-semibold text-slate-100 mb-4">Sign in to continue</h1>
+  <p class="text-sm text-slate-300 mb-2">
+    open-repo is a self-hosted Docker registry. Sign in with your work account
+    to push images, manage repositories, and issue Personal Access Tokens for
+    <code class="bg-slate-800 text-slate-100 rounded px-1">docker login</code>.
+  </p>
+  <p class="text-xs text-slate-400 mb-6">
+    Need configuration help first? See the
+    <%= link_to "Setup guide", help_path, class: "underline text-indigo-300 hover:text-indigo-200" %>.
+  </p>
   <%= button_to "Sign in with Google", "/auth/google_oauth2", method: :post,
                 class: "inline-flex items-center justify-center min-h-11 px-4 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors duration-150",
                 data: { turbo: false } %>

@@ -41,7 +41,7 @@ class Auth::SessionsController < ApplicationController
 
   def destroy
     reset_session
-    redirect_to root_path, notice: "Signed out."
+    redirect_to sign_in_path, notice: "Signed out."
   end
 
   private

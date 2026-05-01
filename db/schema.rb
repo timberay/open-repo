@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_24_010032) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_01_215230) do
   create_table "blob_uploads", force: :cascade do |t|
     t.bigint "byte_offset", default: 0
     t.datetime "created_at", null: false
@@ -83,6 +83,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_24_010032) do
     t.string "kind", default: "cli", null: false
     t.datetime "last_used_at"
     t.string "name", null: false
+    t.string "prefix", null: false
     t.datetime "revoked_at"
     t.string "token_digest", null: false
     t.datetime "updated_at", null: false

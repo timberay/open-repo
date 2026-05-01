@@ -30,7 +30,7 @@ class AuthGoogleOauthFlowTest < ActionDispatch::IntegrationTest
     assert_match "fresh@timberay.com", response.body
 
     delete sign_out_path
-    assert_redirected_to root_path
+    assert_redirected_to sign_in_path
     follow_redirect!
     assert_match "Sign in with Google", response.body
   end

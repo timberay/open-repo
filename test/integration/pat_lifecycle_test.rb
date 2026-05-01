@@ -149,6 +149,7 @@ class PatLifecycleTest < ActionDispatch::IntegrationTest
       name: name,
       kind: "cli",
       token_digest: Digest::SHA256.hexdigest(raw),
+      prefix: PersonalAccessToken.prefix_for(raw),
       expires_at: expires_at
     )
   end

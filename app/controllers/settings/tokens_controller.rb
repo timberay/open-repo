@@ -12,6 +12,7 @@ module Settings
         name: pat_params[:name],
         kind: pat_params[:kind].presence || "cli",
         token_digest: Digest::SHA256.hexdigest(raw),
+        prefix: PersonalAccessToken.prefix_for(raw),
         expires_at: parse_expires_in(pat_params[:expires_in_days])
       )
       if pat.save
