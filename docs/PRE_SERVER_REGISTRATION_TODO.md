@@ -77,9 +77,9 @@ tasks reference them by ID (D1–D4 plus the smaller decisions D5–D9).
 
 ## Blockers (must do before server registration)
 
-- [ ] **B0. 🚨 CRITICAL — Rotate the leaked master key + all credentials, then purge from git history**
-  - **Type:** secret + ops (incident response — do this BEFORE anything else)
-  - **Progress (2026-05-31):** ✅ repo set Private · ✅ `config/master.key` purged from git history (`git filter-repo`) + force-pushed · ✅ `master.key` regenerated (new, git-ignored) · ✅ `secret_key_base` rotated · ✅ old leaked key no longer decrypts. ❗ **PENDING (operator):** reset the Google OAuth `client_secret` in Google Cloud Console, then `bin/rails credentials:edit` to fill the new `google_oauth` values (currently placeholders). Do NOT make the repo Public again until these two are done.
+- [x] **B0. 🚨 RESOLVED (2026-05-31) — Rotated the leaked master key + all credentials + purged from git history**
+  - **Type:** secret + ops (incident response — was done BEFORE anything else)
+  - **Done:** ✅ repo set Private · ✅ `config/master.key` purged from git history (`git filter-repo`) + force-pushed (remote `main` confirmed clean) · ✅ `master.key` regenerated (new, git-ignored) · ✅ `secret_key_base` rotated · ✅ old leaked key no longer decrypts (verified) · ✅ Google OAuth `client_secret` reset in Google Cloud Console + new `google_oauth` values added via `bin/rails credentials:edit` and committed (`df011a7`). Leak fully remediated — safe to make the repo Public again if desired. (Note: GitHub may retain old commit objects via PR refs/cache; rotation — done — is what neutralizes the leak.)
   - **Files:** `config/master.key` (in history at `8384a4f`), `config/credentials.yml.enc`, Google Cloud Console
   - **Why:** `config/master.key` (value `b53d6b71…`) was committed in `8384a4f` and remains in the permanent git
     history of a now-PUBLIC repo. It successfully decrypts the committed `config/credentials.yml.enc`, exposing
