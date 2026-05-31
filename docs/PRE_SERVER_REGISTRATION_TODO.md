@@ -1,7 +1,7 @@
 # Pre-Server-Registration TODO (Master Checklist)
 
 > **Date:** 2026-05-31
-> **Scope:** Everything required to run **repo_vista** (Rails 8 + Kamal 2 single-node Docker registry) in
+> **Scope:** Everything required to run **open_repo** (Rails 8 + Kamal 2 single-node Docker registry) in
 > REAL mode before announcing/registering the server. This is the authoritative, exhaustive checklist.
 > Actual implementation happens later — treat every item below as a gate.
 > **Method:** Whole-codebase audit (multi-agent adversarial workflow) + per-task source verification by hand.
@@ -105,17 +105,17 @@ tasks reference them by ID (D1–D4 plus the smaller decisions D5–D9).
 - [ ] **B1. Set the real container image name + namespace in `config/deploy.yml`**
   - **Type:** config
   - **Files:** `config/deploy.yml:5`
-  - **Why:** `image` is the unnamespaced `repo_vista` (line 5). On any authenticated registry (ghcr.io, Docker Hub, …)
+  - **Why:** `image` is the unnamespaced `open_repo` (line 5). On any authenticated registry (ghcr.io, Docker Hub, …)
     the image MUST be `<namespace>/<name>` or `kamal deploy` tags/pushes to a path you cannot write to → push 401/404.
     This is the *container image* registry (where Kamal stores the built app image), NOT the Docker-registry app this
     project IS — do not confuse them.
   - **Steps:**
     1. Per **D6**, pick the container image registry.
-    2. Edit `config/deploy.yml:5`: `image: <REGISTRY_NAMESPACE>/repo_vista` (ghcr.io → `image: <GH_ORG>/repo_vista`;
-       Docker Hub → `image: <DOCKERHUB_USER>/repo_vista`).
-    3. Keep `service: repo_vista` on line 2 (controls container/Traefik names; no namespace needed).
-  - **Acceptance:** `kamal config | grep -E '^\s*image:'` shows `<REGISTRY_NAMESPACE>/repo_vista` · after build,
-    `docker manifest inspect <registry.server>/<REGISTRY_NAMESPACE>/repo_vista:<git-sha>` returns JSON.
+    2. Edit `config/deploy.yml:5`: `image: <REGISTRY_NAMESPACE>/open_repo` (ghcr.io → `image: <GH_ORG>/open_repo`;
+       Docker Hub → `image: <DOCKERHUB_USER>/open_repo`).
+    3. Keep `service: open_repo` on line 2 (controls container/Traefik names; no namespace needed).
+  - **Acceptance:** `kamal config | grep -E '^\s*image:'` shows `<REGISTRY_NAMESPACE>/open_repo` · after build,
+    `docker manifest inspect <registry.server>/<REGISTRY_NAMESPACE>/open_repo:<git-sha>` returns JSON.
   - **Depends on:** D6
 
 - [ ] **B2. Point `registry.server` at the real container registry and wire login creds**
@@ -467,7 +467,7 @@ tasks reference them by ID (D1–D4 plus the smaller decisions D5–D9).
 - [ ] **H1. Size and document the single persistent volume (blobs + 4 SQLite DBs + upload sessions)**
   - **Type:** config/decision
   - **Files:** `config/deploy.yml:69-72`, `config/database.yml`, `config/cache.yml`, `config/application.rb:48`
-  - **Why:** Everything writable lives on ONE Docker volume `repo_vista_storage:/rails/storage`: layer blobs, in-flight upload
+  - **Why:** Everything writable lives on ONE Docker volume `open_repo_storage:/rails/storage`: layer blobs, in-flight upload
     bytes, and all four SQLite DBs. A full volume corrupts/aborts writes to cache, queue, AND cable at once — taking down job
     processing, Rack::Attack throttling (solid_cache), and ActionCable together.
   - **Steps:**
@@ -478,7 +478,7 @@ tasks reference them by ID (D1–D4 plus the smaller decisions D5–D9).
     3. Volume size = `blob_growth(12mo) + sqlite_budget + upload_headroom + 30%`. Add the number + formula as a comment above the `volumes:` block.
     4. Bind-mount option: point at a partition you can grow (LVM/EBS); record the resize procedure.
   - **Acceptance:** `deploy.yml volumes:` has a comment stating the chosen size + formula · on the host
-    `docker volume inspect repo_vista_storage` (or the bind partition) shows capacity >= budget · `df -h <mountpoint>` after a representative push run < 70% used.
+    `docker volume inspect open_repo_storage` (or the bind partition) shows capacity >= budget · `df -h <mountpoint>` after a representative push run < 70% used.
   - **Depends on:** D2
 
 - [ ] **H2. Confirm persistent volume mount + storage layout, and that data survives a redeploy**
@@ -488,7 +488,7 @@ tasks reference them by ID (D1–D4 plus the smaller decisions D5–D9).
     (`application.rb:48` `STORAGE_PATH` default `/rails/storage/registry`). If the volume is missing/not mounted, data is lost on
     every redeploy and SQLite writes go to the ephemeral container layer.
   - **Steps:**
-    1. Keep the named volume for single-node. For backups, consider a HOST bind path (`/srv/repo_vista/storage:/rails/storage`)
+    1. Keep the named volume for single-node. For backups, consider a HOST bind path (`/srv/open_repo/storage:/rails/storage`)
        owned by uid 1000 (`Dockerfile:66` runs `USER 1000:1000`).
     2. Leave `STORAGE_PATH` unset (default is on the mounted volume); only set it to relocate to a subdir of a mounted volume.
     3. Verify the mount + persistence (acceptance). Set up disk monitoring (H3) + the off-server backup (B18).
@@ -796,7 +796,7 @@ tasks reference them by ID (D1–D4 plus the smaller decisions D5–D9).
     2. Ensure X-Forwarded-Proto is forwarded (B9 kamal-proxy or B11 Nginx) so assume_ssl/force_ssl behave.
     3. Add a static assertion test (mirroring the existing "no SameSite=None" static test) that `production.rb` contains uncommented `config.force_ssl = true`; keep the Secure-runtime test skipped/documented.
   - **Acceptance:** `bin/rails test test/integration/session_cookie_hygiene_test.rb` passes (HttpOnly + SameSite=Lax + new static
-    force_ssl assertion) · HTTPS deploy: `Set-Cookie` `_repo_vista_session` carries `; secure; HttpOnly; SameSite=Lax` ·
+    force_ssl assertion) · HTTPS deploy: `Set-Cookie` `_open_repo_session` carries `; secure; HttpOnly; SameSite=Lax` ·
     `curl -sI http://HOST/` → 301/308 to https while `/up` is NOT redirected.
   - **Depends on:** B10, D1
 
@@ -1117,7 +1117,7 @@ Do these in exactly this order. The admin-bootstrap ordering (steps 6-7) is the 
 
 1. **Pre-flight decisions (D1–D12).** Resolve at minimum TLS (D1), single-node (D2), anonymous-pull (D3), error sink (D4),
    image registry (D6). Record chosen values here.
-2. **Resolve `config/deploy.yml` scaffold placeholders.** `image: <REGISTRY_NAMESPACE>/repo_vista` (B1); `registry.server` +
+2. **Resolve `config/deploy.yml` scaffold placeholders.** `image: <REGISTRY_NAMESPACE>/open_repo` (B1); `registry.server` +
    `username` + `password` (B2); `servers.web: <REAL_HOST>` (B3); `builder.arch` matches the server (H22); add `env.clear` keys
    `REGISTRY_HOST`, `SOLID_QUEUE_IN_PUMA: true` (present), `RAILS_MAX_THREADS`, `MAX_REQUEST_BODY: 0`, anonymous-pull, retention/disk
    as decided; add the `logging:` block (H7).

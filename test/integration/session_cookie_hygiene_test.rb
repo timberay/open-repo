@@ -12,7 +12,7 @@ require "test_helper"
 # session security posture and should be reviewed, not silently relaxed.
 class SessionCookieHygieneTest < ActionDispatch::IntegrationTest
   # Discover the configured session cookie name (Rails default is
-  # "_<app_name>_session"; for this app it's "_repo_vista_session").
+  # "_<app_name>_session"; for this app it's "_open_repo_session").
   SESSION_KEY = Rails.application.config.session_options[:key].freeze
 
   # Returns the raw Set-Cookie line for the session cookie, or nil if absent.
