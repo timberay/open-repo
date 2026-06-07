@@ -29,6 +29,7 @@ class V2::BlobUploadsController < V2::BaseController
   def update
     authorize_write!
     upload = find_upload!
+    validate_content_range!(upload)
     blob_store.append_upload(upload.uuid, request.body)
     upload.update!(byte_offset: blob_store.upload_size(upload.uuid))
 
@@ -155,6 +156,34 @@ class V2::BlobUploadsController < V2::BaseController
 
   def source_references_blob?(source, blob)
     source.manifests.joins(:layers).exists?(layers: { blob_id: blob.id })
+  end
+
+  # When a chunked PATCH carries a Content-Range header, validate it against the
+  # current upload offset and the declared body length (Content-Length). A
+  # mismatch means an out-of-order or inconsistent chunk that would silently
+  # corrupt the blob, so reject with 416 before appending anything. A PATCH with
+  # no Content-Range (single streamed chunk) keeps the existing append behavior.
+  def validate_content_range!(upload)
+    range = request.headers["Content-Range"]
+    return if range.blank?
+
+    match = range.match(/\A(\d+)-(\d+)\z/)
+    raise Registry::RangeNotSatisfiable, "malformed Content-Range '#{range}'" unless match
+
+    start_offset = match[1].to_i
+    end_offset   = match[2].to_i
+    chunk_length = end_offset - start_offset + 1
+    declared_length = request.content_length
+
+    if start_offset != upload.byte_offset.to_i
+      raise Registry::RangeNotSatisfiable,
+            "Content-Range start #{start_offset} does not match upload offset #{upload.byte_offset}"
+    end
+
+    if declared_length && chunk_length != declared_length
+      raise Registry::RangeNotSatisfiable,
+            "Content-Range '#{range}' length #{chunk_length} does not match body size #{declared_length}"
+    end
   end
 
   def upload_url(upload)

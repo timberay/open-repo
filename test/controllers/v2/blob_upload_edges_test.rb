@@ -149,21 +149,58 @@ class V2::BlobUploadEdgesTest < ActionDispatch::IntegrationTest
   end
 
   # ---------------------------------------------------------------------------
-  # UC-V2-012 canary — controller does NOT parse / validate the Content-Range
-  # header. PATCH currently appends bytes regardless of header syntax.
-  # PINNING current behavior: a malformed Content-Range header is silently
-  # accepted and the chunk is appended → 202. If a future change adds proper
-  # Content-Range validation, this test should be updated deliberately.
+  # UC-V2-012 — Content-Range is now validated. A header whose declared chunk
+  # length disagrees with the body size is rejected with 416 and no bytes are
+  # appended (prevents silent blob corruption).
   # ---------------------------------------------------------------------------
-  test "PATCH chunked upload with malformed Content-Range header is silently accepted" do
+  test "PATCH chunked upload with Content-Range length mismatch returns 416" do
     post "/v2/#{@repo_name}/blobs/uploads", headers: basic_auth_for
     uuid = response.headers["Docker-Upload-UUID"]
 
     patch "/v2/#{@repo_name}/blobs/uploads/#{uuid}",
-          params: "five!",
+          params: "five!", # 5-byte body
           headers: {
             "CONTENT_TYPE" => "application/octet-stream",
-            "Content-Range" => "0-0" # malformed: claims zero bytes for a 5-byte body
+            "Content-Range" => "0-0" # claims a 1-byte chunk
+          }.merge(basic_auth_for)
+
+    assert_response 416
+    get "/v2/#{@repo_name}/blobs/uploads/#{uuid}", headers: basic_auth_for
+    assert_equal "0-0", response.headers["Range"], "no bytes should have been appended"
+  end
+
+  test "PATCH chunked upload whose Content-Range start != current offset returns 416" do
+    post "/v2/#{@repo_name}/blobs/uploads", headers: basic_auth_for
+    uuid = response.headers["Docker-Upload-UUID"]
+
+    # First chunk: 4 bytes at offset 0 (valid).
+    patch "/v2/#{@repo_name}/blobs/uploads/#{uuid}",
+          params: "abcd",
+          headers: {
+            "CONTENT_TYPE" => "application/octet-stream",
+            "Content-Range" => "0-3"
+          }.merge(basic_auth_for)
+    assert_response 202
+
+    # Second chunk claims to start at 0 again (should be 4) → out of order.
+    patch "/v2/#{@repo_name}/blobs/uploads/#{uuid}",
+          params: "efgh",
+          headers: {
+            "CONTENT_TYPE" => "application/octet-stream",
+            "Content-Range" => "0-3"
+          }.merge(basic_auth_for)
+    assert_response 416
+  end
+
+  test "PATCH chunked upload with a valid Content-Range is accepted" do
+    post "/v2/#{@repo_name}/blobs/uploads", headers: basic_auth_for
+    uuid = response.headers["Docker-Upload-UUID"]
+
+    patch "/v2/#{@repo_name}/blobs/uploads/#{uuid}",
+          params: "abcde", # 5 bytes
+          headers: {
+            "CONTENT_TYPE" => "application/octet-stream",
+            "Content-Range" => "0-4"
           }.merge(basic_auth_for)
 
     assert_response 202
