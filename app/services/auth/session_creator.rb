@@ -7,7 +7,12 @@ module Auth
         identity = Identity.find_by(provider: profile.provider, uid: profile.uid)
         user =
           if identity
-            # Case A
+            # Case A — re-verify on every login (parity with Cases B/C)
+            unless profile.email_verified == true
+              raise Auth::EmailMismatch,
+                    "provider did not verify identity=#{profile.provider}:#{profile.uid}"
+            end
+            identity.update!(email: profile.email) if identity.email != profile.email
             identity.user
           elsif (matched = User.find_by(email: profile.email))
             # Case B — email matches existing user
