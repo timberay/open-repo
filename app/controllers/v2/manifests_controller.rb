@@ -58,25 +58,31 @@ class V2::ManifestsController < V2::BaseController
 
     manifest.tags.each { |tag| @repository.enforce_tag_protection!(tag.name) }
 
-    manifest.tags.each do |tag|
-      TagEvent.create!(
-        repository: @repository,
-        tag_name: tag.name,
-        action: "delete",
-        previous_digest: manifest.digest,
-        actor: current_user.email,
-        actor_identity_id: current_user.primary_identity_id,
-        occurred_at: Time.current
-      )
+    # Audit events, tag removal, blob ref decrements, and the manifest delete
+    # must be all-or-nothing: a mid-sequence failure must not leak ref counts or
+    # leave dangling tag/event rows.
+    ActiveRecord::Base.transaction do
+      manifest.tags.each do |tag|
+        TagEvent.create!(
+          repository: @repository,
+          tag_name: tag.name,
+          action: "delete",
+          previous_digest: manifest.digest,
+          actor: current_user.email,
+          actor_identity_id: current_user.primary_identity_id,
+          occurred_at: Time.current
+        )
+      end
+
+      manifest.tags.destroy_all
+
+      manifest.layers.each do |layer|
+        layer.blob.decrement!(:references_count)
+      end
+
+      manifest.destroy!
     end
 
-    manifest.tags.destroy_all
-
-    manifest.layers.each do |layer|
-      layer.blob.decrement!(:references_count)
-    end
-
-    manifest.destroy!
     head :accepted
   end
 
