@@ -37,11 +37,17 @@ class RepositoriesController < ApplicationController
   end
 
   def destroy
-    @repository.manifests.includes(layers: :blob).find_each do |manifest|
-      manifest.layers.each { |layer| layer.blob.decrement!(:references_count) }
+    # Decrementing shared-blob ref counts and destroying the repository must be
+    # atomic: a failure after the decrement loop would mass-undercount blobs
+    # shared with OTHER repositories and expose them to premature GC.
+    ActiveRecord::Base.transaction do
+      @repository.manifests.includes(layers: :blob).find_each do |manifest|
+        manifest.layers.each { |layer| layer.blob.decrement!(:references_count) }
+      end
+
+      @repository.destroy!
     end
 
-    @repository.destroy!
     redirect_to root_path, notice: "Repository '#{@repository.name}' deleted."
   end
 
