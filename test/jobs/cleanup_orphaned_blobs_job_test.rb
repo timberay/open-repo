@@ -173,6 +173,47 @@ class CleanupOrphanedBlobsJobTest < ActiveJob::TestCase
     assert_equal false, @blob_store.exists?(digest), "blob file must be GC'd on the next pass"
   end
 
+  # A blob whose counter drifted negative (over-decrement bug) is still an
+  # orphan and must be reclaimable. The `<= 0` selection self-heals it.
+  test "perform GCs a blob whose references_count is negative and unreferenced" do
+    content = "negative-count orphan"
+    digest = DigestCalculator.compute(content)
+    @blob_store.put(digest, StringIO.new(content))
+    Blob.create!(digest: digest, size: content.bytesize, references_count: -1)
+
+    CleanupOrphanedBlobsJob.perform_now
+
+    assert_nil Blob.find_by(digest: digest)
+    assert_equal false, @blob_store.exists?(digest)
+  end
+
+  # Safety net: a blob a live Layer still points to must NEVER be deleted, even
+  # if its counter is wrong (0 or negative). Without this guard, widening the
+  # GC selection to `<= 0` would delete a referenced blob → data loss.
+  test "perform never deletes a blob a live layer still references" do
+    content = "referenced but mis-counted"
+    digest = DigestCalculator.compute(content)
+    @blob_store.put(digest, StringIO.new(content))
+    blob = Blob.create!(digest: digest, size: content.bytesize, references_count: -1)
+
+    repo = Repository.create!(
+      name: "guard-repo-#{SecureRandom.hex(4)}",
+      owner_identity: identities(:tonny_google)
+    )
+    manifest = repo.manifests.create!(
+      digest: "sha256:guard-#{SecureRandom.hex(8)}",
+      media_type: "application/vnd.docker.distribution.manifest.v2+json",
+      payload: "{}", size: 2
+    )
+    repo.tags.create!(name: "keep", manifest: manifest) # keep manifest non-orphan
+    Layer.create!(manifest: manifest, blob: blob, position: 0)
+
+    CleanupOrphanedBlobsJob.perform_now
+
+    assert Blob.exists?(id: blob.id), "blob with a live layer must survive GC"
+    assert_equal true, @blob_store.exists?(digest), "blob file with a live layer must survive GC"
+  end
+
   # cleanup_stale_uploads happy-path companion (older than max_age -> deleted)
   test "perform removes upload dirs older than 1 hour" do
     uuid = SecureRandom.uuid

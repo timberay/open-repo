@@ -12,9 +12,14 @@ class CleanupOrphanedBlobsJob < ApplicationJob
   private
 
   def cleanup_orphaned_blobs
-    Blob.where(references_count: 0).find_each(batch_size: BATCH_SIZE) do |blob|
+    # `<= 0` reclaims blobs whose counter drifted negative (over-decrement bug);
+    # the layer-existence guard ensures a blob a live Layer still points to is
+    # never deleted even when its counter is wrong — the counter is an index,
+    # the Layer rows are the source of truth.
+    Blob.where("references_count <= 0").find_each(batch_size: BATCH_SIZE) do |blob|
       blob.reload
       next if blob.references_count > 0
+      next if blob.layers.exists?
 
       blob_store.delete(blob.digest)
       blob.destroy!
