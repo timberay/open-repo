@@ -214,6 +214,35 @@ class CleanupOrphanedBlobsJobTest < ActiveJob::TestCase
     assert_equal true, @blob_store.exists?(digest), "blob file with a live layer must survive GC"
   end
 
+  # A manifest's config blob is referenced via manifests.config_digest, NOT via
+  # a Layer row, and never gets references_count incremented. GC must still
+  # treat it as live, or every pushed image loses its config blob.
+  test "perform never deletes a config blob referenced by a live manifest" do
+    config = "image config json"
+    config_digest = DigestCalculator.compute(config)
+    @blob_store.put(config_digest, StringIO.new(config))
+    config_blob = Blob.create!(digest: config_digest, size: config.bytesize, references_count: 0)
+
+    layer = "layer bytes"
+    layer_digest = DigestCalculator.compute(layer)
+    @blob_store.put(layer_digest, StringIO.new(layer))
+    layer_blob = Blob.create!(digest: layer_digest, size: layer.bytesize, references_count: 1)
+
+    repo = Repository.create!(name: "cfg-repo-#{SecureRandom.hex(4)}", owner_identity: identities(:tonny_google))
+    manifest = repo.manifests.create!(
+      digest: "sha256:cfg-#{SecureRandom.hex(8)}",
+      media_type: "application/vnd.docker.distribution.manifest.v2+json",
+      payload: "{}", size: 2, config_digest: config_digest
+    )
+    repo.tags.create!(name: "v1", manifest: manifest)
+    Layer.create!(manifest: manifest, blob: layer_blob, position: 0)
+
+    CleanupOrphanedBlobsJob.perform_now
+
+    assert Blob.exists?(id: config_blob.id), "config blob of a live manifest must survive GC"
+    assert_equal true, @blob_store.exists?(config_digest), "config blob file must survive GC"
+  end
+
   # cleanup_stale_uploads happy-path companion (older than max_age -> deleted)
   test "perform removes upload dirs older than 1 hour" do
     uuid = SecureRandom.uuid

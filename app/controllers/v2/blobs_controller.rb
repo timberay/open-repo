@@ -25,9 +25,9 @@ class V2::BlobsController < V2::BaseController
   def destroy
     blob = Blob.find_by!(digest: params[:digest])
 
-    if blob.references_count.to_i > 0
+    if blob.referenced?
       raise Registry::BlobReferenced,
-            "blob '#{blob.digest}' is still referenced by #{blob.references_count} manifest layer(s)"
+            "blob '#{blob.digest}' is still referenced by a manifest (layer or config)"
     end
 
     BlobStore.new.delete(blob.digest)

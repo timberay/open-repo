@@ -69,6 +69,48 @@ class V2::BlobUploadEdgesTest < ActionDispatch::IntegrationTest
     assert_equal true, @blob_store.exists?(digest), "referenced blob file must survive"
   end
 
+  # Liveness is authoritative, not the counter: a blob a live Layer points to
+  # must be refused even when references_count has drifted to 0 (stale counter).
+  test "DELETE blob with a live layer but references_count 0 is still refused (409)" do
+    repo = Repository.find_by!(name: @repo_name)
+    content = "stale-counter blob"
+    digest = DigestCalculator.compute(content)
+    blob = Blob.create!(digest: digest, size: content.bytesize, references_count: 0)
+    @blob_store.put(digest, StringIO.new(content))
+    manifest = repo.manifests.create!(
+      digest: "sha256:stale#{SecureRandom.hex(8)}",
+      media_type: "application/vnd.docker.distribution.manifest.v2+json",
+      payload: "{}", size: 2
+    )
+    Layer.create!(manifest: manifest, blob: blob, position: 0)
+
+    delete "/v2/#{@repo_name}/blobs/#{digest}", headers: basic_auth_for
+
+    assert_response 409
+    assert Blob.exists?(id: blob.id)
+    assert_equal true, @blob_store.exists?(digest)
+  end
+
+  # A config blob (referenced via manifests.config_digest, never a Layer, always
+  # references_count 0) must be refused too.
+  test "DELETE a manifest config blob is refused (409)" do
+    repo = Repository.find_by!(name: @repo_name)
+    content = "config blob bytes"
+    digest = DigestCalculator.compute(content)
+    Blob.create!(digest: digest, size: content.bytesize, references_count: 0)
+    @blob_store.put(digest, StringIO.new(content))
+    repo.manifests.create!(
+      digest: "sha256:cfgblob#{SecureRandom.hex(8)}",
+      media_type: "application/vnd.docker.distribution.manifest.v2+json",
+      payload: "{}", size: 2, config_digest: digest
+    )
+
+    delete "/v2/#{@repo_name}/blobs/#{digest}", headers: basic_auth_for
+
+    assert_response 409
+    assert Blob.exists?(digest: digest)
+  end
+
   # ---------------------------------------------------------------------------
   # UC-V2-008.e5 — blob row exists, references_count = 0, but the on-disk file
   # is already gone. DELETE should still succeed (FileUtils.rm_f is silent on
