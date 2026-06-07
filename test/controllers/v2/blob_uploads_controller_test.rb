@@ -272,4 +272,26 @@ class V2::BlobUploadsControllerTest < ActionDispatch::IntegrationTest
     delete "/v2/#{repo.name}/blobs/uploads/#{upload.uuid}", headers: non_member
     assert_response 403
   end
+
+  test "create still authorizes write after a find_or_create race (RecordNotUnique)" do
+    repo = Repository.create!(
+      name: "race-repo-#{SecureRandom.hex(4)}",
+      owner_identity: identities(:tonny_google)
+    )
+
+    # Simulate losing the create race: find_or_create_by! raises RecordNotUnique
+    # even though the repo already exists and is owned by someone else.
+    Repository.define_singleton_method(:find_or_create_by!) do |*, &_blk|
+      raise ActiveRecord::RecordNotUnique, "race"
+    end
+    begin
+      post "/v2/#{repo.name}/blobs/uploads",
+           headers: basic_auth_for(pat_raw: ADMIN_CLI_RAW, email: "admin@timberay.com")
+    ensure
+      Repository.singleton_class.send(:remove_method, :find_or_create_by!)
+    end
+
+    assert_response 403
+    assert_equal "DENIED", JSON.parse(response.body)["errors"][0]["code"]
+  end
 end
