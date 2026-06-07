@@ -112,3 +112,6 @@ Thumbs.db
 # graphify knowledge graph (regenerate locally with /graphify)
 # ============================================================
 /graphify-out/
+
+# Local codex session cache (gstack /codex)
+.context/
