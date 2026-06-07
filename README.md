@@ -34,7 +34,7 @@ A self-hosted Docker Registry V2 server with a web management UI, built with Rub
 Open Repo exposes two surfaces on top of the same storage backend:
 
 - **Docker CLI surface** — a Docker Registry V2-compliant API for `docker push` / `docker pull`, with chunked uploads, cross-repo blob mount, HEAD manifest, and pagination.
-- **Web UI surface** — a Hotwire-powered management console to browse repositories, inspect manifests/layers/configs, edit metadata, enforce tag protection, review audit logs, and import/export images as tar files.
+- **Web UI surface** — a Hotwire-powered management console to browse repositories, inspect manifests/layers/configs, edit metadata, enforce tag protection, and review audit logs.
 
 Everything runs on a single Rails monolith with SQLite (Solid Cache/Queue/Cable), so there is no Redis, no Sidekiq, no external broker required.
 
@@ -42,13 +42,10 @@ Everything runs on a single Rails monolith with SQLite (Solid Cache/Queue/Cable)
 
 - **Docker Registry V2 API** — full `docker push` / `docker pull` support with monolithic & chunked uploads, cross-repo blob mount, HEAD manifest, and Docker-spec-compliant error bodies.
 - **Web UI** — browse repositories and tags, view image config (OS, arch, env, cmd), edit descriptions/maintainers, configure tag protection policies, copy pull commands, and review per-tag change history.
-- **Image Import/Export** — upload/download Docker images as tar files via async background jobs (compatible with `docker save` / `docker load`).
-- **Pull Tracking** — per-manifest pull counts, last-pulled timestamp, and detailed `PullEvent` history (IP, user agent, tag name).
-- **Tag Audit Log** — immutable `TagEvent` records for tag create/update/delete with previous and new digests.
-- **Tag Comparison** — diff layers and config between two manifests (`TagDiffService`).
-- **Dependency Graph** — identify repositories sharing layer blobs to assess deletion impact and blob-mount opportunities (`DependencyAnalyzer`).
+- **Pull Tracking** — per-manifest pull counts and last-pulled timestamp (surfaced in the UI), plus `PullEvent` audit rows (IP, user agent, tag name) recorded for retention/analysis (not currently shown in the UI).
+- **Tag Audit Log** — immutable `TagEvent` records for tag create/update/delete with previous and new digests, viewable on the tag history page.
 - **Tag Protection** — four policy modes (`none` / `semver` / `all_except_latest` / `custom_regex`) enforced inside a row-locked transaction, with idempotent push support for CI retry safety.
-- **Garbage Collection** — reference-counted blobs, orphan manifest cleanup, stale upload cleanup, expired export cleanup.
+- **Garbage Collection** — reference-counted blobs, orphan manifest cleanup, stale upload cleanup.
 - **Retention Policy** — configurable auto-expiration of unused images based on pull activity; honors tag protection.
 - **Dark Mode** — responsive TailwindCSS design with a Stimulus-powered light/dark toggle and FOUC prevention.
 
@@ -126,7 +123,7 @@ Additional dev commands are documented in [`docs/standards/TOOLS.md`](docs/stand
 | `RETENTION_MIN_PULL_COUNT` | `5` | Manifests with fewer total pulls than this are eligible |
 | `RETENTION_PROTECT_LATEST` | `true` | Never auto-delete the `latest` tag |
 | `REGISTRY_ADMIN_EMAIL` | _(none)_ | Email granted `admin=true` on first Web UI sign-in |
-| `REGISTRY_ANONYMOUS_PULL` | `false` | Allow `docker pull` (GET/HEAD on `/v2/`) without a token |
+| `REGISTRY_ANONYMOUS_PULL` | `true` | Allow `docker pull` (GET/HEAD on `/v2/`) without a token. Defaults to `true` for internal/trusted-network use; set `false` to require a token on pulls. |
 
 ---
 
@@ -171,7 +168,7 @@ The challenge is Docker V2 Basic scheme: the server emits `WWW-Authenticate: Bas
 
 **Revoke a token:** on `/settings/tokens`, click **Revoke** on the row. Subsequent requests with that token immediately return 401.
 
-**`TagEvent.actor` records the real email** for every authenticated push / delete (V2 API and Web UI). Background imports without a session fall back to `"system:import"`. Retention-policy auto-deletions record `"retention-policy"`.
+**`TagEvent.actor` records the real email** for every authenticated push / delete (V2 API and Web UI). Retention-policy auto-deletions record `"retention-policy"`.
 
 ### Rate Limiting
 
@@ -242,7 +239,7 @@ curl -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
 
 ### Supported Image Formats
 
-This registry accepts **single-platform Docker V2 Schema 2** manifests only. Multi-architecture manifest lists and OCI manifests are rejected with `415 Unsupported Media Type`. Build images with `--platform linux/amd64` (or the target architecture) before pushing.
+This registry accepts **single-platform V2 Schema 2** manifests in either Docker (`application/vnd.docker.distribution.manifest.v2+json`) or OCI (`application/vnd.oci.image.manifest.v1+json`) flavor. Multi-architecture manifest lists / image indexes are rejected with `415 Unsupported Media Type`. Build images with `--platform linux/amd64` (or the target architecture) before pushing.
 
 ---
 
@@ -356,7 +353,7 @@ Pagination for catalog and tag listing: `?n=100&last=<cursor>`, clamped to 1–1
 
 Orchestrated by `ManifestProcessor#call(repo_name, reference, content_type, payload)`:
 
-1. Reject anything other than `application/vnd.docker.distribution.manifest.v2+json` (multi-arch / OCI → `415`).
+1. Accept single-platform Docker (`application/vnd.docker.distribution.manifest.v2+json`) or OCI (`application/vnd.oci.image.manifest.v1+json`) image manifests; reject anything else (multi-arch manifest lists / image indexes → `415`).
 2. Validate JSON and `schemaVersion == 2`.
 3. Verify the config blob and every layer blob exist in the blob store.
 4. Compute the manifest digest (SHA-256 of the payload).
@@ -445,7 +442,7 @@ Blob storage uses reference counting:
 
 Web UI tag deletion only destroys the `Tag` row — the corresponding `Manifest` is left for the orphan sweep on the next job run. This keeps delete operations fast and makes deletion undoable until GC catches up.
 
-Other sweeps handled by the same job: stale upload session directories (>1 hour old), completed/failed exports (>1 hour old), and completed/failed imports (>24 hours old).
+Other sweeps handled by the same job: stale upload session directories (>1 hour old).
 
 ---
 
