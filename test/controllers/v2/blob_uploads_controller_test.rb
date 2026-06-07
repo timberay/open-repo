@@ -100,7 +100,9 @@ class V2::BlobUploadsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response 201
     assert_equal digest, response.headers["Docker-Content-Digest"]
-    assert_equal 2, blob.reload.references_count
+    # Mount does NOT bump references_count; the manifest PUT that references the
+    # blob is what counts it (avoids double-count / abandoned-mount leak).
+    assert_equal 1, blob.reload.references_count
   end
 
   test "POST mount falls back to 202 when the from-repo does not reference the digest" do

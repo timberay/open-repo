@@ -140,12 +140,15 @@ class V2::BlobUploadsController < V2::BaseController
     blob = Blob.find_by(digest: params[:mount])
 
     # Per V2 spec, only honor the mount when the named source repository
-    # actually references the blob (manifest -> layer -> blob) and the content
-    # is on disk. Otherwise gracefully fall back to a normal upload session.
-    # (Stage 3 will additionally enforce :read authz on the source repo here.)
+    # actually references the blob (as a layer OR as a manifest config) and the
+    # content is on disk. Otherwise gracefully fall back to a normal upload
+    # session. (Stage 3 will additionally enforce :read authz on the source.)
+    #
+    # No references_count bump here: the mount is just a fast-path that avoids
+    # re-uploading bytes. The real reference is counted when the manifest that
+    # uses this blob is PUT (ManifestProcessor#create_layers!). Incrementing on
+    # mount double-counts (push) or leaks (mount then never push a manifest).
     if source && blob && blob_store.exists?(params[:mount]) && source_references_blob?(source, blob)
-      blob.increment!(:references_count)
-
       response.headers["Docker-Content-Digest"] = params[:mount]
       response.headers["Location"] = "/v2/#{repo_name}/blobs/#{params[:mount]}"
       head :created
@@ -155,7 +158,8 @@ class V2::BlobUploadsController < V2::BaseController
   end
 
   def source_references_blob?(source, blob)
-    source.manifests.joins(:layers).exists?(layers: { blob_id: blob.id })
+    source.manifests.joins(:layers).exists?(layers: { blob_id: blob.id }) ||
+      source.manifests.exists?(config_digest: blob.digest)
   end
 
   # When a chunked PATCH carries a Content-Range header, validate it against the
