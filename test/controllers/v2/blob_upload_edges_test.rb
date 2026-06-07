@@ -40,12 +40,13 @@ class V2::BlobUploadEdgesTest < ActionDispatch::IntegrationTest
 
   # ---------------------------------------------------------------------------
   # UC-V2-008.e1 — blob still referenced by a Manifest's Layer.
-  # CONTRACT: V2::BlobsController#destroy does NOT check references_count.
-  # The delete succeeds with 202 and orphan-detection is left to a separate
-  # job. Pinning current behavior — if this changes, the test should be
-  # updated deliberately, not silently.
+  # CONTRACT (updated): a referenced blob must NOT be deletable. Deleting a
+  # content-addressed blob still used by a manifest would corrupt that image
+  # irreversibly, so DELETE returns 409 and the blob (row + file) survives.
+  # Orphan blobs (references_count 0) remain deletable and are also swept by
+  # CleanupOrphanedBlobsJob.
   # ---------------------------------------------------------------------------
-  test "DELETE blob with references_count > 0 still returns 202" do
+  test "DELETE blob with references_count > 0 is refused with 409 and the blob survives" do
     repo = Repository.find_by!(name: @repo_name)
     content = "referenced blob"
     digest = DigestCalculator.compute(content)
@@ -62,8 +63,10 @@ class V2::BlobUploadEdgesTest < ActionDispatch::IntegrationTest
 
     delete "/v2/#{@repo_name}/blobs/#{digest}", headers: basic_auth_for
 
-    assert_response 202
-    assert_nil Blob.find_by(digest: digest)
+    assert_response 409
+    assert_equal "BLOB_REFERENCED", JSON.parse(response.body)["errors"][0]["code"]
+    assert Blob.exists?(id: blob.id), "referenced blob row must survive"
+    assert_equal true, @blob_store.exists?(digest), "referenced blob file must survive"
   end
 
   # ---------------------------------------------------------------------------
