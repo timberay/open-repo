@@ -12,6 +12,7 @@ class V2::BlobUploadsController < V2::BaseController
   end
 
   def show
+    @repository = find_repository!
     upload = find_upload!
     bytes_received = upload.byte_offset.to_i
 
@@ -26,7 +27,9 @@ class V2::BlobUploadsController < V2::BaseController
   end
 
   def update
+    authorize_write!
     upload = find_upload!
+    validate_content_range!(upload)
     blob_store.append_upload(upload.uuid, request.body)
     upload.update!(byte_offset: blob_store.upload_size(upload.uuid))
 
@@ -37,6 +40,7 @@ class V2::BlobUploadsController < V2::BaseController
   end
 
   def complete
+    authorize_write!
     upload = find_upload!
     digest = params[:digest]
 
@@ -59,6 +63,7 @@ class V2::BlobUploadsController < V2::BaseController
   end
 
   def destroy
+    authorize_write!
     upload = find_upload!
     blob_store.cancel_upload(upload.uuid)
     upload.destroy!
@@ -70,11 +75,10 @@ class V2::BlobUploadsController < V2::BaseController
   # First-pusher-owner pattern (tech design D2).
   # If the repository does not exist, the authenticated user becomes owner.
   # If it exists, write permission is checked.
-  # Handles SQLite unique-constraint race: the losing racer sees the repo as
-  # pre-existing and would normally be authz-checked, but in the specific
-  # window where they hit RecordNotUnique (both raced find_or_create), we let
-  # the blob upload succeed without authz — their orphaned upload is harmless,
-  # and a subsequent manifest PUT goes through the manifest-level authz gate.
+  # Handles the SQLite unique-constraint race: the losing racer hits
+  # RecordNotUnique, reloads the now-existing repo, and must run the SAME write
+  # authz as the happy path — otherwise the loser could start an upload on a
+  # repository they have no write access to.
   def ensure_repository!
     identity_id = current_user.primary_identity_id
     @repository = Repository.find_or_create_by!(name: repo_name) do |r|
@@ -83,12 +87,22 @@ class V2::BlobUploadsController < V2::BaseController
     # Existing repo: verify write access
     authorize_for!(:write) unless @repository.owner_identity_id == identity_id
   rescue ActiveRecord::RecordNotUnique
-    # Race-loss path: graceful pass. See comment above.
+    # Race-loss path: reload and re-check write authz (no bypass).
     @repository = Repository.find_by!(name: repo_name)
+    authorize_for!(:write) unless @repository.owner_identity_id == identity_id
   end
 
+  # Resolves the existing repository from the request path and enforces write
+  # access, mirroring the authz that `create` performs via ensure_repository!.
+  def authorize_write!
+    @repository = find_repository!
+    authorize_for!(:write)
+  end
+
+  # Scopes the upload lookup to @repository so a UUID minted under one repo
+  # cannot be driven under another repo's path.
   def find_upload!
-    BlobUpload.find_by!(uuid: params[:uuid])
+    @repository.blob_uploads.find_by!(uuid: params[:uuid])
   rescue ActiveRecord::RecordNotFound
     raise Registry::BlobUploadUnknown, "upload '#{params[:uuid]}' not found"
   end
@@ -122,17 +136,57 @@ class V2::BlobUploadsController < V2::BaseController
   end
 
   def handle_blob_mount
+    source = Repository.find_by(name: params[:from])
     blob = Blob.find_by(digest: params[:mount])
 
-    if blob && blob_store.exists?(params[:mount])
-      ensure_repository!
-      blob.increment!(:references_count)
-
+    # Per V2 spec, only honor the mount when the named source repository
+    # actually references the blob (as a layer OR as a manifest config) and the
+    # content is on disk. Otherwise gracefully fall back to a normal upload
+    # session. (Stage 3 will additionally enforce :read authz on the source.)
+    #
+    # No references_count bump here: the mount is just a fast-path that avoids
+    # re-uploading bytes. The real reference is counted when the manifest that
+    # uses this blob is PUT (ManifestProcessor#create_layers!). Incrementing on
+    # mount double-counts (push) or leaks (mount then never push a manifest).
+    if source && blob && blob_store.exists?(params[:mount]) && source_references_blob?(source, blob)
       response.headers["Docker-Content-Digest"] = params[:mount]
       response.headers["Location"] = "/v2/#{repo_name}/blobs/#{params[:mount]}"
       head :created
     else
       handle_start_upload
+    end
+  end
+
+  def source_references_blob?(source, blob)
+    source.manifests.joins(:layers).exists?(layers: { blob_id: blob.id }) ||
+      source.manifests.exists?(config_digest: blob.digest)
+  end
+
+  # When a chunked PATCH carries a Content-Range header, validate it against the
+  # current upload offset and the declared body length (Content-Length). A
+  # mismatch means an out-of-order or inconsistent chunk that would silently
+  # corrupt the blob, so reject with 416 before appending anything. A PATCH with
+  # no Content-Range (single streamed chunk) keeps the existing append behavior.
+  def validate_content_range!(upload)
+    range = request.headers["Content-Range"]
+    return if range.blank?
+
+    match = range.match(/\A(\d+)-(\d+)\z/)
+    raise Registry::RangeNotSatisfiable, "malformed Content-Range '#{range}'" unless match
+
+    start_offset = match[1].to_i
+    end_offset   = match[2].to_i
+    chunk_length = end_offset - start_offset + 1
+    declared_length = request.content_length
+
+    if start_offset != upload.byte_offset.to_i
+      raise Registry::RangeNotSatisfiable,
+            "Content-Range start #{start_offset} does not match upload offset #{upload.byte_offset}"
+    end
+
+    if declared_length && chunk_length != declared_length
+      raise Registry::RangeNotSatisfiable,
+            "Content-Range '#{range}' length #{chunk_length} does not match body size #{declared_length}"
     end
   end
 

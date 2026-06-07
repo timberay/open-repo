@@ -8,6 +8,8 @@ module Registry
   class DigestMismatch < Error; end
   class DigestInvalid < Error; end
   class Unsupported < Error; end
+  class RangeNotSatisfiable < Error; end
+  class BlobReferenced < Error; end
 
   class TagProtected < Error
     attr_reader :detail

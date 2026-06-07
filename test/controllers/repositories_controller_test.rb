@@ -39,6 +39,34 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     assert_nil Repository.find_by(name: "test-repo")
   end
 
+  test "DELETE repository is atomic: a destroy failure rolls back blob ref decrements" do
+    repo = Repository.create!(name: "atomic-repo-#{SecureRandom.hex(4)}", owner_identity: identities(:tonny_google))
+    manifest = Manifest.create!(repository: repo, digest: "sha256:#{"e" * 64}", media_type: "application/vnd.docker.distribution.manifest.v2+json", payload: "{}", size: 100)
+    blob = Blob.create!(digest: "sha256:#{"f" * 64}", size: 10, references_count: 1)
+    Layer.create!(manifest: manifest, blob: blob, position: 0)
+    post "/testing/sign_in", params: { user_id: users(:tonny).id }
+
+    Repository.class_eval do
+      alias_method :__orig_destroy_bang_repo, :destroy!
+      def destroy!
+        raise "boom"
+      end
+    end
+    begin
+      delete repository_path(repo.name)
+    rescue RuntimeError
+      # rollback is the contract regardless of how the error surfaces
+    ensure
+      Repository.class_eval do
+        alias_method :destroy!, :__orig_destroy_bang_repo
+        remove_method :__orig_destroy_bang_repo
+      end
+    end
+
+    assert Repository.exists?(id: repo.id), "repository must survive a rolled-back delete"
+    assert_equal 1, blob.reload.references_count, "blob ref decrement must roll back"
+  end
+
   test "renders protected badge with lock-closed heroicon, no emoji, text-sm" do
     protected_repo = Repository.create!(name: "protected-repo", tag_protection_policy: "semver", owner_identity: identities(:tonny_google))
     protected_manifest = Manifest.create!(repository: protected_repo, digest: "sha256:def", media_type: "application/vnd.docker.distribution.manifest.v2+json", payload: "{}", size: 200)

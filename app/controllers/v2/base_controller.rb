@@ -14,6 +14,8 @@ class V2::BaseController < ActionController::API
   rescue_from Registry::DigestMismatch, with: ->(e) { render_error("DIGEST_INVALID", e.message, 400) }
   rescue_from Registry::DigestInvalid, with: ->(e) { render_error("DIGEST_INVALID", e.message, 400) }
   rescue_from Registry::Unsupported, with: ->(e) { render_error("UNSUPPORTED", e.message, 415) }
+  rescue_from Registry::RangeNotSatisfiable, with: ->(e) { render_error("BLOB_UPLOAD_INVALID", e.message, 416) }
+  rescue_from Registry::BlobReferenced, with: ->(e) { render_error("BLOB_REFERENCED", e.message, 409) }
   rescue_from Registry::TagProtected, with: ->(e) { render_error("DENIED", e.message, 409, detail: e.detail) }
   rescue_from Auth::Unauthenticated, with: ->(_e) { render_v2_challenge }
   rescue_from Auth::ForbiddenAction, with: ->(e) {

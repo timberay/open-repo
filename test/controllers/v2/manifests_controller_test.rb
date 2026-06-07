@@ -237,6 +237,43 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 0, repo.tags.count
   end
 
+  test "DELETE manifest is atomic: a failure mid-delete rolls back tag and ref decrements" do
+    repo = Repository.create!(name: "atomic-del-#{SecureRandom.hex(4)}", owner_identity: identities(:tonny_google))
+    manifest = repo.manifests.create!(
+      digest: "sha256:#{"c" * 64}",
+      media_type: "application/vnd.docker.distribution.manifest.v2+json",
+      payload: "{}", size: 2
+    )
+    blob = Blob.create!(digest: "sha256:#{"d" * 64}", size: 10, references_count: 1)
+    Layer.create!(manifest: manifest, blob: blob, position: 0)
+    repo.tags.create!(name: "v1", manifest: manifest)
+
+    # Force the final manifest.destroy! to fail, simulating a mid-delete error.
+    Manifest.class_eval do
+      alias_method :__orig_destroy_bang_atomic, :destroy!
+      def destroy!
+        raise "boom"
+      end
+    end
+    begin
+      delete "/v2/#{repo.name}/manifests/#{manifest.digest}", headers: basic_auth_for
+    rescue RuntimeError
+      # may surface as a raised error or a 500 depending on env; either way the
+      # transaction must have rolled back.
+    ensure
+      Manifest.class_eval do
+        alias_method :destroy!, :__orig_destroy_bang_atomic
+        remove_method :__orig_destroy_bang_atomic
+      end
+    end
+
+    assert Manifest.exists?(id: manifest.id), "manifest must survive a rolled-back delete"
+    assert_equal 1, blob.reload.references_count, "blob ref decrement must roll back"
+    assert repo.tags.exists?(name: "v1"), "tag destroy must roll back"
+    assert_equal 0, TagEvent.where(repository: repo, tag_name: "v1", action: "delete").count,
+      "delete TagEvent must roll back"
+  end
+
   # Tag protection tests — protected_repo and its tag set up inline in each test
 
   test "DELETE /v2/:name/manifests/:digest when connected tag is protected returns 409 Conflict with DENIED envelope" do

@@ -17,7 +17,7 @@ class CleanupOrphanedBlobsJobTest < ActiveJob::TestCase
     content = "orphan blob"
     digest = DigestCalculator.compute(content)
     @blob_store.put(digest, StringIO.new(content))
-    Blob.create!(digest: digest, size: content.bytesize, references_count: 0)
+    Blob.create!(digest: digest, size: content.bytesize, references_count: 0, created_at: 2.hours.ago)
 
     CleanupOrphanedBlobsJob.perform_now
 
@@ -44,7 +44,7 @@ class CleanupOrphanedBlobsJobTest < ActiveJob::TestCase
     content = "racy blob"
     digest = DigestCalculator.compute(content)
     @blob_store.put(digest, StringIO.new(content))
-    Blob.create!(digest: digest, size: content.bytesize, references_count: 0)
+    Blob.create!(digest: digest, size: content.bytesize, references_count: 0, created_at: 2.hours.ago)
 
     # Stub Blob#reload globally to flip the in-memory references_count to 1
     # for any blob with this digest (we can't target a specific instance because
@@ -78,7 +78,7 @@ class CleanupOrphanedBlobsJobTest < ActiveJob::TestCase
   test "perform deletes orphaned blob row even when file is missing on disk" do
     content = "ghost blob"
     digest = DigestCalculator.compute(content)
-    Blob.create!(digest: digest, size: content.bytesize, references_count: 0)
+    Blob.create!(digest: digest, size: content.bytesize, references_count: 0, created_at: 2.hours.ago)
     assert_equal false, @blob_store.exists?(digest), "precondition: file should not exist"
 
     assert_nothing_raised do
@@ -142,7 +142,7 @@ class CleanupOrphanedBlobsJobTest < ActiveJob::TestCase
     content = "orphan manifest blob"
     digest = DigestCalculator.compute(content)
     @blob_store.put(digest, StringIO.new(content))
-    blob = Blob.create!(digest: digest, size: content.bytesize, references_count: 1)
+    blob = Blob.create!(digest: digest, size: content.bytesize, references_count: 1, created_at: 2.hours.ago)
 
     repo = Repository.create!(
       name: "orphan-mfst-repo-#{SecureRandom.hex(4)}",
@@ -171,6 +171,92 @@ class CleanupOrphanedBlobsJobTest < ActiveJob::TestCase
 
     assert_nil Blob.find_by(digest: digest), "blob row must be GC'd on the next pass"
     assert_equal false, @blob_store.exists?(digest), "blob file must be GC'd on the next pass"
+  end
+
+  # A blob whose counter drifted negative (over-decrement bug) is still an
+  # orphan and must be reclaimable. The `<= 0` selection self-heals it.
+  test "perform GCs a blob whose references_count is negative and unreferenced" do
+    content = "negative-count orphan"
+    digest = DigestCalculator.compute(content)
+    @blob_store.put(digest, StringIO.new(content))
+    Blob.create!(digest: digest, size: content.bytesize, references_count: -1, created_at: 2.hours.ago)
+
+    CleanupOrphanedBlobsJob.perform_now
+
+    assert_nil Blob.find_by(digest: digest)
+    assert_equal false, @blob_store.exists?(digest)
+  end
+
+  # Safety net: a blob a live Layer still points to must NEVER be deleted, even
+  # if its counter is wrong (0 or negative). Without this guard, widening the
+  # GC selection to `<= 0` would delete a referenced blob → data loss.
+  test "perform never deletes a blob a live layer still references" do
+    content = "referenced but mis-counted"
+    digest = DigestCalculator.compute(content)
+    @blob_store.put(digest, StringIO.new(content))
+    blob = Blob.create!(digest: digest, size: content.bytesize, references_count: -1, created_at: 2.hours.ago)
+
+    repo = Repository.create!(
+      name: "guard-repo-#{SecureRandom.hex(4)}",
+      owner_identity: identities(:tonny_google)
+    )
+    manifest = repo.manifests.create!(
+      digest: "sha256:guard-#{SecureRandom.hex(8)}",
+      media_type: "application/vnd.docker.distribution.manifest.v2+json",
+      payload: "{}", size: 2
+    )
+    repo.tags.create!(name: "keep", manifest: manifest) # keep manifest non-orphan
+    Layer.create!(manifest: manifest, blob: blob, position: 0)
+
+    CleanupOrphanedBlobsJob.perform_now
+
+    assert Blob.exists?(id: blob.id), "blob with a live layer must survive GC"
+    assert_equal true, @blob_store.exists?(digest), "blob file with a live layer must survive GC"
+  end
+
+  # A freshly-created orphan blob (references_count 0, no manifest yet) is an
+  # in-flight push: the client uploaded/mounted it and will PUT the manifest
+  # that references it momentarily. GC must NOT delete it inside the grace
+  # window, or a concurrent push fails with "layer blob not found".
+  test "perform does NOT delete a recently-created unreferenced blob (grace window)" do
+    content = "in-flight blob"
+    digest = DigestCalculator.compute(content)
+    @blob_store.put(digest, StringIO.new(content))
+    Blob.create!(digest: digest, size: content.bytesize, references_count: 0) # created now
+
+    CleanupOrphanedBlobsJob.perform_now
+
+    assert Blob.exists?(digest: digest), "recently-created blob must survive the grace window"
+    assert_equal true, @blob_store.exists?(digest)
+  end
+
+  # A manifest's config blob is referenced via manifests.config_digest, NOT via
+  # a Layer row, and never gets references_count incremented. GC must still
+  # treat it as live, or every pushed image loses its config blob.
+  test "perform never deletes a config blob referenced by a live manifest" do
+    config = "image config json"
+    config_digest = DigestCalculator.compute(config)
+    @blob_store.put(config_digest, StringIO.new(config))
+    config_blob = Blob.create!(digest: config_digest, size: config.bytesize, references_count: 0, created_at: 2.hours.ago)
+
+    layer = "layer bytes"
+    layer_digest = DigestCalculator.compute(layer)
+    @blob_store.put(layer_digest, StringIO.new(layer))
+    layer_blob = Blob.create!(digest: layer_digest, size: layer.bytesize, references_count: 1)
+
+    repo = Repository.create!(name: "cfg-repo-#{SecureRandom.hex(4)}", owner_identity: identities(:tonny_google))
+    manifest = repo.manifests.create!(
+      digest: "sha256:cfg-#{SecureRandom.hex(8)}",
+      media_type: "application/vnd.docker.distribution.manifest.v2+json",
+      payload: "{}", size: 2, config_digest: config_digest
+    )
+    repo.tags.create!(name: "v1", manifest: manifest)
+    Layer.create!(manifest: manifest, blob: layer_blob, position: 0)
+
+    CleanupOrphanedBlobsJob.perform_now
+
+    assert Blob.exists?(id: config_blob.id), "config blob of a live manifest must survive GC"
+    assert_equal true, @blob_store.exists?(config_digest), "config blob file must survive GC"
   end
 
   # cleanup_stale_uploads happy-path companion (older than max_age -> deleted)

@@ -40,12 +40,13 @@ class V2::BlobUploadEdgesTest < ActionDispatch::IntegrationTest
 
   # ---------------------------------------------------------------------------
   # UC-V2-008.e1 — blob still referenced by a Manifest's Layer.
-  # CONTRACT: V2::BlobsController#destroy does NOT check references_count.
-  # The delete succeeds with 202 and orphan-detection is left to a separate
-  # job. Pinning current behavior — if this changes, the test should be
-  # updated deliberately, not silently.
+  # CONTRACT (updated): a referenced blob must NOT be deletable. Deleting a
+  # content-addressed blob still used by a manifest would corrupt that image
+  # irreversibly, so DELETE returns 409 and the blob (row + file) survives.
+  # Orphan blobs (references_count 0) remain deletable and are also swept by
+  # CleanupOrphanedBlobsJob.
   # ---------------------------------------------------------------------------
-  test "DELETE blob with references_count > 0 still returns 202" do
+  test "DELETE blob with references_count > 0 is refused with 409 and the blob survives" do
     repo = Repository.find_by!(name: @repo_name)
     content = "referenced blob"
     digest = DigestCalculator.compute(content)
@@ -62,8 +63,52 @@ class V2::BlobUploadEdgesTest < ActionDispatch::IntegrationTest
 
     delete "/v2/#{@repo_name}/blobs/#{digest}", headers: basic_auth_for
 
-    assert_response 202
-    assert_nil Blob.find_by(digest: digest)
+    assert_response 409
+    assert_equal "BLOB_REFERENCED", JSON.parse(response.body)["errors"][0]["code"]
+    assert Blob.exists?(id: blob.id), "referenced blob row must survive"
+    assert_equal true, @blob_store.exists?(digest), "referenced blob file must survive"
+  end
+
+  # Liveness is authoritative, not the counter: a blob a live Layer points to
+  # must be refused even when references_count has drifted to 0 (stale counter).
+  test "DELETE blob with a live layer but references_count 0 is still refused (409)" do
+    repo = Repository.find_by!(name: @repo_name)
+    content = "stale-counter blob"
+    digest = DigestCalculator.compute(content)
+    blob = Blob.create!(digest: digest, size: content.bytesize, references_count: 0)
+    @blob_store.put(digest, StringIO.new(content))
+    manifest = repo.manifests.create!(
+      digest: "sha256:stale#{SecureRandom.hex(8)}",
+      media_type: "application/vnd.docker.distribution.manifest.v2+json",
+      payload: "{}", size: 2
+    )
+    Layer.create!(manifest: manifest, blob: blob, position: 0)
+
+    delete "/v2/#{@repo_name}/blobs/#{digest}", headers: basic_auth_for
+
+    assert_response 409
+    assert Blob.exists?(id: blob.id)
+    assert_equal true, @blob_store.exists?(digest)
+  end
+
+  # A config blob (referenced via manifests.config_digest, never a Layer, always
+  # references_count 0) must be refused too.
+  test "DELETE a manifest config blob is refused (409)" do
+    repo = Repository.find_by!(name: @repo_name)
+    content = "config blob bytes"
+    digest = DigestCalculator.compute(content)
+    Blob.create!(digest: digest, size: content.bytesize, references_count: 0)
+    @blob_store.put(digest, StringIO.new(content))
+    repo.manifests.create!(
+      digest: "sha256:cfgblob#{SecureRandom.hex(8)}",
+      media_type: "application/vnd.docker.distribution.manifest.v2+json",
+      payload: "{}", size: 2, config_digest: digest
+    )
+
+    delete "/v2/#{@repo_name}/blobs/#{digest}", headers: basic_auth_for
+
+    assert_response 409
+    assert Blob.exists?(digest: digest)
   end
 
   # ---------------------------------------------------------------------------
@@ -149,21 +194,58 @@ class V2::BlobUploadEdgesTest < ActionDispatch::IntegrationTest
   end
 
   # ---------------------------------------------------------------------------
-  # UC-V2-012 canary — controller does NOT parse / validate the Content-Range
-  # header. PATCH currently appends bytes regardless of header syntax.
-  # PINNING current behavior: a malformed Content-Range header is silently
-  # accepted and the chunk is appended → 202. If a future change adds proper
-  # Content-Range validation, this test should be updated deliberately.
+  # UC-V2-012 — Content-Range is now validated. A header whose declared chunk
+  # length disagrees with the body size is rejected with 416 and no bytes are
+  # appended (prevents silent blob corruption).
   # ---------------------------------------------------------------------------
-  test "PATCH chunked upload with malformed Content-Range header is silently accepted" do
+  test "PATCH chunked upload with Content-Range length mismatch returns 416" do
     post "/v2/#{@repo_name}/blobs/uploads", headers: basic_auth_for
     uuid = response.headers["Docker-Upload-UUID"]
 
     patch "/v2/#{@repo_name}/blobs/uploads/#{uuid}",
-          params: "five!",
+          params: "five!", # 5-byte body
           headers: {
             "CONTENT_TYPE" => "application/octet-stream",
-            "Content-Range" => "0-0" # malformed: claims zero bytes for a 5-byte body
+            "Content-Range" => "0-0" # claims a 1-byte chunk
+          }.merge(basic_auth_for)
+
+    assert_response 416
+    get "/v2/#{@repo_name}/blobs/uploads/#{uuid}", headers: basic_auth_for
+    assert_equal "0-0", response.headers["Range"], "no bytes should have been appended"
+  end
+
+  test "PATCH chunked upload whose Content-Range start != current offset returns 416" do
+    post "/v2/#{@repo_name}/blobs/uploads", headers: basic_auth_for
+    uuid = response.headers["Docker-Upload-UUID"]
+
+    # First chunk: 4 bytes at offset 0 (valid).
+    patch "/v2/#{@repo_name}/blobs/uploads/#{uuid}",
+          params: "abcd",
+          headers: {
+            "CONTENT_TYPE" => "application/octet-stream",
+            "Content-Range" => "0-3"
+          }.merge(basic_auth_for)
+    assert_response 202
+
+    # Second chunk claims to start at 0 again (should be 4) → out of order.
+    patch "/v2/#{@repo_name}/blobs/uploads/#{uuid}",
+          params: "efgh",
+          headers: {
+            "CONTENT_TYPE" => "application/octet-stream",
+            "Content-Range" => "0-3"
+          }.merge(basic_auth_for)
+    assert_response 416
+  end
+
+  test "PATCH chunked upload with a valid Content-Range is accepted" do
+    post "/v2/#{@repo_name}/blobs/uploads", headers: basic_auth_for
+    uuid = response.headers["Docker-Upload-UUID"]
+
+    patch "/v2/#{@repo_name}/blobs/uploads/#{uuid}",
+          params: "abcde", # 5 bytes
+          headers: {
+            "CONTENT_TYPE" => "application/octet-stream",
+            "Content-Range" => "0-4"
           }.merge(basic_auth_for)
 
     assert_response 202
