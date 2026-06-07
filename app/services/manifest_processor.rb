@@ -89,6 +89,10 @@ class ManifestProcessor
   end
 
   def create_layers!(manifest, layers_data)
+    # Release the references held by the manifest's current layers before
+    # rebuilding them, so re-pushing the same manifest does not leak +1 per
+    # layer. Runs inside the caller's repository.with_lock, so it is atomic.
+    manifest.layers.includes(:blob).each { |layer| layer.blob.decrement!(:references_count) }
     manifest.layers.destroy_all
 
     layers_data.each_with_index do |layer_data, index|

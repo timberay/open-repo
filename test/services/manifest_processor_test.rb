@@ -325,6 +325,24 @@ class ManifestProcessorTest < ActiveSupport::TestCase
       "second push of identical (tag, digest) should not emit a spurious TagEvent"
   end
 
+  # Re-pushing the same manifest must not inflate layer blob reference counts.
+  # create_layers! destroy_all'd the old Layer rows without decrementing their
+  # blobs first, so each re-push leaked +1 per layer → blobs never reach 0 → GC
+  # never reclaims them.
+  test "call does not double-count blob references on manifest re-push" do
+    processor.call("repo-recount", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
+
+    assert_equal 1, Blob.find_by!(digest: layer1_digest).references_count
+    assert_equal 1, Blob.find_by!(digest: layer2_digest).references_count
+
+    processor.call("repo-recount", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
+
+    assert_equal 1, Blob.find_by!(digest: layer1_digest).references_count,
+      "re-pushing the identical manifest must not inflate references_count"
+    assert_equal 1, Blob.find_by!(digest: layer2_digest).references_count,
+      "re-pushing the identical manifest must not inflate references_count"
+  end
+
   private
 
   def build_different_manifest_json
