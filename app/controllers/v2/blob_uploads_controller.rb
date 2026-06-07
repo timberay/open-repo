@@ -135,10 +135,14 @@ class V2::BlobUploadsController < V2::BaseController
   end
 
   def handle_blob_mount
+    source = Repository.find_by(name: params[:from])
     blob = Blob.find_by(digest: params[:mount])
 
-    if blob && blob_store.exists?(params[:mount])
-      ensure_repository!
+    # Per V2 spec, only honor the mount when the named source repository
+    # actually references the blob (manifest -> layer -> blob) and the content
+    # is on disk. Otherwise gracefully fall back to a normal upload session.
+    # (Stage 3 will additionally enforce :read authz on the source repo here.)
+    if source && blob && blob_store.exists?(params[:mount]) && source_references_blob?(source, blob)
       blob.increment!(:references_count)
 
       response.headers["Docker-Content-Digest"] = params[:mount]
@@ -147,6 +151,10 @@ class V2::BlobUploadsController < V2::BaseController
     else
       handle_start_upload
     end
+  end
+
+  def source_references_blob?(source, blob)
+    source.manifests.joins(:layers).exists?(layers: { blob_id: blob.id })
   end
 
   def upload_url(upload)

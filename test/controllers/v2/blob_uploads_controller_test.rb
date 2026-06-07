@@ -85,14 +85,49 @@ class V2::BlobUploadsControllerTest < ActionDispatch::IntegrationTest
   test "POST /v2/:name/blobs/uploads?mount=&from= mounts existing blob from another repo" do
     content = "shared layer"
     digest = DigestCalculator.compute(content)
-    Repository.create!(name: "source-repo", owner_identity: identities(:tonny_google))
-    Blob.create!(digest: digest, size: content.bytesize)
+    source = Repository.create!(name: "source-repo", owner_identity: identities(:tonny_google))
+    blob = Blob.create!(digest: digest, size: content.bytesize, references_count: 1)
+    # The source repo must actually reference the blob (manifest -> layer -> blob).
+    manifest = source.manifests.create!(
+      digest: "sha256:src-#{SecureRandom.hex(8)}",
+      media_type: "application/vnd.docker.distribution.manifest.v2+json",
+      payload: "{}", size: 2
+    )
+    Layer.create!(manifest: manifest, blob: blob, position: 0)
     BlobStore.new(@storage_dir).put(digest, StringIO.new(content))
 
     post "/v2/#{@repo_name}/blobs/uploads?mount=#{digest}&from=source-repo", headers: basic_auth_for
 
     assert_response 201
     assert_equal digest, response.headers["Docker-Content-Digest"]
+    assert_equal 2, blob.reload.references_count
+  end
+
+  test "POST mount falls back to 202 when the from-repo does not reference the digest" do
+    content = "unowned layer"
+    digest = DigestCalculator.compute(content)
+    # source-repo exists but has no manifest/layer referencing the blob.
+    Repository.create!(name: "source-repo", owner_identity: identities(:tonny_google))
+    blob = Blob.create!(digest: digest, size: content.bytesize, references_count: 0)
+    BlobStore.new(@storage_dir).put(digest, StringIO.new(content))
+
+    post "/v2/#{@repo_name}/blobs/uploads?mount=#{digest}&from=source-repo", headers: basic_auth_for
+
+    assert_response 202
+    assert response.headers["Docker-Upload-UUID"].present?
+    assert_equal 0, blob.reload.references_count, "ref count must not move on a failed mount"
+  end
+
+  test "POST mount falls back to 202 when the from-repo does not exist" do
+    content = "no source layer"
+    digest = DigestCalculator.compute(content)
+    blob = Blob.create!(digest: digest, size: content.bytesize, references_count: 0)
+    BlobStore.new(@storage_dir).put(digest, StringIO.new(content))
+
+    post "/v2/#{@repo_name}/blobs/uploads?mount=#{digest}&from=ghost-repo", headers: basic_auth_for
+
+    assert_response 202
+    assert_equal 0, blob.reload.references_count
   end
 
   test "POST /v2/:name/blobs/uploads?mount=&from= falls back to regular upload if blob not found" do
