@@ -12,6 +12,7 @@ class V2::BlobUploadsController < V2::BaseController
   end
 
   def show
+    @repository = find_repository!
     upload = find_upload!
     bytes_received = upload.byte_offset.to_i
 
@@ -26,6 +27,7 @@ class V2::BlobUploadsController < V2::BaseController
   end
 
   def update
+    authorize_write!
     upload = find_upload!
     blob_store.append_upload(upload.uuid, request.body)
     upload.update!(byte_offset: blob_store.upload_size(upload.uuid))
@@ -37,6 +39,7 @@ class V2::BlobUploadsController < V2::BaseController
   end
 
   def complete
+    authorize_write!
     upload = find_upload!
     digest = params[:digest]
 
@@ -59,6 +62,7 @@ class V2::BlobUploadsController < V2::BaseController
   end
 
   def destroy
+    authorize_write!
     upload = find_upload!
     blob_store.cancel_upload(upload.uuid)
     upload.destroy!
@@ -87,8 +91,17 @@ class V2::BlobUploadsController < V2::BaseController
     @repository = Repository.find_by!(name: repo_name)
   end
 
+  # Resolves the existing repository from the request path and enforces write
+  # access, mirroring the authz that `create` performs via ensure_repository!.
+  def authorize_write!
+    @repository = find_repository!
+    authorize_for!(:write)
+  end
+
+  # Scopes the upload lookup to @repository so a UUID minted under one repo
+  # cannot be driven under another repo's path.
   def find_upload!
-    BlobUpload.find_by!(uuid: params[:uuid])
+    @repository.blob_uploads.find_by!(uuid: params[:uuid])
   rescue ActiveRecord::RecordNotFound
     raise Registry::BlobUploadUnknown, "upload '#{params[:uuid]}' not found"
   end

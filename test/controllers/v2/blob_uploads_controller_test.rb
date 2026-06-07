@@ -188,4 +188,53 @@ class V2::BlobUploadsControllerTest < ActionDispatch::IntegrationTest
          headers: basic_auth_for(pat_raw: ADMIN_CLI_RAW, email: "admin@timberay.com")
     assert_response 202
   end
+
+  # ---------------------------------------------------------------------------
+  # P1: upload UUIDs must be repo-scoped, and chunk/finalize/cancel must be
+  # write-authorized (parity with `create`).
+  # ---------------------------------------------------------------------------
+
+  test "an upload UUID cannot be driven under a different repository path" do
+    # Upload session is created under repo-a (owned by tonny).
+    post "/v2/repo-a/blobs/uploads", headers: basic_auth_for
+    uuid = response.headers["Docker-Upload-UUID"]
+
+    # repo-b exists and is also owned by tonny (so write authz passes), but the
+    # upload does not belong to it: the lookup must be scoped per-repository.
+    Repository.create!(name: "repo-b", owner_identity: identities(:tonny_google))
+
+    patch "/v2/repo-b/blobs/uploads/#{uuid}",
+          params: "x",
+          headers: { "CONTENT_TYPE" => "application/octet-stream" }.merge(basic_auth_for)
+    assert_response 404
+    assert_equal "BLOB_UPLOAD_UNKNOWN", JSON.parse(response.body)["errors"][0]["code"]
+
+    delete "/v2/repo-b/blobs/uploads/#{uuid}", headers: basic_auth_for
+    assert_response 404
+    assert_equal "BLOB_UPLOAD_UNKNOWN", JSON.parse(response.body)["errors"][0]["code"]
+  end
+
+  test "PATCH/PUT/DELETE on an upload by a non-writer returns 403" do
+    owner_identity = identities(:tonny_google)
+    repo = Repository.create!(
+      name: "authz-upload-#{SecureRandom.hex(4)}",
+      owner_identity: owner_identity
+    )
+    upload = repo.blob_uploads.create!(uuid: SecureRandom.uuid)
+    BlobStore.new(@storage_dir).create_upload(upload.uuid)
+
+    non_member = basic_auth_for(pat_raw: ADMIN_CLI_RAW, email: "admin@timberay.com")
+
+    patch "/v2/#{repo.name}/blobs/uploads/#{upload.uuid}",
+          params: "x",
+          headers: { "CONTENT_TYPE" => "application/octet-stream" }.merge(non_member)
+    assert_response 403
+
+    put "/v2/#{repo.name}/blobs/uploads/#{upload.uuid}?digest=sha256:#{'a' * 64}",
+        headers: non_member
+    assert_response 403
+
+    delete "/v2/#{repo.name}/blobs/uploads/#{upload.uuid}", headers: non_member
+    assert_response 403
+  end
 end
