@@ -25,6 +25,12 @@ Detailed standards are in `docs/standards/`. **Read the relevant document(s) bef
 
 When a pre-commit hook fails, fix it yourself and retry — do not stop and ask the user. **Details**: [QUALITY.md](docs/standards/QUALITY.md#pre-commit-failure-recovery).
 
+## Git Workflow (solo repo)
+
+This is a solo project. GitHub is a plain file store: **no CI / GitHub Actions** — none are required and none should be re-added (the old `.github/workflows/ci.yml` was intentionally removed). Verify locally instead: `bin/rails test`, `bin/rubocop`, `bin/brakeman`.
+
+`main` is unprotected, and the repo has `allow_auto_merge` + `delete_branch_on_merge` enabled. When running `/push2gh` (or merging any feature branch), **auto-merge with no manual review gate**: create the PR, then immediately `gh pr merge <N> --squash --delete-branch`. Do not ask whether to merge and do not wait for checks — there are none. (TDD / Tidy First / small-commit rules above still apply to the code itself.)
+
 ## Pipeline Phases (summary)
 
 For new feature work: `/office-hours` → `/plan-eng-review` → `/superpowers:brainstorming` → `/superpowers:writing-plans` → `/superpowers:executing-plans`. Skip only for bug fixes, refactors, small tweaks. A `UserPromptSubmit` hook reminds you when a feature request is detected. **Full rules**: [WORKFLOW.md](docs/standards/WORKFLOW.md).
