@@ -149,7 +149,9 @@ open-repo has two authentication surfaces:
 5. _(optional)_ Restrict sign-up to your organization with `REGISTRY_ALLOWED_EMAIL_DOMAINS=timberay.com,example.org`. Only verified emails on those domains may sign in; an empty value (default) allows any verified Google account.
 
 > **Allowlist scope & limits**
-> - Gates **new sign-ins only**. Browser sessions and Personal Access Tokens issued before you enable or tighten the allowlist keep working until they expire — revoke them explicitly when removing a domain.
+> - Gates **new sign-ins only**. Access already granted before you tighten the allowlist is not re-checked on every request:
+>   - **Personal Access Tokens** (the write/push surface) — after changing the policy, run `bin/rails registry:revoke_disallowed_pats` to revoke active tokens whose owner is no longer on an allowed domain. This is the one action to take on a policy change.
+>   - **Browser sessions** are cookie-based (no server-side store), so they cannot be selectively revoked; a removed user's session simply lapses when the cookie expires or they sign out. Web browsing is intentionally open anyway, and any write action still goes through repo ownership + a valid PAT.
 > - Domains are matched ASCII/punycode and case-insensitively (a single trailing dot is ignored). Provide already-encoded punycode for non-ASCII domains; Unicode IDNA normalization is not performed.
 > - A value that is set but contains no valid domains (e.g. `,`) fails closed at boot rather than silently allowing everyone.
 
