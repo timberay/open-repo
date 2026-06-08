@@ -124,6 +124,7 @@ Additional dev commands are documented in [`docs/standards/TOOLS.md`](docs/stand
 | `RETENTION_PROTECT_LATEST` | `true` | Never auto-delete the `latest` tag |
 | `REGISTRY_ADMIN_EMAIL` | _(none)_ | Email granted `admin=true` on first Web UI sign-in |
 | `REGISTRY_ANONYMOUS_PULL` | `true` | Allow `docker pull` (GET/HEAD on `/v2/`) without a token. Defaults to `true` for internal/trusted-network use; set `false` to require a token on pulls. |
+| `REGISTRY_ALLOWED_EMAIL_DOMAINS` | _(none)_ | Comma-separated email domains allowed to sign in via OAuth (e.g. `timberay.com,example.org`). Empty (default) allows any verified email; set it to restrict sign-up to your organization. |
 
 ---
 
