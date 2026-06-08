@@ -41,6 +41,34 @@ class Auth::SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to auth_failure_path(strategy: "google_oauth2", message: "email_mismatch")
   end
 
+  test "disallowed email domain → redirect to failure (domain_not_allowed), no session" do
+    Rails.configuration.x.registry.allowed_email_domains = [ "timberay.com" ]
+    mock_google(email: "stranger@example.com", uid: "outsider-uid", verified: true)
+
+    assert_no_difference -> { User.count } do
+      get "/auth/google_oauth2/callback"
+    end
+
+    assert_redirected_to auth_failure_path(strategy: "google_oauth2", message: "domain_not_allowed")
+    assert_nil session[:user_id]
+  end
+
+  test "allowlist active — allowed domain still signs in" do
+    Rails.configuration.x.registry.allowed_email_domains = [ "timberay.com" ]
+    mock_google(email: "tonny@timberay.com", uid: identities(:tonny_google).uid)
+
+    get "/auth/google_oauth2/callback"
+
+    assert_redirected_to root_path
+    assert_equal users(:tonny).id, session[:user_id]
+  end
+
+  test "failure with domain_not_allowed message → passed through" do
+    get "/auth/failure", params: { strategy: "google_oauth2", message: "domain_not_allowed" }
+    assert_redirected_to root_path
+    assert_equal "Sign-in failed (google_oauth2: domain_not_allowed).", flash[:alert]
+  end
+
   test "DELETE /auth/sign_out clears session" do
     post "/testing/sign_in", params: { user_id: users(:tonny).id }
     assert_equal users(:tonny).id, session[:user_id]

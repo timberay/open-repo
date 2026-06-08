@@ -2,11 +2,13 @@ require "test_helper"
 
 class Auth::SessionCreatorTest < ActiveSupport::TestCase
   setup do
-    @original_admin_email = Rails.configuration.x.registry.admin_email
+    @original_admin_email     = Rails.configuration.x.registry.admin_email
+    @original_allowed_domains = Rails.configuration.x.registry.allowed_email_domains
   end
 
   teardown do
-    Rails.configuration.x.registry.admin_email = @original_admin_email
+    Rails.configuration.x.registry.admin_email            = @original_admin_email
+    Rails.configuration.x.registry.allowed_email_domains  = @original_allowed_domains
   end
 
   def profile_for(identity:, overrides: {})
@@ -205,6 +207,140 @@ class Auth::SessionCreatorTest < ActiveSupport::TestCase
 
     assert_raises(Auth::EmailMismatch) do
       Auth::SessionCreator.new.call(profile)
+    end
+  end
+
+  # --- Domain allowlist (REGISTRY_ALLOWED_EMAIL_DOMAINS) ---
+
+  test "domain allowlist — rejects verified sign-in whose email domain is not allowed" do
+    Rails.configuration.x.registry.allowed_email_domains = [ "timberay.com" ]
+    profile = Auth::ProviderProfile.new(
+      provider: "google_oauth2",
+      uid: "outsider-uid",
+      email: "stranger@example.com",
+      email_verified: true,
+      name: "Stranger",
+      avatar_url: nil
+    )
+
+    assert_no_difference -> { User.count } do
+      assert_no_difference -> { Identity.count } do
+        assert_raises(Auth::UnauthorizedDomain) { Auth::SessionCreator.new.call(profile) }
+      end
+    end
+  end
+
+  test "domain allowlist — allows verified sign-in whose email domain is in the allowlist" do
+    Rails.configuration.x.registry.allowed_email_domains = [ "timberay.com" ]
+    profile = Auth::ProviderProfile.new(
+      provider: "google_oauth2",
+      uid: "insider-uid",
+      email: "newbie@timberay.com",
+      email_verified: true,
+      name: "New Bie",
+      avatar_url: nil
+    )
+
+    assert_difference -> { User.count }, +1 do
+      user = Auth::SessionCreator.new.call(profile)
+      assert_equal "newbie@timberay.com", user.email
+    end
+  end
+
+  test "domain allowlist — empty allowlist allows any verified domain (opt-in default)" do
+    Rails.configuration.x.registry.allowed_email_domains = []
+    profile = Auth::ProviderProfile.new(
+      provider: "google_oauth2",
+      uid: "anydomain-uid",
+      email: "someone@example.com",
+      email_verified: true,
+      name: "Some One",
+      avatar_url: nil
+    )
+
+    assert_difference -> { User.count }, +1 do
+      user = Auth::SessionCreator.new.call(profile)
+      assert_equal "someone@example.com", user.email
+    end
+  end
+
+  test "domain allowlist — rejects spoofed multi-@ email even if it ends with an allowed domain" do
+    Rails.configuration.x.registry.allowed_email_domains = [ "timberay.com" ]
+    profile = Auth::ProviderProfile.new(
+      provider: "google_oauth2",
+      uid: "spoof-uid",
+      email: "attacker@evil.com@timberay.com",
+      email_verified: true,
+      name: "Spoof",
+      avatar_url: nil
+    )
+
+    assert_no_difference -> { User.count } do
+      assert_raises(Auth::UnauthorizedDomain) { Auth::SessionCreator.new.call(profile) }
+    end
+  end
+
+  test "domain allowlist — rejects a trailing-@ spoof that ends with an allowed domain" do
+    Rails.configuration.x.registry.allowed_email_domains = [ "timberay.com" ]
+    profile = Auth::ProviderProfile.new(
+      provider: "google_oauth2",
+      uid: "trailing-at-uid",
+      email: "attacker@timberay.com@",
+      email_verified: true,
+      name: "Trailing At",
+      avatar_url: nil
+    )
+
+    assert_no_difference -> { User.count } do
+      assert_raises(Auth::UnauthorizedDomain) { Auth::SessionCreator.new.call(profile) }
+    end
+  end
+
+  test "domain allowlist — rejects an email with no @ that matches an allowed domain literally" do
+    Rails.configuration.x.registry.allowed_email_domains = [ "timberay.com" ]
+    profile = Auth::ProviderProfile.new(
+      provider: "google_oauth2",
+      uid: "noat-uid",
+      email: "timberay.com",
+      email_verified: true,
+      name: "No At",
+      avatar_url: nil
+    )
+
+    assert_no_difference -> { User.count } do
+      assert_raises(Auth::UnauthorizedDomain) { Auth::SessionCreator.new.call(profile) }
+    end
+  end
+
+  test "domain allowlist — verification precedes domain check (unverified disallowed → EmailMismatch)" do
+    # An unverified profile must fail the same way regardless of its domain, so
+    # the failure cannot be used as an oracle for allowlist membership.
+    Rails.configuration.x.registry.allowed_email_domains = [ "timberay.com" ]
+    profile = Auth::ProviderProfile.new(
+      provider: "google_oauth2",
+      uid: "unverified-disallowed-uid",
+      email: "stranger@example.com",
+      email_verified: false,
+      name: "Stranger",
+      avatar_url: nil
+    )
+
+    assert_raises(Auth::EmailMismatch) { Auth::SessionCreator.new.call(profile) }
+  end
+
+  test "domain allowlist — domain match is case-insensitive" do
+    Rails.configuration.x.registry.allowed_email_domains = [ "timberay.com" ]
+    profile = Auth::ProviderProfile.new(
+      provider: "google_oauth2",
+      uid: "mixedcase-uid",
+      email: "person@TIMBERAY.com",
+      email_verified: true,
+      name: "Mixed Case",
+      avatar_url: nil
+    )
+
+    assert_difference -> { User.count }, +1 do
+      assert_nothing_raised { Auth::SessionCreator.new.call(profile) }
     end
   end
 

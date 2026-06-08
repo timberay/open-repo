@@ -3,17 +3,21 @@ module Auth
     def call(profile)
       raise Auth::InvalidProfile, "profile email blank" if profile.email.blank?
 
+      # Verify before the domain check so unverified profiles always fail the
+      # same way (EmailMismatch) regardless of domain — the failure can't be
+      # used as an allowlist-membership oracle. Applies to Cases A/B/C alike.
+      require_verified!(profile)
+      ensure_allowed_domain!(profile)
+
       User.transaction do
         identity = Identity.find_by(provider: profile.provider, uid: profile.uid)
         user =
           if identity
-            # Case A — re-verify on every login (parity with Cases B/C)
-            require_verified!(profile)
+            # Case A — existing (provider, uid)
             identity.update!(email: profile.email) if identity.email != profile.email
             identity.user
           elsif (matched = User.find_by(email: profile.email))
             # Case B — email matches existing user
-            require_verified!(profile)
             identity = matched.identities.create!(
               provider: profile.provider,
               uid: profile.uid,
@@ -25,7 +29,6 @@ module Auth
             matched
           else
             # Case C — brand-new user
-            require_verified!(profile)
             new_user = User.create!(
               email: profile.email,
               admin: User.admin_email?(profile.email)
@@ -47,6 +50,24 @@ module Auth
     end
 
     private
+
+    # Opt-in sign-up restriction. When `allowed_email_domains` is configured,
+    # only emails whose domain is in the list may sign in. Blank list (default)
+    # allows any verified email, preserving the open sign-up behavior.
+    #
+    # Note: this gates sign-in only. Existing app sessions and previously issued
+    # PATs are not re-checked here; revoke them separately when tightening policy.
+    def ensure_allowed_domain!(profile)
+      allowed = Rails.configuration.x.registry.allowed_email_domains
+      return if allowed.blank?
+
+      domain = Auth::AllowedEmailDomains.domain_for(profile.email)
+      return if domain && allowed.include?(domain)
+
+      # Message is intentionally free of attacker-controlled input (no domain
+      # interpolation) so it is safe to log verbatim.
+      raise Auth::UnauthorizedDomain, "email domain not allowed"
+    end
 
     def require_verified!(profile)
       return if profile.email_verified == true

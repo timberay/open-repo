@@ -1,5 +1,5 @@
 class Auth::SessionsController < ApplicationController
-  ALLOWED_FAILURE_MESSAGES = %w[email_mismatch invalid_profile provider_outage failed].freeze
+  ALLOWED_FAILURE_MESSAGES = %w[email_mismatch invalid_profile provider_outage domain_not_allowed failed].freeze
   ALLOWED_STRATEGIES        = %w[google_oauth2].freeze
 
   skip_forgery_protection only: [ :create ]
@@ -21,6 +21,9 @@ class Auth::SessionsController < ApplicationController
     destination = safe_return_to(return_to) || root_path
     # Signed-in user sees their own email — intentional UX, not PII exposure.
     redirect_to destination, notice: "Signed in as #{user.email}"
+  rescue Auth::UnauthorizedDomain => e
+    Rails.logger.warn("auth: domain not allowed (#{e.message})")
+    redirect_to auth_failure_path(strategy: provider_param, message: "domain_not_allowed")
   rescue Auth::EmailMismatch => e
     Rails.logger.warn("auth: email mismatch (#{e.message})")
     redirect_to auth_failure_path(strategy: provider_param, message: "email_mismatch")
