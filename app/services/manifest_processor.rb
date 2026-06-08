@@ -3,7 +3,7 @@ class ManifestProcessor
     @blob_store = blob_store
   end
 
-  def call(repo_name, reference, content_type, payload, actor:)
+  def call(repo_name, reference, content_type, payload, actor:, owner_identity: nil)
     parsed = JSON.parse(payload)
     validate_schema!(parsed)
 
@@ -15,9 +15,12 @@ class ManifestProcessor
       raise Registry::ManifestInvalid, "layer blob not found: #{d}" unless @blob_store.exists?(d)
     end
 
+    # First-pusher-owner: a repository created here is owned by the caller's
+    # identity (the authenticated pusher), never an admin. The controller
+    # normally creates the repo before reaching this point, so this branch is a
+    # fallback for direct service callers; owner_identity must be present then.
     repository = Repository.find_or_create_by!(name: repo_name) do |r|
-      admin_email = Rails.configuration.x.registry.admin_email
-      r.owner_identity = User.find_by!(email: admin_email).primary_identity
+      r.owner_identity = owner_identity
     end
     digest = DigestCalculator.compute(payload)
 
