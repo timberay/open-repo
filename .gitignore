@@ -67,6 +67,10 @@ node_modules/
 yarn-debug.log*
 .yarn-integrity
 
+# npm lockfile — the only npm dependency is @playwright/test (pinned in
+# package.json); the lockfile is regenerated locally and not tracked.
+/package-lock.json
+
 # Ignore uploaded files in development
 /storage/*
 !/storage/.keep
