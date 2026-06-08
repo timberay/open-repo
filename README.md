@@ -146,6 +146,12 @@ open-repo has two authentication surfaces:
      client_secret: "GOCSPX-..."
    ```
 4. Set `REGISTRY_ADMIN_EMAIL=<your-email>`. The first user to sign in with that email is flagged `admin=true`.
+5. _(optional)_ Restrict sign-up to your organization with `REGISTRY_ALLOWED_EMAIL_DOMAINS=timberay.com,example.org`. Only verified emails on those domains may sign in; an empty value (default) allows any verified Google account.
+
+> **Allowlist scope & limits**
+> - Gates **new sign-ins only**. Browser sessions and Personal Access Tokens issued before you enable or tighten the allowlist keep working until they expire — revoke them explicitly when removing a domain.
+> - Domains are matched ASCII/punycode and case-insensitively (a single trailing dot is ignored). Provide already-encoded punycode for non-ASCII domains; Unicode IDNA normalization is not performed.
+> - A value that is set but contains no valid domains (e.g. `,`) fails closed at boot rather than silently allowing everyone.
 
 ### Docker CLI (Personal Access Tokens)
 
