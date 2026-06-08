@@ -389,4 +389,16 @@ class V2::ManifestPushEdgesTest < ActionDispatch::IntegrationTest
     assert_equal "MANIFEST_INVALID", body.dig("errors", 0, "code")
     assert_match(/unsupported schema version/i, body.dig("errors", 0, "message"))
   end
+
+  # e17 — an unparseable manifest body (not valid JSON) must be rejected with a
+  # spec-shaped 400 MANIFEST_INVALID, not crash with a 500 HTML error page.
+  test "e17 unparseable manifest body returns 400 MANIFEST_INVALID" do
+    put "/v2/#{@repo_name}/manifests/v1.0.0",
+        params: "not-json{",
+        headers: { "CONTENT_TYPE" => MEDIA_TYPE }.merge(basic_auth_for)
+
+    assert_response :bad_request
+    body = JSON.parse(response.body)
+    assert_equal "MANIFEST_INVALID", body.dig("errors", 0, "code")
+  end
 end
