@@ -4,7 +4,7 @@ class ManifestProcessor
   end
 
   def call(repo_name, reference, content_type, payload, actor:, owner_identity: nil)
-    parsed = JSON.parse(payload)
+    parsed = parse_manifest!(payload)
     validate_schema!(parsed)
 
     config_digest = parsed["config"]["digest"]
@@ -61,6 +61,15 @@ class ManifestProcessor
   end
 
   private
+
+  # Map a non-JSON manifest body to a spec-shaped MANIFEST_INVALID (400) instead
+  # of letting JSON::ParserError bubble up as a 500. (extract_config has its own
+  # rescue for the config blob's JSON, so this only guards the manifest body.)
+  def parse_manifest!(payload)
+    JSON.parse(payload)
+  rescue JSON::ParserError
+    raise Registry::ManifestInvalid, "manifest is not valid JSON"
+  end
 
   def validate_schema!(parsed)
     unless parsed["schemaVersion"] == 2
