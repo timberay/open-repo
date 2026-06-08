@@ -12,6 +12,11 @@ module RepositoryAuthorization
   def authorize_for!(action)
     raise Auth::Unauthenticated if current_user.nil?
 
+    # Break-glass: an admin (REGISTRY_ADMIN_EMAIL) may write to or delete ANY
+    # repository, so orphaned or misowned repos can be repaired even without a
+    # member record. (:read is already unconditionally allowed below.)
+    return if current_user.admin?
+
     identity = current_user.primary_identity
 
     allowed = case action

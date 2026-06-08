@@ -183,9 +183,9 @@ class V2::BlobUploadEdgesTest < ActionDispatch::IntegrationTest
     Blob.create!(digest: digest, size: content.bytesize, references_count: 1)
     @blob_store.put(digest, StringIO.new(content))
 
-    # Target repo is owned by tonny; admin has no membership → no write.
+    # Target repo is owned by tonny; carol (non-admin) has no membership → no write.
     post "/v2/#{@repo_name}/blobs/uploads?mount=#{digest}&from=#{source_repo.name}",
-         headers: basic_auth_for(pat_raw: ADMIN_CLI_RAW, email: "admin@timberay.com")
+         headers: basic_auth_for(pat_raw: CAROL_CLI_RAW, email: "carol@timberay.com")
 
     assert_response 403
     assert_equal "DENIED", JSON.parse(response.body)["errors"][0]["code"]

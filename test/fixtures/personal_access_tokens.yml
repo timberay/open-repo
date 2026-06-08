@@ -47,3 +47,13 @@ admin_cli_active:
   expires_at: <%= 89.days.from_now %>
   created_at: <%= 1.day.ago %>
   updated_at: <%= 1.day.ago %>
+
+carol_cli:
+  identity: carol_google
+  name: "carol-laptop"
+  token_digest: <%= Digest::SHA256.hexdigest("oprk_test_carol_cli_raw") %>
+  prefix: "oprk_carolcli"
+  kind: cli
+  expires_at: <%= 89.days.from_now %>
+  created_at: <%= 1.day.ago %>
+  updated_at: <%= 1.day.ago %>

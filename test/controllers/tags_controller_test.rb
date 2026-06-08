@@ -88,8 +88,8 @@ class TagsControllerTest < ActionDispatch::IntegrationTest
     )
     tag = manifest.tags.create!(repository: repo, name: "v1")
 
-    # admin user (not owner) — overrides the setup sign-in
-    post "/testing/sign_in", params: { user_id: users(:admin).id }
+    # carol (non-admin, not owner) — overrides the setup sign-in
+    post "/testing/sign_in", params: { user_id: users(:carol).id }
     delete "/repositories/#{repo.name}/tags/#{tag.name}"
 
     assert_redirected_to repository_path(repo.name)

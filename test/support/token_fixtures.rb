@@ -4,4 +4,5 @@ module TokenFixtures
   TONNY_REVOKED_RAW  = "oprk_test_tonny_revoked_raw".freeze
   TONNY_EXPIRED_RAW  = "oprk_test_tonny_expired_raw".freeze
   ADMIN_CLI_RAW      = "oprk_test_admin_cli_raw".freeze
+  CAROL_CLI_RAW      = "oprk_test_carol_cli_raw".freeze
 end

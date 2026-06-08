@@ -19,7 +19,7 @@ class RepositoryAuthorizationTest < ActiveSupport::TestCase
   end
 
   def other_user
-    @other_user ||= users(:admin)
+    @other_user ||= users(:carol)
   end
 
   def repo
@@ -65,6 +65,16 @@ class RepositoryAuthorizationTest < ActiveSupport::TestCase
       role: "admin"
     )
     c = ctrl(user: other_user)
+    assert_nothing_raised { c.authorize_for!(:delete) }
+  end
+
+  test "authorize_for!(:write) does not raise for an admin user (break-glass)" do
+    c = ctrl(user: users(:admin))
+    assert_nothing_raised { c.authorize_for!(:write) }
+  end
+
+  test "authorize_for!(:delete) does not raise for an admin user (break-glass)" do
+    c = ctrl(user: users(:admin))
     assert_nothing_raised { c.authorize_for!(:delete) }
   end
 

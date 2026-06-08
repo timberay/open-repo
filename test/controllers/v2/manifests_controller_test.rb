@@ -351,7 +351,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
   # ---------------------------------------------------------------------------
 
   test "PUT /v2/:name/manifests/:ref by non-member returns 403" do
-    # admin user is not owner/member of tonny's repo
+    # carol is a non-admin, non-owner, non-member of tonny's repo
     repo = Repository.create!(
       name: "authz-mfst-#{SecureRandom.hex(4)}",
       owner_identity: identities(:tonny_google)
@@ -359,7 +359,7 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
     put "/v2/#{repo.name}/manifests/v1",
         params: @manifest_payload,
         headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }
-              .merge(basic_auth_for(pat_raw: ADMIN_CLI_RAW, email: "admin@timberay.com"))
+              .merge(basic_auth_for(pat_raw: CAROL_CLI_RAW, email: "carol@timberay.com"))
     assert_response 403
     assert_equal "DENIED", JSON.parse(response.body)["errors"][0]["code"]
   end
@@ -389,8 +389,39 @@ class V2::ManifestsControllerTest < ActionDispatch::IntegrationTest
     digest = response.headers["Docker-Content-Digest"]
 
     delete "/v2/#{repo.name}/manifests/#{digest}",
-           headers: basic_auth_for(pat_raw: ADMIN_CLI_RAW, email: "admin@timberay.com")
+           headers: basic_auth_for(pat_raw: CAROL_CLI_RAW, email: "carol@timberay.com")
     assert_response 403
+  end
+
+  # G7 — admin break-glass: REGISTRY_ADMIN_EMAIL may write/delete ANY repository
+  # (so orphaned/misowned repos can be repaired without a member record), while
+  # a regular non-admin non-member is still denied.
+  test "admin (break-glass) PUT manifest on another user's repo returns 201" do
+    repo = Repository.create!(
+      name: "breakglass-put-#{SecureRandom.hex(4)}",
+      owner_identity: identities(:tonny_google)
+    )
+    put "/v2/#{repo.name}/manifests/v1",
+        params: @manifest_payload,
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }
+              .merge(basic_auth_for(pat_raw: ADMIN_CLI_RAW, email: "admin@timberay.com"))
+    assert_response 201
+  end
+
+  test "admin (break-glass) DELETE manifest on another user's repo returns 202" do
+    repo = Repository.create!(
+      name: "breakglass-del-#{SecureRandom.hex(4)}",
+      owner_identity: identities(:tonny_google)
+    )
+    put "/v2/#{repo.name}/manifests/v1",
+        params: @manifest_payload,
+        headers: { "CONTENT_TYPE" => "application/vnd.docker.distribution.manifest.v2+json" }
+              .merge(basic_auth_for)
+    digest = response.headers["Docker-Content-Digest"]
+
+    delete "/v2/#{repo.name}/manifests/#{digest}",
+           headers: basic_auth_for(pat_raw: ADMIN_CLI_RAW, email: "admin@timberay.com")
+    assert_response 202
   end
 
   test "DELETE /v2/:name/manifests/:ref records actor_identity_id" do

@@ -51,8 +51,8 @@ class FirstPusherRaceTest < ActionDispatch::IntegrationTest
       tag_protection_policy: "none"
     )
 
-    admin_hdrs = basic_auth_for(pat_raw: ADMIN_CLI_RAW, email: "admin@timberay.com")
-    post "/v2/#{repo.name}/blobs/uploads", headers: admin_hdrs
+    carol_hdrs = basic_auth_for(pat_raw: CAROL_CLI_RAW, email: "carol@timberay.com")
+    post "/v2/#{repo.name}/blobs/uploads", headers: carol_hdrs
 
     assert_equal 403, response.status
     repo.reload
@@ -73,12 +73,12 @@ class FirstPusherRaceTest < ActionDispatch::IntegrationTest
     )
     RepositoryMember.create!(
       repository: repo,
-      identity: identities(:admin_google),
+      identity: identities(:carol_google),
       role: "writer"
     )
 
-    admin_hdrs = basic_auth_for(pat_raw: ADMIN_CLI_RAW, email: "admin@timberay.com")
-    post "/v2/#{repo.name}/blobs/uploads", headers: admin_hdrs
+    carol_hdrs = basic_auth_for(pat_raw: CAROL_CLI_RAW, email: "carol@timberay.com")
+    post "/v2/#{repo.name}/blobs/uploads", headers: carol_hdrs
 
     assert_equal 202, response.status
   ensure
