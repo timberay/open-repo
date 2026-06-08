@@ -1,255 +1,180 @@
-# Architecture
+# Evaluation Criteria
 
-System architecture, technology stack, and implementation patterns.
+Testing strategy, security standards, code quality, accessibility, and performance guidelines.
 
-## Project Overview
+## Testing Strategy
 
-Rails monolith with Hotwire (Turbo + Stimulus), SQLite, and Solid Cache/Queue/Cable.
-Exact versions: see `Gemfile.lock` (Rails), `.ruby-version` (Ruby).
+### Framework
 
-## Technology Stack
+- **Unit/Integration**: Minitest (Rails 8 default)
+- **System tests**: Capybara + `selenium-webdriver` (headless Chrome via `ApplicationSystemTestCase`)
+- **HTTP stubbing**: `webmock` — registered in `test/test_helper.rb`; disable real HTTP in adapter tests
+- **Controller test helpers**: `rails-controller-testing` re-enables `assigns(...)` / `assert_template` for legacy-style assertions
+- **External-app E2E**: `playwright-ruby-client` for scraper/black-box flows (see [TOOLS.md → E2E / Browser Automation](TOOLS.md#e2e--browser-automation))
+- **Performance**: No load-testing tool currently in the stack — add one (and document here) before publishing performance budgets
 
-### Backend
+### Test Pyramid (maintain this ratio)
 
-- **Framework**: Ruby on Rails
-- **Asset Pipeline**: Propshaft (Rails 8 default, replaces Sprockets)
-  - **importmap-rails**: Default JS management without Node.js bundling
-  - Use `bin/importmap pin <package>` to add JS dependencies
+- **Unit** (majority): Service Objects, Models, Helpers
+- **Integration** (moderate): Controller + View integration
+- **System/E2E** (few): Major user scenarios only
 
-### Frontend
+### Test Coverage
 
-- **Strategy**: Hotwire (Turbo + Stimulus)
-  - **Turbo**: SPA-like navigation and partial page updates
-  - **Turbo Frames** for pagination/tabs (no full page reloads)
-  - **Turbo Streams** for partial updates
-  - **Stimulus**: Pure JavaScript controllers, data-attribute conventions (`data-controller`, `data-action`, `data-*-target`)
-  - **No TypeScript** — use only JavaScript
-- **Styling**: TailwindCSS
-- **Components**: ViewComponent for reusable UI with Lookbook for previews
+- Every new feature must include corresponding tests
+- Bug fixes must include a regression test that fails before the fix and passes after
 
-### Testing
+## Code Style
 
-- **Framework**: Minitest (Rails default)
-- **System Tests**: Rails built-in system tests with Capybara
-- **Fixtures**: Rails fixtures for test data
+- **Ruby**: `rubocop-rails-omakase` (run `bin/rubocop`, auto-fix with `bin/rubocop -a`)
+- **JavaScript**: No formatter is currently wired into `bin/ci`. Match existing Stimulus controller style.
+- **CSS**: TailwindCSS utility classes only — avoid introducing custom CSS
 
-### Database & Infrastructure
+## Security Best Practices
 
-- **SQLite** with Solid Trifecta (no Redis or external services needed):
-  - **Solid Cache**: Database-backed cache (replaces Redis/Memcached)
-  - **Solid Queue**: Database-backed job backend (replaces Sidekiq/Resque)
-  - **Solid Cable**: Database-backed Action Cable adapter (replaces Redis pub/sub)
-- **Multi-DB configuration**: Each Solid service uses a separate SQLite file to avoid write lock contention. Configure in `config/database.yml` with `cache:`, `queue:`, and `cable:` entries (Rails 8 default).
+### CSRF Protection
 
-### Deployment
+Maintain Rails default settings. Never disable CSRF.
 
-- **Proxy**: Thruster (Go-based proxy wrapping Puma on port 80, automatic HTTP/2, compression, X-Sendfile, asset caching)
-- **Tool**: Kamal 2 (primary) or Docker Compose (local)
-- **Container**: Optimized Dockerfile, mount `/rails/storage` for SQLite/ActiveStorage/Solid services, run as non-root (UID/GID 1000)
-- **CI/CD**: GitHub Actions (automated testing, linting, security checks)
+### Parameter Handling
 
-### Sub-directory Deployment
-
-When deploying multiple projects on a single server under sub-paths (e.g., `example.com/my-app/`):
-
-#### Environment & Rails Config
-
-```bash
-RAILS_RELATIVE_URL_ROOT=/my-app
-```
+Use `params.expect` for required structured params (Rails 8). It raises when the key is missing, so missing-key bugs surface during request parsing instead of inside actions.
 
 ```ruby
-# config/environments/production.rb
-config.relative_url_root = ENV.fetch("RAILS_RELATIVE_URL_ROOT", "/")
+# Required nested params
+params.expect(article: [ :title, :body, :published ])
+
+# Optional top-level params
+params.permit(:sort_by, :page)
+params.fetch(:page, 1)
 ```
 
-```ruby
-# config.ru
-map ENV.fetch("RAILS_RELATIVE_URL_ROOT", "/") do
-  run Rails.application
-end
-```
+Do not introduce new `params.require(...).permit(...)` chains — see [STACK.md → Rails 8 — Do NOT Use](STACK.md#rails-8--do-not-use-removeddeprecated).
 
-#### Asset Pipeline (Propshaft)
+### ReDoS Prevention
 
-- Always use `asset_path` / `asset_url` helpers — they respect `relative_url_root` automatically
-- Never hardcode absolute paths like `/assets/...` in CSS or JS
+`Regexp.timeout = 1` is set by default in Rails 8.
 
-#### Hotwire (Turbo + Stimulus)
+### XSS Prevention
 
-- **Turbo Drive**: Set turbo-root meta tag in layout:
-  ```erb
-  <meta name="turbo-root" content="<%= config.relative_url_root %>">
-  ```
-- **Action Cable**: Adjust mount path in routes:
-  ```ruby
-  mount ActionCable.server => "#{config.relative_url_root}/cable"
-  ```
-- **Stimulus controllers**: Pass paths via `data-*` attributes or `<meta>` tags — never hardcode URL paths in JS
+- Use `sanitize` helper for user-generated content
+- Configure `content_security_policy.rb`
+- Never use `raw` or `html_safe` on untrusted input
 
-#### Reverse Proxy (nginx → Thruster)
+### Rate Limiting
 
-```nginx
-location /my-app/ {
-    proxy_pass http://thruster-upstream/;  # trailing slash strips prefix
-    proxy_set_header X-Forwarded-Prefix /my-app;
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-For $proxy_for_addr;
-    proxy_set_header X-Forwarded-Proto $scheme;
-}
-```
+Use `Rack::Attack` (`config/initializers/rack_attack.rb`) for any new rate-limited endpoint. The auth throttle is documented in [STACK.md → Authentication](STACK.md#authentication); do not redocument it here.
 
-#### Kamal 2
+### Credentials
 
-```yaml
-# config/deploy.yml
-env:
-  clear:
-    RAILS_RELATIVE_URL_ROOT: /my-app
-```
+- Use `rails credentials:edit` for secrets
+- Never commit `.env` files with real credentials
 
-#### Checklist
+## Accessibility Standards
 
-| Item | Verify |
-|------|--------|
-| `*_path` / `*_url` helpers | Include prefix (no hardcoded absolute paths) |
-| JS fetch/XHR paths | Receive base path from `data-*` or `<meta>` |
-| Action Cable connection | WebSocket path includes prefix |
-| `redirect_to` | Automatically includes prefix |
-| Health check path | Adjust Kamal/load balancer health check URL |
-| Solid Queue Web UI | Adjust mount path if exposed |
+### Status Indicators
 
-### Background Jobs
+Always display text labels alongside emoji statuses (e.g., "Red circle Not recommended" not just "Red circle"). Add ARIA labels for screen readers.
 
-- **Backend**: Solid Queue (database-backed, no Redis)
-- **Worker**: `bin/rails solid_queue:start`
-- **Use Cases**: Heavy API calls, email delivery, data processing
-- **Kamal**: Deploy as separate `job` role for resource isolation
+### Keyboard Navigation
 
-## Architecture Patterns
+Ensure all interactive elements (buttons, form inputs, links) are reachable via Tab key. Checklist question answers must be selectable via keyboard.
 
-### Service Objects
+### Form Inputs
 
-`app/services/*_service.rb` — Follow single responsibility principle, provide unified interface via `call` method.
+- NUMBER fields must use `inputmode="numeric"` for mobile keyboard optimization
+- Display unit suffix (%, won, year) adjacent to input
 
-### Adapter Pattern
+### Tooltips
 
-API communication abstraction with mock support:
+Legal/auction terminology should have inline `help_text` tooltips, accessible via hover (desktop) and tap (mobile).
 
-```ruby
-# app/adapters/base_adapter.rb
-class BaseAdapter
-  def self.for(provider)
-    ENV['USE_MOCK'] == 'true' ? MockAdapter.new : RealAdapter.new
-  end
-end
-```
+### Color Independence
 
-- **Dev server**: `USE_MOCK=true` in `.env` for rapid feedback without network calls.
-- **Tests**: Use constructor injection for test isolation instead of environment variables:
-  ```ruby
-  class SomeService
-    def initialize(adapter: BaseAdapter.for(:provider))
-      @adapter = adapter
-    end
-  end
-  # In tests: SomeService.new(adapter: MockAdapter.new)
-  ```
+Never rely on color alone to convey status. Always pair with text and/or icons.
 
-### Custom Errors
+### Responsive Design
 
-Define in `app/errors/custom_error.rb` with `rescue_from` in controllers.
+Mobile-first approach using TailwindCSS breakpoints. Ensure touch targets are at least 44x44px.
 
-### Authentication
+### Automated Accessibility Checks
 
-OAuth-only via OmniAuth 2.x (no password). Provider: Google (`omniauth-google-oauth2`). Additional providers (Naver, Kakao) can be added in future stages.
+`axe-core-capybara` is wired into system tests via `ApplicationSystemTestCase`; the baseline suite at `test/system/a11y_baseline_test.rb` runs axe on critical pages. Add new pages to that test (or write a focused axe assertion) when introducing UI that materially changes structure.
 
-Session model: no guest row. Only authenticated users exist; `User` has at least one `Identity` (`provider`, `uid`) unique per provider. `User.primary_identity_id` 는 최근 로그인 identity 포인터 (DB 레벨 nullable, SessionCreator 트랜잭션이 ~1ms 내 채움).
+## Performance Guidelines
 
-OAuth callback pipeline:
+### Fragment Caching
 
-1. `Auth::GoogleAdapter#to_profile` — normalize omniauth `auth_hash` into `Auth::ProviderProfile` (`provider`, `uid`, `email`, `email_verified`, `name`, `avatar_url`). `email_verified` is tri-state: `true`, `false`, or `nil`.
-2. `SessionCreator` — three cases:
-   - **Case A** — existing `Identity(provider, uid)` → sign in.
-   - **Case B** — `email` matches existing account user AND `email_verified == true` → add new identity.
-   - **Case C** — new user → create User + Identity.
-3. `User#track_login!(identity)` (via `Auth::LoginTracker` concern) — updates `identity.last_login_at` + `user.primary_identity_id` + `user.last_seen_at` in one transaction.
+Cache a fragment when **all three** are true: it renders on a hot path (search results, property list, manual page), its underlying data changes less often than once per request, and re-rendering measurably costs >50ms in dev. Use Solid Cache as the backend (configured in `config/cache.yml`). Add a Rails fragment cache key tied to the model's `updated_at` so invalidation is automatic.
 
-Defense: `reset_session` after every successful callback, `rack-attack` throttles `/auth/*` POST at 10/min/IP, `Auth::Error` hierarchy (`InvalidProfile`, `EmailMismatch`, `ProviderOutage`) is `rescue_from`-caught in `Auth::SessionsController`.
+### Prevent N+1 Queries
 
-Admin bootstrap: `REGISTRY_ADMIN_EMAIL` 로 지정된 이메일이 최초 OAuth 로그인 시 `admin=true` 부여. Seed 없음.
+- Use `includes`, `preload`, `eager_load` appropriately
+- Inspect `log/development.log` for repeated `SELECT` patterns when in doubt; add the `bullet` gem to the development group if continuous monitoring becomes necessary
 
-Test helpers: `OmniAuth.config.mock_auth[:google_oauth2]` in `test_helper.rb`, `/testing/sign_in` route (test env only) for integration tests needing to seed session state.
+### Off-request Work for Heavy External Calls
 
-### Caching Strategy
+Move slow third-party calls (LLM analysis, court-auction scraping, PDF processing) off the request path via Solid Queue jobs. The user should see a Turbo-Stream/poll update when the job finishes — never block the request.
 
-- **Fragment caching**: UI components that don't change frequently
-- **API response caching**: External API call results (TTL setting required)
-- Use Solid Cache as the backend
+### Database Indexing
 
-## Hotwire Best Practices
+Add indexes to columns frequently used for search/filtering.
 
-### Turbo Frame Usage
+## Evidence-Driven Self-Diagnosis
 
-```erb
-<%= turbo_frame_tag "items" do %>
-  <%= render @items %>
-<% end %>
-```
+You have no eyes or memory beyond what you explicitly capture. Logs and screenshots
+are the only evidence you can use to diagnose problems autonomously — if you didn't
+record it, it doesn't exist for you.
 
-### Turbo Stream Response
+### Why This Matters
 
-```ruby
-# controller
-respond_to do |format|
-  format.turbo_stream
-  format.html
-end
-```
+- You cannot re-observe a past UI state or a transient error after it disappears.
+- Detailed evidence lets you form hypotheses and verify fixes without asking humans.
+- Vague or missing logs force you to guess, which violates the TDD principle of
+  working from facts.
 
-### Stimulus Controller Naming
+### What to Capture
 
-- `data-controller="search"`
-- `data-action="input->search#submit"`
-- `data-search-target="input"`
+| Situation | What to Record |
+|-----------|---------------|
+| Running a command | Full stdout/stderr output, not a summary |
+| UI change | Screenshot before AND after |
+| Test failure | Complete error message, stack trace, and the test command used |
+| Unexpected behavior | Steps to reproduce, expected vs. actual result |
+| External API call | Request payload, response status, and response body |
 
-## UI/Frontend Rules
+For diagnosis workflow, follow the `systematic-debugging` skill.
 
-UI components follow the project's design tokens and specs. When creating new components, follow patterns from existing components for consistency.
+## Code Review Checklist
 
-### Layout container policy
+### Automated (by `bin/ci`)
 
-The application layout uses **full-bleed** content: `<nav>` and `<main>` share `px-4 md:px-6` horizontal padding and do NOT apply any outer `container`, `max-w-*`, or `mx-auto`. Content expands to the full viewport width minus padding.
+- [ ] All tests pass (`bin/rails test`)
+- [ ] No linting errors (`bin/rubocop`)
+- [ ] No security warnings (`bin/brakeman`)
+- [ ] No dependency vulnerabilities (`bin/bundler-audit`)
+- [ ] No vulnerable importmap pins (`bin/importmap audit`)
+- [ ] Seeds replant cleanly (`RAILS_ENV=test bin/rails db:seed:replant`)
 
-This aligns with the rails-ui DESIGN.md rule: "Sub-pages MUST NOT create their own layout wrapper — no `max-w-*`, no `mx-auto`, no `container`".
+### Manual Review
 
-**Rules:**
+- [ ] Structural and behavioral changes are in separate commits
+- [ ] New features have corresponding tests
+- [ ] Accessibility requirements are met for UI changes
+- [ ] No N+1 queries introduced
+- [ ] Fragment caching applied where appropriate
 
-- Layout owns horizontal padding only (`px-4 md:px-6`), not width caps.
-- Sub-page ERB templates must not wrap their content in `container`, `max-w-*`, or `mx-auto` at the page level.
-- **Exception — centered single-column pages:** Auth, settings, or form-only pages MAY apply `max-w-2xl mx-auto` (or `max-w-md mx-auto` for auth) to their inner content when a narrower reading width is intentional. Apply at the page level, not in the layout.
-- **Exception — prose-heavy pages:** If a page is primarily long-form prose, apply `max-w-prose` or `max-w-3xl` to the prose block itself. Do not re-cap the entire page.
+## Pre-commit Failure Recovery
 
-### Icons
+This project enforces commit gates via Claude Code `PreToolUse` hooks (`.claude/settings.json`). Every `git commit*` invocation runs, in order:
 
-Icons are sourced from Heroicons v2 via the `rails_heroicon` gem. The default variant is `outline` (`stroke-width="1.5"` per DESIGN.md). Use the `heroicon` helper to render icons:
+1. `bin/rails test` — full Minitest suite (timeout 120s)
+2. `bin/rubocop --format quiet` — style check (timeout 60s)
 
-```erb
-<%= heroicon "archive-box", class: "w-12 h-12 text-slate-300" %>
-```
+If either fails, the hook denies the commit and surfaces the output. **Fix it yourself and retry — do not stop and ask the user.**
 
-All new icons should use this helper; inline SVGs will be migrated progressively.
+- **Rubocop violation**: `bin/rubocop -a` to auto-fix, manually resolve any remainder, re-stage, re-commit.
+- **Test failure**: Diagnose the failing test, fix the code, verify locally with `bin/rails test`, re-commit.
+- **Multiple issues**: Fix rubocop first (cheap), then tests, then re-commit.
 
-## Internationalization (i18n)
-
-- Use Rails `I18n` API (`config/locales/*.yml`) as primary translation engine
-- Use structured translation keys: `t('login.button.submit')`, convention: `[page_or_component].[element].[action]`
-- Recommended gems: `rails-i18n`, `i18n-tasks`, `mobility` (for DB record translations)
-
-## Rails 8 — Do NOT Use (Removed/Deprecated)
-
-- **Classic Autoloader**: Completely removed. Use Zeitwerk only.
-- **Rails UJS**: Removed. Use Turbo instead.
-- **Sprockets**: Replaced by Propshaft. Do not add `sprockets` gem.
-- **Webpack/Webpacker**: Use importmap-rails instead.
-- **`params.require().permit()` for new code**: Prefer `params.expect()`.
+There is also a `PostToolUse` hook on `Write|Edit` that runs `bin/rubocop` on the touched `.rb` file — surface fixes immediately rather than batching them at commit time.

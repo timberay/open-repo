@@ -1,0 +1,62 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".agent-hooks/sessionstart-inject-state.sh",
+            "timeout": 5,
+            "statusMessage": "Loading project state"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".agent-hooks/security-check.sh",
+            "timeout": 5,
+            "statusMessage": "Checking shell command"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".agent-hooks/pretooluse-stale-check.sh",
+            "timeout": 5,
+            "statusMessage": "Checking project state freshness"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".agent-hooks/userpromptsubmit-pipeline.sh",
+            "timeout": 5,
+            "statusMessage": "Checking pipeline phase"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".agent-hooks/userpromptsubmit-remind.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
