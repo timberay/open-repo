@@ -17,7 +17,7 @@ class CleanupOrphanedBlobsJobTest < ActiveJob::TestCase
     content = "orphan blob"
     digest = DigestCalculator.compute(content)
     @blob_store.put(digest, StringIO.new(content))
-    Blob.create!(digest: digest, size: content.bytesize, references_count: 0, created_at: 2.hours.ago)
+    Blob.create!(digest: digest, size: content.bytesize, references_count: 0, created_at: 2.hours.ago, updated_at: 2.hours.ago)
 
     CleanupOrphanedBlobsJob.perform_now
 
@@ -44,7 +44,7 @@ class CleanupOrphanedBlobsJobTest < ActiveJob::TestCase
     content = "racy blob"
     digest = DigestCalculator.compute(content)
     @blob_store.put(digest, StringIO.new(content))
-    Blob.create!(digest: digest, size: content.bytesize, references_count: 0, created_at: 2.hours.ago)
+    Blob.create!(digest: digest, size: content.bytesize, references_count: 0, created_at: 2.hours.ago, updated_at: 2.hours.ago)
 
     # Stub Blob#reload globally to flip the in-memory references_count to 1
     # for any blob with this digest (we can't target a specific instance because
@@ -78,7 +78,7 @@ class CleanupOrphanedBlobsJobTest < ActiveJob::TestCase
   test "perform deletes orphaned blob row even when file is missing on disk" do
     content = "ghost blob"
     digest = DigestCalculator.compute(content)
-    Blob.create!(digest: digest, size: content.bytesize, references_count: 0, created_at: 2.hours.ago)
+    Blob.create!(digest: digest, size: content.bytesize, references_count: 0, created_at: 2.hours.ago, updated_at: 2.hours.ago)
     assert_equal false, @blob_store.exists?(digest), "precondition: file should not exist"
 
     assert_nothing_raised do
@@ -142,7 +142,7 @@ class CleanupOrphanedBlobsJobTest < ActiveJob::TestCase
     content = "orphan manifest blob"
     digest = DigestCalculator.compute(content)
     @blob_store.put(digest, StringIO.new(content))
-    blob = Blob.create!(digest: digest, size: content.bytesize, references_count: 1, created_at: 2.hours.ago)
+    blob = Blob.create!(digest: digest, size: content.bytesize, references_count: 1, created_at: 2.hours.ago, updated_at: 2.hours.ago)
 
     repo = Repository.create!(
       name: "orphan-mfst-repo-#{SecureRandom.hex(4)}",
@@ -179,7 +179,7 @@ class CleanupOrphanedBlobsJobTest < ActiveJob::TestCase
     content = "negative-count orphan"
     digest = DigestCalculator.compute(content)
     @blob_store.put(digest, StringIO.new(content))
-    Blob.create!(digest: digest, size: content.bytesize, references_count: -1, created_at: 2.hours.ago)
+    Blob.create!(digest: digest, size: content.bytesize, references_count: -1, created_at: 2.hours.ago, updated_at: 2.hours.ago)
 
     CleanupOrphanedBlobsJob.perform_now
 
@@ -194,7 +194,7 @@ class CleanupOrphanedBlobsJobTest < ActiveJob::TestCase
     content = "referenced but mis-counted"
     digest = DigestCalculator.compute(content)
     @blob_store.put(digest, StringIO.new(content))
-    blob = Blob.create!(digest: digest, size: content.bytesize, references_count: -1, created_at: 2.hours.ago)
+    blob = Blob.create!(digest: digest, size: content.bytesize, references_count: -1, created_at: 2.hours.ago, updated_at: 2.hours.ago)
 
     repo = Repository.create!(
       name: "guard-repo-#{SecureRandom.hex(4)}",
@@ -230,6 +230,26 @@ class CleanupOrphanedBlobsJobTest < ActiveJob::TestCase
     assert_equal true, @blob_store.exists?(digest)
   end
 
+  # G5: a blob created long ago but RE-REFERENCED recently (its updated_at
+  # bumped by an in-flight push HEAD / cross-repo mount / re-finalize) must
+  # survive GC. The grace window keys on updated_at, not created_at, so a
+  # long-lived briefly-unreferenced blob is not reclaimed out from under a push
+  # that is about to reference it.
+  test "perform does NOT delete a long-lived blob that was re-referenced recently" do
+    content = "re-referenced blob"
+    digest = DigestCalculator.compute(content)
+    @blob_store.put(digest, StringIO.new(content))
+    blob = Blob.create!(digest: digest, size: content.bytesize, references_count: 0,
+                        created_at: 2.hours.ago, updated_at: 2.hours.ago)
+    # An in-flight push touches the blob (HEAD/mount/finalize) just before GC runs.
+    blob.touch
+
+    CleanupOrphanedBlobsJob.perform_now
+
+    assert Blob.exists?(digest: digest), "a recently re-referenced blob must survive GC"
+    assert_equal true, @blob_store.exists?(digest), "its file must survive GC"
+  end
+
   # A manifest's config blob is referenced via manifests.config_digest, NOT via
   # a Layer row, and never gets references_count incremented. GC must still
   # treat it as live, or every pushed image loses its config blob.
@@ -237,7 +257,7 @@ class CleanupOrphanedBlobsJobTest < ActiveJob::TestCase
     config = "image config json"
     config_digest = DigestCalculator.compute(config)
     @blob_store.put(config_digest, StringIO.new(config))
-    config_blob = Blob.create!(digest: config_digest, size: config.bytesize, references_count: 0, created_at: 2.hours.ago)
+    config_blob = Blob.create!(digest: config_digest, size: config.bytesize, references_count: 0, created_at: 2.hours.ago, updated_at: 2.hours.ago)
 
     layer = "layer bytes"
     layer_digest = DigestCalculator.compute(layer)
