@@ -482,17 +482,21 @@ test/integration/docker_cli_test.sh
 
 ## Deployment
 
-### Kamal 2 (recommended)
+### Docker Compose (single host)
+
+A self-contained stack — the Rails app plus a Caddy reverse proxy with automatic
+HTTPS. See [docs/INSTALL.md](docs/INSTALL.md) for the full guide.
+
+```bash
+cp .env.example .env     # set REGISTRY_HOST and REGISTRY_ADMIN_EMAIL
+./install.sh             # validates config, builds, boots, smoke-tests
+```
+
+### Kamal 2 (multi-server / zero-downtime)
 
 ```bash
 kamal setup
 kamal deploy
-```
-
-### Docker Compose
-
-```bash
-docker-compose up --build
 ```
 
 ### Nginx Reverse Proxy

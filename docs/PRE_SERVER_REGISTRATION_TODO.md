@@ -68,7 +68,7 @@ tasks reference them by ID (D1–D4 plus the smaller decisions D5–D9).
   (Stage-3 visibility deferral, `repository_authorization.rb:18`). Confirm acceptable, or schedule the feature.
 - [ ] **D8 — PAT scope/expiry policy.** PATs carry full user authority (no scopes); `kind` is cosmetic; blank expiry =
   never expires. Accept by-design, or implement scopes / expiry coercion + cap.
-- [ ] **D9 — Docker Compose docs: remove or re-add?** No `docker-compose.yml` exists; README/TOOLS/STACK still advertise it.
+- [x] **D9 — RESOLVED (re-add): ship a Docker Compose single-host distribution.** Added `docker-compose.yml` (app + Caddy auto-HTTPS) + `Caddyfile` + `.env.example` + `install.sh` + `docs/INSTALL.md`; README/TOOLS aligned. `config.assume_ssl`/`force_ssl` are now env-driven (`RAILS_ASSUME_SSL`/`RAILS_FORCE_SSL`) — the Compose path sets both true (satisfies B10 for that path). Kamal remains the multi-node path.
 - [ ] **D10 — Zero-copy blob delivery (`SENDFILE_HEADER`) a launch requirement?** Drives wire-it vs drop-the-claim.
 - [ ] **D11 — `config.hosts` Host authorization: open or allowlisted** for the real FQDN.
 - [ ] **D12 — Timezone for maintenance windows / token-expiry display:** accept container UTC, or set `config.time_zone`.
