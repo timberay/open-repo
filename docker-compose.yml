@@ -1,0 +1,57 @@
+# Open Repo — single-host Docker Compose distribution.
+#
+# Quick start:   ./install.sh          (validates config, builds, boots, smoke-tests)
+# Manual:        docker compose up -d --build
+# Full guide:    docs/INSTALL.md
+#
+# Caddy terminates TLS (auto-HTTPS via Let's Encrypt) and fronts the Rails app,
+# which listens on plain HTTP :80 inside the compose network. All durable state
+# (4 SQLite DBs + Active Storage + content-addressed blobs) lives on the
+# `open_repo_storage` volume — back it up off-host (see docs/INSTALL.md).
+
+name: open-repo
+
+services:
+  app:
+    build:
+      context: .
+    # To run a pre-built image instead of building locally, comment out `build:`
+    # above and set, e.g.:  image: ghcr.io/<org>/open_repo:<tag>
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Run the Solid Queue supervisor inside Puma (single-node default).
+      SOLID_QUEUE_IN_PUMA: "true"
+    volumes:
+      - open_repo_storage:/rails/storage
+    expose:
+      - "80"
+    healthcheck:
+      # Rails health endpoint; excluded from force_ssl redirect (production.rb).
+      test: ["CMD", "curl", "-fsS", "http://localhost:80/up"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
+    # No host port is published — Caddy is the only public entrypoint.
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      REGISTRY_HOST: ${REGISTRY_HOST:?set REGISTRY_HOST in .env (the registry FQDN, no scheme)}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  open_repo_storage:
+  caddy_data:
+  caddy_config:

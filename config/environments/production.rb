@@ -24,14 +24,17 @@ Rails.application.configure do
   # Store uploaded files on the local file system (see config/storage.yml for options).
   config.active_storage.service = :local
 
-  # Assume all access to the app is happening through a SSL-terminating reverse proxy.
-  # config.assume_ssl = true
+  # TLS is terminated by an upstream reverse proxy (Caddy in the Compose
+  # distribution, kamal-proxy/Nginx otherwise). Toggle via env so the same image
+  # serves plain HTTP (both unset/false) or HTTPS-behind-proxy (both true).
+  # Behind a proxy, keep these as a MATCHED PAIR — force_ssl without assume_ssl
+  # causes a redirect loop. See docs/INSTALL.md and docs/PRE_SERVER_REGISTRATION_TODO.md (D1, B10).
+  config.assume_ssl = ActiveModel::Type::Boolean.new.cast(ENV.fetch("RAILS_ASSUME_SSL", "false"))
+  config.force_ssl  = ActiveModel::Type::Boolean.new.cast(ENV.fetch("RAILS_FORCE_SSL", "false"))
 
-  # Force all access to the app over SSL, use Strict-Transport-Security, and use secure cookies.
-  # config.force_ssl = true
-
-  # Skip http-to-https redirect for the default health check endpoint.
-  # config.ssl_options = { redirect: { exclude: ->(request) { request.path == "/up" } } }
+  # Skip the http->https redirect for the health check endpoint so the
+  # container/proxy healthcheck (probed over plain HTTP) is not 301-redirected.
+  config.ssl_options = { redirect: { exclude: ->(request) { request.path == "/up" } } }
 
   # Log to STDOUT with the current request id as a default log tag.
   config.log_tags = [ :request_id ]

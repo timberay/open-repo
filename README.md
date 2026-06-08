@@ -91,6 +91,29 @@ ruby -v   # => ruby 3.4.8
 
 ## Installation
 
+Two ways to run Open Repo: **as a service** via Docker Compose (recommended for
+deploying it) or **as a development checkout**.
+
+### Run as a service (Docker Compose + Caddy)
+
+A self-contained stack — the Rails app plus a Caddy reverse proxy with automatic
+HTTPS via Let's Encrypt. No external database, Redis, or registry required; all
+state lives on one Docker volume. You need Docker Engine + Docker Compose v2,
+`config/master.key`, and a DNS name pointing at the host (ports 80 + 443 open).
+
+```bash
+cp .env.example .env     # set REGISTRY_HOST and REGISTRY_ADMIN_EMAIL
+./install.sh             # checks Docker, validates config, builds, boots, smoke-tests /up and /v2/
+```
+
+`install.sh` is idempotent and prints the go-live steps (DNS, Google OAuth, and
+the admin's first sign-in — which must happen **before** the first push). See
+**[docs/INSTALL.md](docs/INSTALL.md)** for the full guide: backup, internal CA,
+and troubleshooting. For multi-server / zero-downtime deploys, use Kamal — see
+[Deployment](#deployment).
+
+### Development setup
+
 Run the idempotent setup script — it checks the bundle, prepares the database, and starts `bin/dev`:
 
 ```bash
@@ -111,8 +134,13 @@ Additional dev commands are documented in [`docs/standards/TOOLS.md`](docs/stand
 
 ## Configuration
 
+For the Docker Compose install these are set in `.env` (template:
+[`.env.example`](.env.example)); for other deployments they are plain environment
+variables. TLS, OAuth, and admin-bootstrap details are in [docs/INSTALL.md](docs/INSTALL.md).
+
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `RAILS_MASTER_KEY` | _(required)_ | Decrypts `config/credentials.yml.enc` (Google OAuth + `secret_key_base`). `install.sh` fills it from `config/master.key`. |
 | `STORAGE_PATH` | `storage/registry` | Blob storage root directory |
 | `REGISTRY_HOST` | `localhost:3000` | Hostname shown in `docker pull` commands in the UI |
 | `SENDFILE_HEADER` | _(none)_ | `X-Accel-Redirect` (Nginx) or `X-Sendfile` (Apache) for zero-copy blob downloads |
@@ -125,6 +153,8 @@ Additional dev commands are documented in [`docs/standards/TOOLS.md`](docs/stand
 | `REGISTRY_ADMIN_EMAIL` | _(none)_ | Email granted `admin=true` on first Web UI sign-in |
 | `REGISTRY_ANONYMOUS_PULL` | `true` | Allow `docker pull` (GET/HEAD on `/v2/`) without a token. Defaults to `true` for internal/trusted-network use; set `false` to require a token on pulls. |
 | `REGISTRY_ALLOWED_EMAIL_DOMAINS` | _(none)_ | Comma-separated email domains allowed to sign in via OAuth (e.g. `timberay.com,example.org`). Empty (default) allows any verified email; set it to restrict sign-up to your organization. |
+| `RAILS_ASSUME_SSL` | `false` | Trust `X-Forwarded-Proto` from a TLS-terminating proxy (Caddy/Nginx). Set `true` when behind one. |
+| `RAILS_FORCE_SSL` | `false` | Redirect HTTP→HTTPS, send HSTS, and mark cookies Secure. Set `true` behind a proxy (with `RAILS_ASSUME_SSL=true`). |
 
 ---
 
@@ -482,17 +512,17 @@ test/integration/docker_cli_test.sh
 
 ## Deployment
 
-### Kamal 2 (recommended)
+### Docker Compose (single host)
+
+The recommended single-server path — Rails app + Caddy auto-HTTPS, one command.
+See [Installation → Run as a service](#installation) and the full guide in
+**[docs/INSTALL.md](docs/INSTALL.md)**.
+
+### Kamal 2 (multi-server / zero-downtime)
 
 ```bash
 kamal setup
 kamal deploy
-```
-
-### Docker Compose
-
-```bash
-docker-compose up --build
 ```
 
 ### Nginx Reverse Proxy

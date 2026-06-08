@@ -1,0 +1,22 @@
+# Caddy reverse proxy for Open Repo — automatic HTTPS via Let's Encrypt.
+#
+# REGISTRY_HOST is injected from .env (e.g. registry.example.com).
+# Auto-HTTPS requires:
+#   - public DNS: {$REGISTRY_HOST} -> this host
+#   - inbound TCP 80 (ACME HTTP-01 + redirect) AND 443 (TLS) open
+#
+# Internal-only (no public DNS)? Use Caddy's local CA instead of Let's Encrypt:
+#   {$REGISTRY_HOST} {
+#       tls internal
+#       reverse_proxy app:80
+#   }
+# ...then trust Caddy's root CA on the Docker client hosts. Or point `tls` at
+# your corporate certs:  tls /etc/caddy/cert.pem /etc/caddy/key.pem
+
+{$REGISTRY_HOST} {
+	# Caddy streams request bodies with no size cap by default, so multi-GB
+	# image-layer pushes are forwarded without buffering or 413s. It also sets
+	# X-Forwarded-Proto=https and preserves the Host header, which the app trusts
+	# when RAILS_ASSUME_SSL=true.
+	reverse_proxy app:80
+}

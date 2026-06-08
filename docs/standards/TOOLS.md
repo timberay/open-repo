@@ -86,7 +86,7 @@ kamal deploy                 # Zero-downtime deployment
 kamal app logs               # View application logs
 ```
 
-There is no `docker-compose.yml`; for local Docker testing, build with `docker build -t auction .` and run the resulting image directly. Do not add `docker-compose.yml` without first updating [STACK.md → Deployment](STACK.md#deployment).
+The single-host distribution is `docker-compose.yml` + `install.sh` (Rails app + Caddy auto-HTTPS) — see [docs/INSTALL.md](../INSTALL.md). For a one-off image build, run `docker build -t open_repo .` and start it directly. Multi-server / zero-downtime deploys use Kamal (above).
 
 ## Environment Configuration
 
