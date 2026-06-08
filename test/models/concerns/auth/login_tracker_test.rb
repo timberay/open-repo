@@ -21,6 +21,31 @@ class Auth::LoginTrackerTest < ActiveSupport::TestCase
     assert_in_delta freeze_time, other_identity.last_login_at, 1.second
   end
 
+  test "track_login! syncs user.email to the primary identity's email" do
+    user = users(:tonny) # tonny@timberay.com
+    moved = user.identities.create!(
+      provider: "google_oauth2", uid: "moved-google",
+      email: "tonny+moved@timberay.com"
+    )
+
+    user.track_login!(moved)
+
+    assert_equal "tonny+moved@timberay.com", user.reload.email
+  end
+
+  test "track_login! does not sync user.email when another user already holds it" do
+    user = users(:tonny) # tonny@timberay.com
+    taken = users(:admin).email # admin@timberay.com — owned by a different user
+    identity = user.identities.create!(
+      provider: "google_oauth2", uid: "conflict-google", email: taken
+    )
+
+    assert_nothing_raised { user.track_login!(identity) }
+
+    assert_equal "tonny@timberay.com", user.reload.email # unchanged (conflict)
+    assert_equal identity.id, user.primary_identity_id   # login still tracked
+  end
+
   test "track_login! is atomic — rollback on identity save failure" do
     user = users(:tonny)
     original_primary = user.primary_identity_id
