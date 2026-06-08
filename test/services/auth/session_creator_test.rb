@@ -280,6 +280,22 @@ class Auth::SessionCreatorTest < ActiveSupport::TestCase
     end
   end
 
+  test "domain allowlist — rejects a trailing-@ spoof that ends with an allowed domain" do
+    Rails.configuration.x.registry.allowed_email_domains = [ "timberay.com" ]
+    profile = Auth::ProviderProfile.new(
+      provider: "google_oauth2",
+      uid: "trailing-at-uid",
+      email: "attacker@timberay.com@",
+      email_verified: true,
+      name: "Trailing At",
+      avatar_url: nil
+    )
+
+    assert_no_difference -> { User.count } do
+      assert_raises(Auth::UnauthorizedDomain) { Auth::SessionCreator.new.call(profile) }
+    end
+  end
+
   test "domain allowlist — rejects an email with no @ that matches an allowed domain literally" do
     Rails.configuration.x.registry.allowed_email_domains = [ "timberay.com" ]
     profile = Auth::ProviderProfile.new(

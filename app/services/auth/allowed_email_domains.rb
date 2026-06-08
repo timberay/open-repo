@@ -8,32 +8,47 @@ module Auth
   module AllowedEmailDomains
     module_function
 
-    # Comma-separated env string → normalized domain list.
-    # Fails closed: a value that is present but yields no valid domains raises,
-    # so a malformed setting can never silently degrade to "allow everyone".
-    def parse(raw)
-      domains = raw.to_s.split(",").filter_map { |entry| normalize(entry) }
+    # Characters that can never appear in a bare domain — catches operator
+    # typos like "http://timberay.com", "a.com b.com", or embedded newlines.
+    INVALID_DOMAIN_CHARS = %r{[\s@/]}
 
-      if raw.to_s.strip.present? && domains.empty?
+    # Comma-separated env string → normalized domain list.
+    # Fails closed: a value that is present but yields no valid domains, or that
+    # contains a malformed domain token, raises — so a bad setting can never
+    # silently degrade to "allow everyone" or "deny the intended org".
+    def parse(raw)
+      tokens = raw.to_s.split(",").filter_map { |entry| normalize(entry) }
+      return [] if raw.to_s.strip.blank?
+
+      invalid = tokens.reject { |token| valid_domain?(token) }
+      if tokens.empty? || invalid.any?
         raise ArgumentError,
-              "REGISTRY_ALLOWED_EMAIL_DOMAINS is set but contains no valid domains"
+              "REGISTRY_ALLOWED_EMAIL_DOMAINS is set but has no valid domains " \
+              "(invalid: #{invalid.inspect})"
       end
 
-      domains
+      tokens
     end
 
     # Email → normalized domain, or nil when the address is malformed.
-    # Requires exactly one "@" so spoofs like "a@evil.com@allowed.com" and
-    # bare strings without "@" never resolve to an allowed domain.
+    # Splits with -1 to keep trailing empty fields, then requires exactly two
+    # non-empty parts so spoofs like "a@evil.com@allowed.com",
+    # "user@allowed.com@", "@allowed.com", and bare strings without "@" never
+    # resolve to an allowed domain.
     def domain_for(email)
-      parts = email.to_s.split("@")
-      return nil unless parts.length == 2
+      local, domain, extra = email.to_s.split("@", -1)
+      return nil unless extra.nil?
+      return nil if local.to_s.empty?
 
-      normalize(parts.last)
+      normalize(domain)
     end
 
     def normalize(value)
       value.to_s.strip.downcase.delete_suffix(".").presence
+    end
+
+    def valid_domain?(token)
+      !token.match?(INVALID_DOMAIN_CHARS)
     end
   end
 end

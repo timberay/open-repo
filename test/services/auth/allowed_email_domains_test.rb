@@ -28,6 +28,13 @@ class Auth::AllowedEmailDomainsTest < ActiveSupport::TestCase
     assert_raises(ArgumentError) { Auth::AllowedEmailDomains.parse(",") }
   end
 
+  test "parse — fails closed on tokens with characters invalid in a domain" do
+    assert_raises(ArgumentError) { Auth::AllowedEmailDomains.parse("@") }
+    assert_raises(ArgumentError) { Auth::AllowedEmailDomains.parse("http://timberay.com") }
+    assert_raises(ArgumentError) { Auth::AllowedEmailDomains.parse("timberay.com example.org") }
+    assert_raises(ArgumentError) { Auth::AllowedEmailDomains.parse("timberay.com\nexample.org") }
+  end
+
   # --- domain_for (email → normalized domain or nil) ---
 
   test "domain_for — extracts normalized domain" do
@@ -44,6 +51,18 @@ class Auth::AllowedEmailDomainsTest < ActiveSupport::TestCase
 
   test "domain_for — returns nil for an email with multiple @ (spoof guard)" do
     assert_nil Auth::AllowedEmailDomains.domain_for("attacker@evil.com@timberay.com")
+  end
+
+  test "domain_for — returns nil for a trailing @ (split drops trailing empty fields)" do
+    assert_nil Auth::AllowedEmailDomains.domain_for("attacker@timberay.com@")
+  end
+
+  test "domain_for — returns nil when the local part is empty" do
+    assert_nil Auth::AllowedEmailDomains.domain_for("@timberay.com")
+  end
+
+  test "domain_for — returns nil when the domain part is empty" do
+    assert_nil Auth::AllowedEmailDomains.domain_for("user@")
   end
 
   test "domain_for — returns nil for a blank/empty email" do
