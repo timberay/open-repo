@@ -264,6 +264,54 @@ class Auth::SessionCreatorTest < ActiveSupport::TestCase
     end
   end
 
+  test "domain allowlist — rejects spoofed multi-@ email even if it ends with an allowed domain" do
+    Rails.configuration.x.registry.allowed_email_domains = [ "timberay.com" ]
+    profile = Auth::ProviderProfile.new(
+      provider: "google_oauth2",
+      uid: "spoof-uid",
+      email: "attacker@evil.com@timberay.com",
+      email_verified: true,
+      name: "Spoof",
+      avatar_url: nil
+    )
+
+    assert_no_difference -> { User.count } do
+      assert_raises(Auth::UnauthorizedDomain) { Auth::SessionCreator.new.call(profile) }
+    end
+  end
+
+  test "domain allowlist — rejects an email with no @ that matches an allowed domain literally" do
+    Rails.configuration.x.registry.allowed_email_domains = [ "timberay.com" ]
+    profile = Auth::ProviderProfile.new(
+      provider: "google_oauth2",
+      uid: "noat-uid",
+      email: "timberay.com",
+      email_verified: true,
+      name: "No At",
+      avatar_url: nil
+    )
+
+    assert_no_difference -> { User.count } do
+      assert_raises(Auth::UnauthorizedDomain) { Auth::SessionCreator.new.call(profile) }
+    end
+  end
+
+  test "domain allowlist — verification precedes domain check (unverified disallowed → EmailMismatch)" do
+    # An unverified profile must fail the same way regardless of its domain, so
+    # the failure cannot be used as an oracle for allowlist membership.
+    Rails.configuration.x.registry.allowed_email_domains = [ "timberay.com" ]
+    profile = Auth::ProviderProfile.new(
+      provider: "google_oauth2",
+      uid: "unverified-disallowed-uid",
+      email: "stranger@example.com",
+      email_verified: false,
+      name: "Stranger",
+      avatar_url: nil
+    )
+
+    assert_raises(Auth::EmailMismatch) { Auth::SessionCreator.new.call(profile) }
+  end
+
   test "domain allowlist — domain match is case-insensitive" do
     Rails.configuration.x.registry.allowed_email_domains = [ "timberay.com" ]
     profile = Auth::ProviderProfile.new(
