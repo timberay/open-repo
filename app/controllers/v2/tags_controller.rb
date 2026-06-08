@@ -8,9 +8,19 @@ class V2::TagsController < V2::BaseController
 
     if tags.size > n
       tags.pop
-      response.headers["Link"] = "</v2/#{repository.name}/tags/list?n=#{n}&last=#{tags.last}>; rel=\"next\""
+      response.headers["Link"] = "</v2/#{path_encode(repository.name)}/tags/list?n=#{n}&last=#{url_encode(tags.last)}>; rel=\"next\""
     end
 
     render json: { name: repository.name, tags: tags }
+  end
+
+  private
+
+  def path_encode(value)
+    value.split("/").map { |segment| url_encode(segment) }.join("/")
+  end
+
+  def url_encode(value)
+    ERB::Util.url_encode(value)
   end
 end

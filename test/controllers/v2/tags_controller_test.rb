@@ -21,6 +21,26 @@ class V2::TagsControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.headers["Link"], "rel=\"next\""
   end
 
+  test "GET /v2/:name/tags/list encodes repo path and tag cursor in Link header" do
+    repo = Repository.create!(name: "team/app", owner_identity: identities(:tonny_google))
+    manifest = Manifest.create!(
+      repository: repo,
+      digest: "sha256:#{SecureRandom.hex(32)}",
+      media_type: "application/vnd.docker.distribution.manifest.v2+json",
+      payload: "{}",
+      size: 2
+    )
+    %w[v1:debug v2].each { |tag| Tag.create!(repository: repo, manifest: manifest, name: tag) }
+
+    get "/v2/#{repo.name}/tags/list?n=1"
+
+    assert_response :ok
+    assert_equal [ "v1:debug" ], JSON.parse(response.body)["tags"]
+    assert_includes response.headers["Link"], "/v2/team/app/tags/list"
+    assert_includes response.headers["Link"], "last=v1%3Adebug"
+    assert_includes response.headers["Link"], "rel=\"next\""
+  end
+
   test "GET /v2/:name/tags/list returns 404 for unknown repo" do
     get "/v2/nonexistent/tags/list"
     assert_response 404

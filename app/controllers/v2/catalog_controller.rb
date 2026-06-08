@@ -7,9 +7,15 @@ class V2::CatalogController < V2::BaseController
 
     if repos.size > n
       repos.pop
-      response.headers["Link"] = "</v2/_catalog?n=#{n}&last=#{repos.last}>; rel=\"next\""
+      response.headers["Link"] = "</v2/_catalog?n=#{n}&last=#{url_encode(repos.last)}>; rel=\"next\""
     end
 
     render json: { repositories: repos }
+  end
+
+  private
+
+  def url_encode(value)
+    ERB::Util.url_encode(value)
   end
 end
