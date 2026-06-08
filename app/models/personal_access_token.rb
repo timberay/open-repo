@@ -32,21 +32,25 @@ class PersonalAccessToken < ApplicationRecord
     active.find_by(token_digest: Digest::SHA256.hexdigest(raw_token))
   end
 
-  # One-shot policy-change cleanup: revoke every active PAT whose owner's email
-  # domain is not in `allowed_domains`. A blank allowlist means "no restriction"
-  # and revokes nothing. Returns the PATs that were revoked.
+  # One-shot policy-change cleanup: revoke every active PAT whose owning
+  # identity's current email domain is not in `allowed_domains`. The identity
+  # email (not the user's, which is set once at creation and never refreshed) is
+  # the authority, matching what the sign-in gate verifies. A blank allowlist
+  # means "no restriction" and revokes nothing. Returns the revoked PATs.
   def self.revoke_disallowed!(allowed_domains)
     return [] if allowed_domains.blank?
 
-    revoked = []
-    active.includes(identity: :user).each do |pat|
-      domain = Auth::AllowedEmailDomains.domain_for(pat.identity.user.email)
-      next if domain && allowed_domains.include?(domain)
-
-      pat.revoke!
-      revoked << pat
+    disallowed_ids = []
+    active.includes(:identity).find_each do |pat|
+      domain = Auth::AllowedEmailDomains.domain_for(pat.identity.email)
+      disallowed_ids << pat.id unless domain && allowed_domains.include?(domain)
     end
-    revoked
+    return [] if disallowed_ids.empty?
+
+    # update_all: one statement, skips per-row validations so a single dirty row
+    # can't abort the sweep mid-loop.
+    where(id: disallowed_ids).update_all(revoked_at: Time.current, updated_at: Time.current)
+    where(id: disallowed_ids).to_a
   end
 
   def revoke!

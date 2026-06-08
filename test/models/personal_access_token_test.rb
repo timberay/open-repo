@@ -99,6 +99,34 @@ class PersonalAccessTokenTest < ActiveSupport::TestCase
     assert_includes revoked.map(&:id), pat.id
   end
 
+  def pat_with_emails(user_email:, identity_email:)
+    user = User.create!(email: user_email)
+    identity = user.identities.create!(
+      provider: "google_oauth2", uid: "drift-#{SecureRandom.hex(4)}",
+      email: identity_email, email_verified: true, name: "Drift"
+    )
+    raw = PersonalAccessToken.generate_raw
+    identity.personal_access_tokens.create!(
+      name: "laptop", kind: "cli",
+      token_digest: Digest::SHA256.hexdigest(raw),
+      prefix: PersonalAccessToken.prefix_for(raw)
+    )
+  end
+
+  test ".revoke_disallowed! checks the PAT identity's current email, not the stale user email" do
+    # The identity's provider email drifted to a disallowed domain while the
+    # user.email (set once at account creation) stayed on the allowed domain.
+    pat = pat_with_emails(user_email: "drift@timberay.com", identity_email: "drift@example.com")
+    PersonalAccessToken.revoke_disallowed!([ "timberay.com" ])
+    assert_not_nil pat.reload.revoked_at, "identity email (example.com) is disallowed → must revoke"
+  end
+
+  test ".revoke_disallowed! keeps a PAT whose identity email is allowed despite a stale-disallowed user email" do
+    pat = pat_with_emails(user_email: "stale@example.com", identity_email: "fresh@timberay.com")
+    PersonalAccessToken.revoke_disallowed!([ "timberay.com" ])
+    assert_nil pat.reload.revoked_at, "identity email (timberay.com) is allowed → must survive"
+  end
+
   test ".revoke_disallowed! leaves already-revoked PATs untouched" do
     already = personal_access_tokens(:tonny_revoked)
     original = already.revoked_at
