@@ -15,6 +15,7 @@ class ActiveSupport::TestCase
   setup do
     Rails.configuration.x.registry.admin_email            = "admin@timberay.com"
     Rails.configuration.x.registry.anonymous_pull_enabled = true
+    Rails.configuration.x.registry.allowed_email_domains  = []
   end
 end
 

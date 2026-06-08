@@ -2,9 +2,10 @@ module Auth
   class Error < StandardError; end
 
   # Stage 0: OAuth callback flow
-  class InvalidProfile < Error; end
-  class EmailMismatch  < Error; end
-  class ProviderOutage < Error; end
+  class InvalidProfile    < Error; end
+  class EmailMismatch     < Error; end
+  class ProviderOutage    < Error; end
+  class UnauthorizedDomain < Error; end # verified email, but domain not in allowlist
 
   # Stage 1: PAT HTTP Basic auth (Registry V2)
   class Unauthenticated < Error; end # no/malformed Authorization header

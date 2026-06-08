@@ -3,6 +3,8 @@ module Auth
     def call(profile)
       raise Auth::InvalidProfile, "profile email blank" if profile.email.blank?
 
+      ensure_allowed_domain!(profile)
+
       User.transaction do
         identity = Identity.find_by(provider: profile.provider, uid: profile.uid)
         user =
@@ -47,6 +49,20 @@ module Auth
     end
 
     private
+
+    # Opt-in sign-up restriction. When `allowed_email_domains` is configured,
+    # only emails whose domain is in the list may sign in. Blank list (default)
+    # allows any verified email, preserving the open sign-up behavior.
+    def ensure_allowed_domain!(profile)
+      allowed = Rails.configuration.x.registry.allowed_email_domains
+      return if allowed.blank?
+
+      domain = profile.email.to_s.split("@").last.to_s.downcase
+      return if allowed.include?(domain)
+
+      raise Auth::UnauthorizedDomain,
+            "email domain not allowed: #{domain}"
+    end
 
     def require_verified!(profile)
       return if profile.email_verified == true
