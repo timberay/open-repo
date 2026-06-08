@@ -149,6 +149,10 @@ class V2::BlobUploadsController < V2::BaseController
     # uses this blob is PUT (ManifestProcessor#create_layers!). Incrementing on
     # mount double-counts (push) or leaks (mount then never push a manifest).
     if source && blob && blob_store.exists?(params[:mount]) && source_references_blob?(source, blob)
+      # Re-reference for GC: mounting a long-lived blob into a new repo is an
+      # in-flight push about to PUT a manifest that references it. Bump
+      # updated_at so the GC grace window keeps it alive. See G5.
+      blob.touch
       response.headers["Docker-Content-Digest"] = params[:mount]
       response.headers["Location"] = "/v2/#{repo_name}/blobs/#{params[:mount]}"
       head :created

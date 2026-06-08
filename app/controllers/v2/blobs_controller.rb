@@ -9,6 +9,11 @@ class V2::BlobsController < V2::BaseController
 
     raise Registry::BlobUnknown, "blob '#{params[:digest]}' not found" unless blob_store.exists?(params[:digest])
 
+    # Re-reference for GC: a HEAD/GET on an existing blob signals an in-flight
+    # push (docker checks the blob before PUTting the manifest). Bump updated_at
+    # so CleanupOrphanedBlobsJob's grace window keeps it alive. See G5.
+    blob.touch
+
     response.headers["Docker-Content-Digest"] = blob.digest
     response.headers["Content-Length"] = blob.size.to_s
     response.headers["Content-Type"] = blob.content_type || "application/octet-stream"

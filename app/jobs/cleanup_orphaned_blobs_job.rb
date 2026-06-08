@@ -3,10 +3,13 @@ class CleanupOrphanedBlobsJob < ApplicationJob
 
   BATCH_SIZE = 100
 
-  # Blobs created within this window are treated as in-flight pushes: the client
-  # has uploaded (or cross-repo mounted) the blob and is about to PUT the
-  # manifest that references it. Deleting them mid-push would fail the push with
-  # "layer blob not found". Matches the stale-upload cleanup TTL.
+  # Blobs touched within this window are treated as in-flight pushes: the client
+  # has uploaded, cross-repo mounted, HEAD-checked, or re-finalized the blob and
+  # is about to PUT the manifest that references it. Deleting them mid-push would
+  # fail the push with "layer blob not found". Keyed on updated_at (bumped by
+  # every blob access — see BlobsController#show, BlobUploadsController) so a
+  # long-lived blob that is briefly unreferenced but re-touched by a fresh push
+  # is not reclaimed out from under it. Matches the stale-upload cleanup TTL.
   RECENT_GRACE = 1.hour
 
   def perform
@@ -23,7 +26,7 @@ class CleanupOrphanedBlobsJob < ApplicationJob
     # layer OR as the config blob — is never deleted even when its counter is
     # wrong. The counter is an index; real manifest references are the truth.
     Blob.where("references_count <= 0")
-        .where("created_at < ?", RECENT_GRACE.ago)
+        .where("updated_at < ?", RECENT_GRACE.ago)
         .find_each(batch_size: BATCH_SIZE) do |blob|
       blob.reload
       next if blob.references_count > 0
