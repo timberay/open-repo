@@ -60,7 +60,7 @@ class ManifestProcessorTest < ActiveSupport::TestCase
   end
 
   test "call creates repository, manifest, tag, layers, and blobs" do
-    result = processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
+    result = processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous", owner_identity: identities(:tonny_google))
 
     assert_kind_of Manifest, result
     assert Repository.find_by(name: "test-repo").present?
@@ -72,7 +72,7 @@ class ManifestProcessorTest < ActiveSupport::TestCase
   end
 
   test "call creates a tag_event on new tag" do
-    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
+    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous", owner_identity: identities(:tonny_google))
 
     event = TagEvent.last
     assert_equal "create", event.action
@@ -81,7 +81,7 @@ class ManifestProcessorTest < ActiveSupport::TestCase
   end
 
   test "call creates an update tag_event when tag is reassigned" do
-    result1 = processor.call("test-repo", "latest", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
+    result1 = processor.call("test-repo", "latest", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous", owner_identity: identities(:tonny_google))
     old_digest = result1.digest
 
     # Push a different manifest to same tag
@@ -98,7 +98,7 @@ class ManifestProcessorTest < ActiveSupport::TestCase
       ]
     }.to_json
 
-    processor.call("test-repo", "latest", "application/vnd.docker.distribution.manifest.v2+json", new_manifest_json, actor: "anonymous")
+    processor.call("test-repo", "latest", "application/vnd.docker.distribution.manifest.v2+json", new_manifest_json, actor: "anonymous", owner_identity: identities(:tonny_google))
 
     event = TagEvent.where(action: "update").last
     assert_equal old_digest, event.previous_digest
@@ -119,13 +119,13 @@ class ManifestProcessorTest < ActiveSupport::TestCase
   end
 
   test "call handles digest reference instead of tag name" do
-    result = processor.call("test-repo", nil, "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
+    result = processor.call("test-repo", nil, "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous", owner_identity: identities(:tonny_google))
     assert_kind_of Manifest, result
     assert_equal 0, Tag.count
   end
 
   test "call increments blob references_count" do
-    processor.call("test-repo", "v1", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
+    processor.call("test-repo", "v1", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous", owner_identity: identities(:tonny_google))
 
     layer1_blob = Blob.find_by(digest: layer1_digest)
     assert_equal 1, layer1_blob.references_count
@@ -135,31 +135,31 @@ class ManifestProcessorTest < ActiveSupport::TestCase
 
   test "call with tag protection same digest re-push succeeds" do
     repo = Repository.create!(name: "test-repo", owner_identity: identities(:tonny_google))
-    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
+    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous", owner_identity: identities(:tonny_google))
     repo.update!(tag_protection_policy: "semver")
     repo.reload
 
     assert_nothing_raised do
-      processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
+      processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous", owner_identity: identities(:tonny_google))
     end
   end
 
   test "call with tag protection different digest push on protected tag raises Registry::TagProtected" do
     repo = Repository.create!(name: "test-repo", owner_identity: identities(:tonny_google))
-    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
+    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous", owner_identity: identities(:tonny_google))
     repo.update!(tag_protection_policy: "semver")
     repo.reload
 
     different_manifest_json = build_different_manifest_json
 
     assert_raises(Registry::TagProtected) do
-      processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", different_manifest_json, actor: "anonymous")
+      processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", different_manifest_json, actor: "anonymous", owner_identity: identities(:tonny_google))
     end
   end
 
   test "call with tag protection different digest push does NOT create a new manifest row" do
     repo = Repository.create!(name: "test-repo", owner_identity: identities(:tonny_google))
-    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
+    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous", owner_identity: identities(:tonny_google))
     repo.update!(tag_protection_policy: "semver")
     repo.reload
 
@@ -167,7 +167,7 @@ class ManifestProcessorTest < ActiveSupport::TestCase
 
     assert_no_difference -> { Manifest.count } do
       begin
-        processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", different_manifest_json, actor: "anonymous")
+        processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", different_manifest_json, actor: "anonymous", owner_identity: identities(:tonny_google))
       rescue Registry::TagProtected
       end
     end
@@ -175,7 +175,7 @@ class ManifestProcessorTest < ActiveSupport::TestCase
 
   test "call with tag protection different digest push does NOT increment layer blob references_count" do
     repo = Repository.create!(name: "test-repo", owner_identity: identities(:tonny_google))
-    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
+    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous", owner_identity: identities(:tonny_google))
     repo.update!(tag_protection_policy: "semver")
     repo.reload
 
@@ -185,7 +185,7 @@ class ManifestProcessorTest < ActiveSupport::TestCase
     different_manifest_json = build_different_manifest_json
 
     begin
-      processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", different_manifest_json, actor: "anonymous")
+      processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", different_manifest_json, actor: "anonymous", owner_identity: identities(:tonny_google))
     rescue Registry::TagProtected
     end
     assert_equal before_refs, layer_blob.reload.references_count
@@ -193,18 +193,18 @@ class ManifestProcessorTest < ActiveSupport::TestCase
 
   test "call with tag protection unprotected tag (latest with semver policy) permits push" do
     repo = Repository.create!(name: "test-repo", owner_identity: identities(:tonny_google))
-    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
+    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous", owner_identity: identities(:tonny_google))
     repo.update!(tag_protection_policy: "semver")
     repo.reload
 
     assert_nothing_raised do
-      processor.call("test-repo", "latest", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
+      processor.call("test-repo", "latest", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous", owner_identity: identities(:tonny_google))
     end
   end
 
   test "call with tag protection digest reference bypasses protection check" do
     repo = Repository.create!(name: "test-repo", owner_identity: identities(:tonny_google))
-    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
+    processor.call("test-repo", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous", owner_identity: identities(:tonny_google))
     repo.update!(tag_protection_policy: "semver")
     repo.reload
 
@@ -212,7 +212,7 @@ class ManifestProcessorTest < ActiveSupport::TestCase
     r.update!(tag_protection_policy: "all_except_latest")
 
     assert_nothing_raised do
-      processor.call("test-repo", "sha256:dummy-ignored-anyway", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
+      processor.call("test-repo", "sha256:dummy-ignored-anyway", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous", owner_identity: identities(:tonny_google))
     end
   end
 
@@ -235,7 +235,8 @@ class ManifestProcessorTest < ActiveSupport::TestCase
         "v1",
         "application/vnd.docker.distribution.manifest.v2+json",
         manifest_json,
-        actor: "anonymous"
+        actor: "anonymous",
+        owner_identity: identities(:tonny_google)
       )
     end
   end
@@ -264,7 +265,7 @@ class ManifestProcessorTest < ActiveSupport::TestCase
       ]
     }.to_json
 
-    result = processor.call("repo-bad-config", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", payload, actor: "anonymous")
+    result = processor.call("repo-bad-config", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", payload, actor: "anonymous", owner_identity: identities(:tonny_google))
 
     assert_kind_of Manifest, result
     assert_nil result.architecture
@@ -273,31 +274,18 @@ class ManifestProcessorTest < ActiveSupport::TestCase
   end
 
   # ---------------------------------------------------------------------------
-  # UC-MODEL-009 .e10 — admin email user missing on repo creation.
-  # The processor delegates owner_identity to User.find_by!(email: admin_email).
-  # When that user does not exist, find_by! raises ActiveRecord::RecordNotFound
-  # and the error is intentionally NOT rescued (deployment misconfiguration
-  # surface). Pin the current behavior so a silent rescue regression is caught.
+  # UC-MODEL-009 .e10 — superseded by G4: the processor no longer looks up an
+  # admin User to own a new repository (that raised RecordNotFound 500 on a
+  # fresh deploy and assigned ownership to the wrong identity). Ownership now
+  # comes from the caller-supplied owner_identity; see the "assigns a new
+  # repository's owner to the provided owner_identity" test above.
   # ---------------------------------------------------------------------------
-  test "call raises ActiveRecord::RecordNotFound when admin email user is missing" do
-    Rails.configuration.x.registry.admin_email = "no-such-admin-#{SecureRandom.hex(4)}@example.invalid"
-
-    assert_raises(ActiveRecord::RecordNotFound) do
-      processor.call(
-        "repo-no-admin-#{SecureRandom.hex(4)}",
-        "v1.0.0",
-        "application/vnd.docker.distribution.manifest.v2+json",
-        manifest_json,
-        actor: "anonymous"
-      )
-    end
-  end
 
   # ---------------------------------------------------------------------------
   # UC-MODEL-009 .e12 — payload bytesize stored as Manifest#size.
   # ---------------------------------------------------------------------------
   test "call stores payload bytesize as manifest.size" do
-    result = processor.call("repo-size-check", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
+    result = processor.call("repo-size-check", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous", owner_identity: identities(:tonny_google))
 
     assert_equal manifest_json.bytesize, result.size
   end
@@ -312,12 +300,12 @@ class ManifestProcessorTest < ActiveSupport::TestCase
   # call's assign_tag! short-circuits without creating a TagEvent.
   # ---------------------------------------------------------------------------
   test "call is idempotent on retry and does not emit a spurious TagEvent" do
-    processor.call("repo-retry-idemp", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
+    processor.call("repo-retry-idemp", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous", owner_identity: identities(:tonny_google))
 
     manifest_count_before = Manifest.count
     tag_event_count_before = TagEvent.count
 
-    processor.call("repo-retry-idemp", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
+    processor.call("repo-retry-idemp", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous", owner_identity: identities(:tonny_google))
 
     assert_equal manifest_count_before, Manifest.count,
       "second push of identical (tag, digest) should not create a new Manifest row"
@@ -330,17 +318,38 @@ class ManifestProcessorTest < ActiveSupport::TestCase
   # blobs first, so each re-push leaked +1 per layer → blobs never reach 0 → GC
   # never reclaims them.
   test "call does not double-count blob references on manifest re-push" do
-    processor.call("repo-recount", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
+    processor.call("repo-recount", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous", owner_identity: identities(:tonny_google))
 
     assert_equal 1, Blob.find_by!(digest: layer1_digest).references_count
     assert_equal 1, Blob.find_by!(digest: layer2_digest).references_count
 
-    processor.call("repo-recount", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous")
+    processor.call("repo-recount", "v1.0.0", "application/vnd.docker.distribution.manifest.v2+json", manifest_json, actor: "anonymous", owner_identity: identities(:tonny_google))
 
     assert_equal 1, Blob.find_by!(digest: layer1_digest).references_count,
       "re-pushing the identical manifest must not inflate references_count"
     assert_equal 1, Blob.find_by!(digest: layer2_digest).references_count,
       "re-pushing the identical manifest must not inflate references_count"
+  end
+
+  # G4 — first push assigns ownership to the authenticated pusher, not an admin.
+  # The processor no longer looks up an admin User; the new repository's owner
+  # is the identity passed by the caller. This succeeds even when no admin User
+  # exists (admin_email points at a non-existent user).
+  test "call assigns a new repository's owner to the provided owner_identity (no admin lookup)" do
+    pusher = identities(:tonny_google)
+    Rails.configuration.x.registry.admin_email = "no-such-admin-#{SecureRandom.hex(4)}@example.invalid"
+
+    result = processor.call(
+      "owner-from-pusher-repo",
+      "v1.0.0",
+      "application/vnd.docker.distribution.manifest.v2+json",
+      manifest_json,
+      actor: "tonny@timberay.com",
+      owner_identity: pusher
+    )
+
+    assert_kind_of Manifest, result
+    assert_equal pusher, Repository.find_by!(name: "owner-from-pusher-repo").owner_identity
   end
 
   private
