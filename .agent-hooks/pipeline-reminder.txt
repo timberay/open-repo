@@ -1,0 +1,12 @@
+PIPELINE PHASES — feature-request keyword detected.
+
+For new feature work, six phases — do NOT skip:
+  1. /office-hours              (Product discovery)
+  2. /plan-eng-review           (Architecture)
+  3. /superpowers:brainstorming (Tech design)
+  4. /superpowers:writing-plans (Task breakdown)
+  5. /superpowers:executing-plans + /superpowers:test-driven-development (Execute)
+  6. /review → /ship → /land-and-deploy → /document-release
+
+Skip only for bug fixes, refactors, or small tweaks.
+See CLAUDE.md › "Pipeline Phases" for full context.
