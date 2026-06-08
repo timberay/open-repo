@@ -45,6 +45,16 @@ env:
     # When you start using multiple servers, you should split out job processing to a dedicated machine.
     SOLID_QUEUE_IN_PUMA: true
 
+    # Registry runtime configuration. These are NOT secrets, so they live in
+    # env.clear (secrets stay under env.secret). Read by config/application.rb
+    # and config/initializers/registry.rb:
+    #   REGISTRY_HOST                 - host shown in the UI's docker login/pull/push commands
+    #   REGISTRY_ADMIN_EMAIL          - admin / break-glass identity (also required by migrations)
+    #   REGISTRY_ALLOWED_EMAIL_DOMAINS- comma-separated OAuth sign-up allowlist (empty = any verified email)
+    REGISTRY_HOST: registry.timberay.com
+    REGISTRY_ADMIN_EMAIL: admin@timberay.com
+    REGISTRY_ALLOWED_EMAIL_DOMAINS: timberay.com
+
     # Set number of processes dedicated to Solid Queue (default: 1)
     # JOB_CONCURRENCY: 3
 
