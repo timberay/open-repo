@@ -204,7 +204,7 @@ class V2::BlobUploadsControllerTest < ActionDispatch::IntegrationTest
     )
 
     post "/v2/#{repo.name}/blobs/uploads",
-         headers: basic_auth_for(pat_raw: ADMIN_CLI_RAW, email: "admin@timberay.com")
+         headers: basic_auth_for(pat_raw: CAROL_CLI_RAW, email: "carol@timberay.com")
     assert_response 403
     assert_equal "DENIED", JSON.parse(response.body)["errors"][0]["code"]
   end
@@ -217,12 +217,12 @@ class V2::BlobUploadsControllerTest < ActionDispatch::IntegrationTest
     )
     RepositoryMember.create!(
       repository: repo,
-      identity: identities(:admin_google),
+      identity: identities(:carol_google),
       role: "writer"
     )
 
     post "/v2/#{repo.name}/blobs/uploads",
-         headers: basic_auth_for(pat_raw: ADMIN_CLI_RAW, email: "admin@timberay.com")
+         headers: basic_auth_for(pat_raw: CAROL_CLI_RAW, email: "carol@timberay.com")
     assert_response 202
   end
 
@@ -260,7 +260,7 @@ class V2::BlobUploadsControllerTest < ActionDispatch::IntegrationTest
     upload = repo.blob_uploads.create!(uuid: SecureRandom.uuid)
     BlobStore.new(@storage_dir).create_upload(upload.uuid)
 
-    non_member = basic_auth_for(pat_raw: ADMIN_CLI_RAW, email: "admin@timberay.com")
+    non_member = basic_auth_for(pat_raw: CAROL_CLI_RAW, email: "carol@timberay.com")
 
     patch "/v2/#{repo.name}/blobs/uploads/#{upload.uuid}",
           params: "x",
@@ -288,7 +288,7 @@ class V2::BlobUploadsControllerTest < ActionDispatch::IntegrationTest
     end
     begin
       post "/v2/#{repo.name}/blobs/uploads",
-           headers: basic_auth_for(pat_raw: ADMIN_CLI_RAW, email: "admin@timberay.com")
+           headers: basic_auth_for(pat_raw: CAROL_CLI_RAW, email: "carol@timberay.com")
     ensure
       Repository.singleton_class.send(:remove_method, :find_or_create_by!)
     end

@@ -262,8 +262,8 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
       owner_identity: owner_identity
     )
 
-    # admin user (not owner) tries to delete
-    post "/testing/sign_in", params: { user_id: users(:admin).id }
+    # carol (non-admin, not owner) tries to delete
+    post "/testing/sign_in", params: { user_id: users(:carol).id }
     delete "/repositories/#{repo.name}"
 
     assert_redirected_to repository_path(repo.name)
@@ -302,8 +302,8 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
       owner_identity: owner_identity
     )
 
-    # admin user (not owner, not a member) tries to weaken protection
-    post "/testing/sign_in", params: { user_id: users(:admin).id }
+    # carol (non-admin, not owner, not a member) tries to weaken protection
+    post "/testing/sign_in", params: { user_id: users(:carol).id }
     patch "/repositories/#{repo.name}",
       params: { repository: { description: "Hijacked", tag_protection_policy: "none" } }
 

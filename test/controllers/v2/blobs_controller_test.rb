@@ -80,7 +80,7 @@ class V2::BlobsControllerTest < ActionDispatch::IntegrationTest
     Blob.create!(digest: digest, size: blob_content.bytesize)
 
     delete "/v2/#{repo.name}/blobs/#{digest}",
-           headers: basic_auth_for(pat_raw: ADMIN_CLI_RAW, email: "admin@timberay.com")
+           headers: basic_auth_for(pat_raw: CAROL_CLI_RAW, email: "carol@timberay.com")
     assert_response 403
     assert_equal "DENIED", JSON.parse(response.body)["errors"][0]["code"]
   end

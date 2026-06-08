@@ -23,7 +23,7 @@ class V2TagProtectionMountBypassTest < ActionDispatch::IntegrationTest
 
     RepositoryMember.create!(
       repository: Repository.find_by!(name: @victim),
-      identity: identities(:admin_google),
+      identity: identities(:carol_google),
       role: "writer"
     )
   end
@@ -74,7 +74,7 @@ class V2TagProtectionMountBypassTest < ActionDispatch::IntegrationTest
 
   test "attacker without member role cannot even start the mount step (403)" do
     Repository.find_by!(name: @victim).repository_members
-      .where(identity_id: identities(:admin_google).id).destroy_all
+      .where(identity_id: identities(:carol_google).id).destroy_all
 
     mount_blob = @original_manifest.layers.first.blob
     post "/v2/#{@victim}/blobs/uploads?mount=#{mount_blob.digest}&from=donor",
@@ -87,7 +87,7 @@ class V2TagProtectionMountBypassTest < ActionDispatch::IntegrationTest
   private
 
   def attacker_headers
-    basic_auth_for(pat_raw: ADMIN_CLI_RAW, email: "admin@timberay.com")
+    basic_auth_for(pat_raw: CAROL_CLI_RAW, email: "carol@timberay.com")
   end
 
   def blob_store

@@ -217,7 +217,7 @@ class V2::CatalogTagsErrorEdgesTest < ActionDispatch::IntegrationTest
       owner_identity: identities(:tonny_google)
     )
     post "/v2/#{repo.name}/blobs/uploads",
-         headers: basic_auth_for(pat_raw: ADMIN_CLI_RAW, email: "admin@timberay.com")
+         headers: basic_auth_for(pat_raw: CAROL_CLI_RAW, email: "carol@timberay.com")
     assert_response :forbidden
     assert_error_envelope!("DENIED")
     body = JSON.parse(response.body)

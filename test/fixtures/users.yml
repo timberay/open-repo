@@ -13,3 +13,14 @@ tonny:
   last_seen_at: <%= 5.minutes.ago %>
   created_at: <%= 1.day.ago %>
   updated_at: <%= 5.minutes.ago %>
+
+# A non-admin third party who owns nothing — used to assert that a regular
+# non-owner / non-member is denied write/delete (distinct from the admin
+# break-glass path).
+carol:
+  email: carol@timberay.com
+  admin: false
+  primary_identity: carol_google
+  last_seen_at: <%= 5.minutes.ago %>
+  created_at: <%= 1.day.ago %>
+  updated_at: <%= 5.minutes.ago %>
