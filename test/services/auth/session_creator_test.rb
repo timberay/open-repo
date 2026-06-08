@@ -344,6 +344,24 @@ class Auth::SessionCreatorTest < ActiveSupport::TestCase
     end
   end
 
+  # UC-AUTH-017.e2d — a verified provider-side email change also keeps the
+  # canonical user.email in sync (not just identity.email), so PAT auth and the
+  # domain policy see the current address. Guards the SessionCreator ordering.
+  test "UC-AUTH-017.e2d — Case A syncs user.email on verified email change" do
+    existing = identities(:tonny_google)
+    profile = Auth::ProviderProfile.new(
+      provider: existing.provider,
+      uid: existing.uid,
+      email: "tonny+synced@timberay.com",
+      email_verified: true,
+      name: existing.name,
+      avatar_url: nil
+    )
+
+    user = Auth::SessionCreator.new.call(profile)
+    assert_equal "tonny+synced@timberay.com", user.reload.email
+  end
+
   # UC-AUTH-017.e2c — a verified provider-side email change updates the stored
   # identity email (and still resolves to the same user).
   test "UC-AUTH-017.e2c — Case A updates stored identity email on verified change" do
