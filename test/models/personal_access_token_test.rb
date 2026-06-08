@@ -58,4 +58,53 @@ class PersonalAccessTokenTest < ActiveSupport::TestCase
     assert_not dup.valid?
     assert_includes dup.errors[:name], "has already been taken"
   end
+
+  # --- .revoke_disallowed! (one-shot policy-change cleanup) ---
+
+  def outsider_active_pat(email: "outsider@example.com")
+    user = User.create!(email: email)
+    identity = user.identities.create!(
+      provider: "google_oauth2", uid: "outsider-#{SecureRandom.hex(4)}",
+      email: email, email_verified: true, name: "Outsider"
+    )
+    raw = PersonalAccessToken.generate_raw
+    identity.personal_access_tokens.create!(
+      name: "laptop", kind: "cli",
+      token_digest: Digest::SHA256.hexdigest(raw),
+      prefix: PersonalAccessToken.prefix_for(raw)
+    )
+  end
+
+  test ".revoke_disallowed! revokes active PATs whose owner domain is not allowed" do
+    pat = outsider_active_pat
+    PersonalAccessToken.revoke_disallowed!([ "timberay.com" ])
+    assert_not_nil pat.reload.revoked_at
+  end
+
+  test ".revoke_disallowed! keeps PATs whose owner domain is allowed" do
+    allowed = personal_access_tokens(:tonny_cli_active) # tonny@timberay.com
+    PersonalAccessToken.revoke_disallowed!([ "timberay.com" ])
+    assert_nil allowed.reload.revoked_at
+  end
+
+  test ".revoke_disallowed! with an empty allowlist revokes nothing" do
+    pat = outsider_active_pat
+    PersonalAccessToken.revoke_disallowed!([])
+    assert_nil pat.reload.revoked_at
+  end
+
+  test ".revoke_disallowed! returns the PATs it revoked" do
+    pat = outsider_active_pat
+    revoked = PersonalAccessToken.revoke_disallowed!([ "timberay.com" ])
+    assert_includes revoked.map(&:id), pat.id
+  end
+
+  test ".revoke_disallowed! leaves already-revoked PATs untouched" do
+    already = personal_access_tokens(:tonny_revoked)
+    original = already.revoked_at
+    # tonny@timberay.com is disallowed here, but the already-revoked token is
+    # outside .active and must not be re-stamped.
+    PersonalAccessToken.revoke_disallowed!([ "example.com" ])
+    assert_equal original.to_i, already.reload.revoked_at.to_i
+  end
 end
