@@ -46,6 +46,24 @@ class Auth::LoginTrackerTest < ActiveSupport::TestCase
     assert_equal identity.id, user.primary_identity_id   # login still tracked
   end
 
+  test "track_login! survives a uniqueness race on the email mirror (no 500)" do
+    user = users(:tonny)
+    identity = user.identities.create!(
+      provider: "google_oauth2", uid: "race-google", email: "tonny+race@timberay.com"
+    )
+    # Simulate losing a concurrent race: the guard passes (no other user holds
+    # the email yet) but the unique index rejects the email write.
+    def user.update!(*args)
+      if args.first.is_a?(Hash) && args.first.key?(:email)
+        raise ActiveRecord::RecordNotUnique, "duplicate key"
+      end
+      super
+    end
+
+    assert_nothing_raised { user.track_login!(identity) }
+    assert_equal identity.id, user.reload.primary_identity_id
+  end
+
   test "track_login! is atomic — rollback on identity save failure" do
     user = users(:tonny)
     original_primary = user.primary_identity_id
