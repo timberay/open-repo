@@ -71,7 +71,7 @@ test.describe('Tag Protection', () => {
 
   test('custom_regex shows regex input, non-custom hides it', async ({ page }) => {
     await page.goto(`/repositories/${repoName}`);
-    await page.getByText('Edit description & maintainer').click();
+    await page.getByText('Edit description, maintainer & tag protection').click();
 
     const regexInput = page.locator('input[name="repository[tag_protection_pattern]"]');
 
@@ -84,7 +84,7 @@ test.describe('Tag Protection', () => {
 
   test('invalid regex surfaces validation error', async ({ page }) => {
     await page.goto(`/repositories/${repoName}`);
-    await page.getByText('Edit description & maintainer').click();
+    await page.getByText('Edit description, maintainer & tag protection').click();
     await page.selectOption('select[name="repository[tag_protection_policy]"]', 'custom_regex');
     await page.fill('input[name="repository[tag_protection_pattern]"]', '[unclosed');
     await page.getByRole('button', { name: 'Save' }).click();
